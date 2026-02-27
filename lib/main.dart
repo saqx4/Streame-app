@@ -6,6 +6,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:logging/logging.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'api/audio_handler.dart';
 import 'api/audiobook_player_service.dart';
@@ -26,6 +28,14 @@ import 'screens/discover_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configure InAppWebView to use writable cache directory (critical for AppImage/Flatpak)
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    final cacheDir = await getApplicationCacheDirectory();
+    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
+    // Set default cache directory for all webviews
+    PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
+  }
   
   Logger.root.level = Level.FINER;
   Logger.root.onRecord.listen((e) {

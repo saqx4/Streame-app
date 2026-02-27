@@ -334,8 +334,11 @@ class TorrServerService {
       final appDir = await getApplicationDocumentsDirectory();
       return path.join(appDir.path, 'torr_data');
     }
-    // Desktop: data directory adjacent to the current working directory.
-    return path.join(Directory.current.path, 'torr_data');
+    
+    // Desktop: Always use application support directory for writable data
+    // This handles AppImage (read-only mount), Flatpak, Snap, and regular installs
+    final appSupportDir = await getApplicationSupportDirectory();
+    return path.join(appSupportDir.path, 'torr_data');
   }
 
   // ─────────────────────────────────────────────────────────────────────────

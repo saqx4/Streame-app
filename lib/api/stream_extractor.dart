@@ -163,6 +163,8 @@ class StreamExtractor {
         domStorageEnabled: true,
         userAgent: _userAgent,
         mediaPlaybackRequiresUserGesture: false,
+        cacheEnabled: true,
+        clearCache: false,
         allowsInlineMediaPlayback: true,
         useOnLoadResource: true, // SNIFF EVERYTHING
       ),
