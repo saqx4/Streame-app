@@ -158,6 +158,83 @@ class _PpvStream {
   }
 }
 
+class _CdnChannel {
+  final String name;
+  final String code;
+  final String url;
+  final String image;
+  final String status;
+  final int viewers;
+
+  const _CdnChannel({
+    required this.name,
+    required this.code,
+    required this.url,
+    required this.image,
+    required this.status,
+    required this.viewers,
+  });
+
+  factory _CdnChannel.fromJson(Map<String, dynamic> j) => _CdnChannel(
+        name:    (j['name'] ?? '').toString(),
+        code:    (j['code'] ?? '').toString(),
+        url:     (j['url'] ?? '').toString(),
+        image:   (j['image'] ?? '').toString(),
+        status:  (j['status'] ?? 'offline').toString(),
+        viewers: (j['viewers'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class _CdnSportEvent {
+  final String gameID;
+  final String homeTeam;
+  final String awayTeam;
+  final String homeTeamIMG;
+  final String awayTeamIMG;
+  final String time;
+  final String tournament;
+  final String country;
+  final String countryIMG;
+  final String status;
+  final String start;
+  final String end;
+  final List<_CdnChannel> channels;
+
+  const _CdnSportEvent({
+    required this.gameID,
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.homeTeamIMG,
+    required this.awayTeamIMG,
+    required this.time,
+    required this.tournament,
+    required this.country,
+    required this.countryIMG,
+    required this.status,
+    required this.start,
+    required this.end,
+    required this.channels,
+  });
+
+  factory _CdnSportEvent.fromJson(Map<String, dynamic> j) => _CdnSportEvent(
+        gameID:      (j['gameID'] ?? '').toString(),
+        homeTeam:    (j['homeTeam'] ?? '').toString(),
+        awayTeam:    (j['awayTeam'] ?? '').toString(),
+        homeTeamIMG: (j['homeTeamIMG'] ?? '').toString(),
+        awayTeamIMG: (j['awayTeamIMG'] ?? '').toString(),
+        time:        (j['time'] ?? '').toString(),
+        tournament:  (j['tournament'] ?? '').toString(),
+        country:     (j['country'] ?? '').toString(),
+        countryIMG:  (j['countryIMG'] ?? '').toString(),
+        status:      (j['status'] ?? '').toString(),
+        start:       (j['start'] ?? '').toString(),
+        end:         (j['end'] ?? '').toString(),
+        channels:    (j['channels'] as List? ?? [])
+            .map((c) => _CdnChannel.fromJson(c as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
 const _base = 'https://streamed.pk';
@@ -211,6 +288,34 @@ Future<List<_PpvStream>> _fetchPpvStreams() async {
   return result;
 }
 
+Future<List<_CdnChannel>> _fetchCdnChannels() async {
+  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free'))
+      .timeout(const Duration(seconds: 12));
+  if (resp.statusCode != 200) return [];
+  final body = jsonDecode(resp.body) as Map<String, dynamic>;
+  return ((body['channels'] as List?) ?? [])
+      .map((c) => _CdnChannel.fromJson(c as Map<String, dynamic>))
+      .toList();
+}
+
+Future<List<_CdnSportEvent>> _fetchCdnSports() async {
+  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free'))
+      .timeout(const Duration(seconds: 12));
+  if (resp.statusCode != 200) return [];
+  final body = jsonDecode(resp.body) as Map<String, dynamic>;
+  final cdnData = body['cdn-live-tv'] as Map<String, dynamic>?;
+  if (cdnData == null) return [];
+  
+  final result = <_CdnSportEvent>[];
+  for (final key in ['Soccer', 'NFL', 'NBA', 'NHL']) {
+    final events = (cdnData[key] as List?) ?? [];
+    for (final e in events) {
+      try { result.add(_CdnSportEvent.fromJson(e as Map<String, dynamic>)); } catch (_) {}
+    }
+  }
+  return result;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  MAIN SCREEN
 // ═════════════════════════════════════════════════════════════════════════════
@@ -239,6 +344,9 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
   TabController? _tabController;
   _DataProvider _provider = _DataProvider.streamed;
   List<_PpvStream> _ppvStreams = [];
+  List<_CdnChannel> _cdnChannels = [];
+  List<_CdnSportEvent> _cdnSports = [];
+  bool _cdnShowChannels = true; // true = channels, false = sports
 
   @override
   void initState() {
@@ -250,6 +358,10 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
     setState(() { _loading = true; _error = null; _sportFilter = 'all'; });
     if (_provider == _DataProvider.ppv) {
       await _loadPpv();
+      return;
+    }
+    if (_provider == _DataProvider.cdnLive) {
+      await _loadCdn();
       return;
     }
     try {
@@ -303,6 +415,48 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
         setState(() {
           _tabController = null;
           _ppvStreams = streams;
+          _sports = cats;
+          _loading = false;
+        });
+        oldCtrl?.dispose();
+        final newCtrl = TabController(length: cats.length + 1, vsync: this);
+        newCtrl.addListener(() {
+          if (!newCtrl.indexIsChanging) {
+            final idx = newCtrl.index;
+            setState(() => _sportFilter = idx == 0 ? 'all' : cats[idx - 1].id);
+          }
+        });
+        if (mounted) setState(() => _tabController = newCtrl);
+      }
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _loadCdn() async {
+    try {
+      final results = await Future.wait([
+        _fetchCdnChannels(),
+        _fetchCdnSports(),
+      ]);
+      final channels = results[0] as List<_CdnChannel>;
+      final sports = results[1] as List<_CdnSportEvent>;
+      
+      // Build categories from sports
+      final seenCats = <String>{};
+      final cats = <_Sport>[];
+      for (final s in sports) {
+        if (s.tournament.isNotEmpty && seenCats.add(s.tournament)) {
+          cats.add(_Sport(id: s.tournament, name: s.tournament));
+        }
+      }
+      
+      if (mounted) {
+        final oldCtrl = _tabController;
+        setState(() {
+          _tabController = null;
+          _cdnChannels = channels;
+          _cdnSports = sports;
           _sports = cats;
           _loading = false;
         });
@@ -418,6 +572,16 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
               _load();
             },
           ),
+          const SizedBox(width: 8),
+          _ModeChip(
+            label: '📺 CDN Live',
+            active: _provider == _DataProvider.cdnLive,
+            onTap: () {
+              if (_provider == _DataProvider.cdnLive) return;
+              setState(() { _provider = _DataProvider.cdnLive; });
+              _load();
+            },
+          ),
         ],
       ),
     );
@@ -479,6 +643,7 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
       );
     }
     if (_provider == _DataProvider.ppv) return _buildPpvBody();
+    if (_provider == _DataProvider.cdnLive) return _buildCdnBody();
 
     final matches = _filtered;
     if (matches.isEmpty) {
@@ -544,6 +709,139 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
         ),
       );
     });
+  }
+
+  Widget _buildCdnBody() {
+    if (_cdnShowChannels) {
+      final channels = _cdnChannels.where((c) => c.status == 'online').toList();
+      if (channels.isEmpty) {
+        return const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tv_rounded, color: Colors.white24, size: 64),
+              SizedBox(height: 16),
+              Text('No channels available', style: TextStyle(color: Colors.white38, fontSize: 16)),
+            ],
+          ),
+        );
+      }
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                _ModeChip(label: '📺 Channels', active: _cdnShowChannels, onTap: () => setState(() => _cdnShowChannels = true)),
+                const SizedBox(width: 8),
+                _ModeChip(label: '⚽ Sports', active: !_cdnShowChannels, onTap: () => setState(() => _cdnShowChannels = false)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final crossCount = (constraints.maxWidth / 280).floor().clamp(1, 6);
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossCount,
+                  mainAxisExtent: 160,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: channels.length,
+                itemBuilder: (context, i) => _CdnChannelCard(
+                  channel: channels[i],
+                  onTap: () => _openCdnChannel(channels[i]),
+                ),
+              );
+            }),
+          ),
+        ],
+      );
+    } else {
+      final sports = _sportFilter == 'all'
+          ? _cdnSports
+          : _cdnSports.where((s) => s.tournament == _sportFilter).toList();
+      if (sports.isEmpty) {
+        return const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sports_rounded, color: Colors.white24, size: 64),
+              SizedBox(height: 16),
+              Text('No sports events available', style: TextStyle(color: Colors.white38, fontSize: 16)),
+            ],
+          ),
+        );
+      }
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                _ModeChip(label: '📺 Channels', active: _cdnShowChannels, onTap: () => setState(() => _cdnShowChannels = true)),
+                const SizedBox(width: 8),
+                _ModeChip(label: '⚽ Sports', active: !_cdnShowChannels, onTap: () => setState(() => _cdnShowChannels = false)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final crossCount = (constraints.maxWidth / 300).floor().clamp(1, 6);
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossCount,
+                  mainAxisExtent: 200,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: sports.length,
+                itemBuilder: (context, i) => _CdnSportCard(
+                  event: sports[i],
+                  onTap: () => _openCdnSportEvent(sports[i]),
+                ),
+              );
+            }),
+          ),
+        ],
+      );
+    }
+  }
+
+  void _openCdnChannel(_CdnChannel channel) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _CdnPlayerScreen(url: channel.url, title: channel.name),
+    ));
+  }
+
+  void _openCdnSportEvent(_CdnSportEvent event) {
+    if (event.channels.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No channels available for this event')),
+      );
+      return;
+    }
+    if (event.channels.length == 1) {
+      _openCdnChannel(event.channels.first);
+      return;
+    }
+    // Show channel selection
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _CdnChannelSheet(
+        event: event,
+        onChannelSelected: (ch) {
+          Navigator.pop(context);
+          _openCdnChannel(ch);
+        },
+      ),
+    );
   }
 
   void _openPpvStream(_PpvStream s) {
@@ -644,7 +942,7 @@ class _LiveMatchesScreenState extends State<LiveMatchesScreen>
 }
 
 enum _ViewMode { live, today, all }
-enum _DataProvider { streamed, ppv }
+enum _DataProvider { streamed, ppv, cdnLive }
 
 // ─── Chips ────────────────────────────────────────────────────────────────────
 
@@ -1300,6 +1598,391 @@ class _LivePlayerScreenState extends State<_LivePlayerScreen> {
                       'Chrome/122.0.0.0 Safari/537.36',
                   'Referer': widget.stream.embedUrl,
                 }).catchError((_) => http.Response('', 200)); // ignore any error — it's a best-effort ping
+                return NavigationActionPolicy.CANCEL;
+              }
+              return NavigationActionPolicy.ALLOW;
+            },
+          ),
+          if (_loading)
+            const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── CDN Channel Card ─────────────────────────────────────────────────────────
+
+class _CdnChannelCard extends StatefulWidget {
+  final _CdnChannel channel;
+  final VoidCallback onTap;
+  const _CdnChannelCard({required this.channel, required this.onTap});
+
+  @override
+  State<_CdnChannelCard> createState() => _CdnChannelCardState();
+}
+
+class _CdnChannelCardState extends State<_CdnChannelCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.channel;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit:  (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: _hovered ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.06),
+            border: Border.all(
+              color: _hovered ? AppTheme.primaryColor.withValues(alpha: 0.6) : Colors.white12,
+              width: 1.5,
+            ),
+            boxShadow: _hovered
+                ? [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.25), blurRadius: 16, spreadRadius: 2)]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (c.image.isNotEmpty)
+                        CachedNetworkImage(
+                          imageUrl: c.image,
+                          height: 60,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, _, _) => const Icon(Icons.tv_rounded, color: Colors.white38, size: 48),
+                        )
+                      else
+                        const Icon(Icons.tv_rounded, color: Colors.white38, size: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        c.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      if (c.viewers > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${c.viewers} viewers',
+                          style: const TextStyle(color: Colors.white54, fontSize: 10),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 10, right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade700,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('● LIVE',
+                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                if (_hovered)
+                  Positioned.fill(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.85),
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── CDN Sport Event Card ─────────────────────────────────────────────────────
+
+class _CdnSportCard extends StatefulWidget {
+  final _CdnSportEvent event;
+  final VoidCallback onTap;
+  const _CdnSportCard({required this.event, required this.onTap});
+
+  @override
+  State<_CdnSportCard> createState() => _CdnSportCardState();
+}
+
+class _CdnSportCardState extends State<_CdnSportCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.event;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit:  (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: _hovered ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.06),
+            border: Border.all(
+              color: _hovered ? AppTheme.primaryColor.withValues(alpha: 0.6) : Colors.white12,
+              width: 1.5,
+            ),
+            boxShadow: _hovered
+                ? [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.25), blurRadius: 16, spreadRadius: 2)]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              if (e.homeTeamIMG.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: e.homeTeamIMG,
+                                  width: 40, height: 40,
+                                  errorWidget: (_, _, _) => const Icon(Icons.sports_rounded, color: Colors.white38, size: 32),
+                                )
+                              else
+                                const Icon(Icons.sports_rounded, color: Colors.white38, size: 32),
+                              const SizedBox(height: 4),
+                              SizedBox(
+                                width: 60,
+                                child: Text(e.homeTeam, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                              ),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('VS',
+                                style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800)),
+                          ),
+                          Column(
+                            children: [
+                              if (e.awayTeamIMG.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: e.awayTeamIMG,
+                                  width: 40, height: 40,
+                                  errorWidget: (_, _, _) => const Icon(Icons.sports_rounded, color: Colors.white38, size: 32),
+                                )
+                              else
+                                const Icon(Icons.sports_rounded, color: Colors.white38, size: 32),
+                              const SizedBox(height: 4),
+                              SizedBox(
+                                width: 60,
+                                child: Text(e.awayTeam, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        e.tournament,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 10, right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: e.status == 'live' ? Colors.red.shade700 : Colors.orange.shade700,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(e.status == 'live' ? '● LIVE' : e.status.toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                if (_hovered)
+                  Positioned.fill(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.85),
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── CDN Channel Sheet ────────────────────────────────────────────────────────
+
+class _CdnChannelSheet extends StatelessWidget {
+  final _CdnSportEvent event;
+  final void Function(_CdnChannel) onChannelSelected;
+  const _CdnChannelSheet({required this.event, required this.onChannelSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(child: Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 20),
+          Text('${event.homeTeam} vs ${event.awayTeam}',
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          const Text('Choose a channel:', style: TextStyle(color: Colors.white54, fontSize: 13)),
+          const SizedBox(height: 16),
+          ...event.channels.map((ch) => ListTile(
+            onTap: () => onChannelSelected(ch),
+            leading: ch.image.isNotEmpty
+                ? CachedNetworkImage(imageUrl: ch.image, width: 32, height: 32, fit: BoxFit.contain,
+                    errorWidget: (_, _, _) => const Icon(Icons.tv_rounded, color: AppTheme.primaryColor))
+                : const Icon(Icons.tv_rounded, color: AppTheme.primaryColor),
+            title: Text(ch.name,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            subtitle: ch.viewers > 0
+                ? Text('${ch.viewers} viewers', style: const TextStyle(color: Colors.white38, fontSize: 11))
+                : null,
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── CDN Player Screen ────────────────────────────────────────────────────────
+
+class _CdnPlayerScreen extends StatefulWidget {
+  final String url;
+  final String title;
+  const _CdnPlayerScreen({required this.url, required this.title});
+
+  @override
+  State<_CdnPlayerScreen> createState() => _CdnPlayerScreenState();
+}
+
+class _CdnPlayerScreenState extends State<_CdnPlayerScreen> {
+  bool _loading = true;
+  bool _isFullscreen = false;
+
+  void _enterFullscreen() {
+    setState(() => _isFullscreen = true);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  void _exitFullscreen() {
+    setState(() => _isFullscreen = false);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: _isFullscreen ? null : AppBar(
+        backgroundColor: Colors.black,
+        title: Text(widget.title,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.blue)),
+                child: const Text('CDN Live', style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+            initialSettings: InAppWebViewSettings(
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              javaScriptEnabled: true,
+              disableDefaultErrorPage: true,
+              supportMultipleWindows: false,
+            ),
+            onLoadStart: (_, _) => setState(() => _loading = true),
+            onLoadStop:  (_, _) => setState(() => _loading = false),
+            onEnterFullscreen: (_) => _enterFullscreen(),
+            onExitFullscreen:  (_) => _exitFullscreen(),
+            shouldOverrideUrlLoading: (ctrl, action) async {
+              final url = action.request.url?.toString() ?? '';
+              final embedHost = Uri.tryParse(widget.url)?.host ?? '';
+              if (embedHost.isNotEmpty && !url.contains(embedHost)) {
+                http.get(Uri.parse(url), headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/122.0.0.0 Safari/537.36',
+                  'Referer': widget.url,
+                }).catchError((_) => http.Response('', 200));
                 return NavigationActionPolicy.CANCEL;
               }
               return NavigationActionPolicy.ALLOW;

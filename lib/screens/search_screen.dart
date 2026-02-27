@@ -218,7 +218,13 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
       try {
         final movie = await _api.findByImdbId(id, mediaType: type == 'series' ? 'tv' : 'movie');
         if (movie != null && mounted) {
-          _openDetails(movie);
+          // Always use DetailsScreen for Stremio items (pass stremioItem to preserve addon context)
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => DetailsScreen(
+              movie: movie,
+              stremioItem: item,
+            ),
+          ));
           return;
         }
       } catch (_) {}
@@ -233,7 +239,13 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
             (m) => m.title.toLowerCase() == name.toLowerCase(),
             orElse: () => results.first,
           );
-          _openDetails(match);
+          // Always use DetailsScreen for Stremio items
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => DetailsScreen(
+              movie: match,
+              stremioItem: item,
+            ),
+          ));
           return;
         }
       } catch (_) {}

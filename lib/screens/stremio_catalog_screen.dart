@@ -228,13 +228,11 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
   }
 
   Future<void> _navigateToDetails(Movie movie, {Map<String, dynamic>? stremioItem}) async {
-    final isStreaming = await SettingsService().isStreamingModeEnabled();
+    // Always use DetailsScreen for Stremio catalog items (they have addon context)
     if (!mounted) return;
-    if (isStreaming) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
-    } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie, stremioItem: stremioItem)));
-    }
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => DetailsScreen(movie: movie, stremioItem: stremioItem),
+    ));
   }
 
   @override

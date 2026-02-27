@@ -181,7 +181,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       try {
         final movie = await _api.findByImdbId(id, mediaType: type == 'series' ? 'tv' : 'movie');
         if (movie != null && mounted) {
-          _openDetails(movie);
+          // Always use DetailsScreen for Stremio items
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => DetailsScreen(movie: movie, stremioItem: item),
+          ));
           return;
         }
       } catch (_) {}
@@ -196,7 +199,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             (m) => m.title.toLowerCase() == name.toLowerCase(),
             orElse: () => results.first,
           );
-          _openDetails(match);
+          // Always use DetailsScreen for Stremio items
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => DetailsScreen(movie: match, stremioItem: item),
+          ));
           return;
         }
       } catch (_) {}
@@ -215,13 +221,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         overview: item['description']?.toString() ?? '',
         mediaType: type == 'series' ? 'tv' : 'movie',
       );
-      final isStreaming = await SettingsService().isStreamingModeEnabled();
-      if (!mounted) return;
-      if (isStreaming) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
-      } else {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie, stremioItem: item)));
-      }
+      // Always use DetailsScreen for Stremio items
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => DetailsScreen(movie: movie, stremioItem: item),
+      ));
     }
   }
 
