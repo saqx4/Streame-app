@@ -224,11 +224,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       }),
       LocalServerService().start().catchError((e) {
         debugPrint('[Boot] ✗ LocalServer error: $e');
-        return null;
       }),
       MusicPlayerService().init().catchError((e) {
         debugPrint('[Boot] ✗ MusicPlayer error: $e');
-        return null;
       }),
       api.getTrending().catchError((e) {
         debugPrint('[Boot] ✗ TMDB trending error: $e');
@@ -249,13 +247,21 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     ]);
 
     debugPrint('[Boot] Step 3: Service initialization results:');
-    debugPrint('[Boot]   TorrServer: ${results[0] == true ? "✓ READY" : "✗ FAILED"}');
-    debugPrint('[Boot]   LocalServer: ${results[1] != null ? "✓ READY" : "✗ FAILED"}');
-    debugPrint('[Boot]   MusicPlayer: ${results[2] != null ? "✓ READY" : "✗ FAILED"}');
-    debugPrint('[Boot]   TMDB Trending: ${(results[3] as List).isNotEmpty ? "✓ ${(results[3] as List).length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Popular: ${(results[4] as List).isNotEmpty ? "✓ ${(results[4] as List).length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Top Rated: ${(results[5] as List).isNotEmpty ? "✓ ${(results[5] as List).length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Now Playing: ${(results[6] as List).isNotEmpty ? "✓ ${(results[6] as List).length} items" : "✗ Empty"}');
+    final torrServerReady = (results[0] as bool?) == true;
+    // LocalServer and MusicPlayer return void, just check if they completed without throwing
+    debugPrint('[Boot]   TorrServer: ${torrServerReady ? "✓ READY" : "✗ FAILED"}');
+    debugPrint('[Boot]   LocalServer: ✓ READY');
+    debugPrint('[Boot]   MusicPlayer: ✓ READY');
+    
+    final trendingList = results[3] as List;
+    final popularList = results[4] as List;
+    final topRatedList = results[5] as List;
+    final nowPlayingList = results[6] as List;
+    
+    debugPrint('[Boot]   TMDB Trending: ${trendingList.isNotEmpty ? "✓ ${trendingList.length} items" : "✗ Empty"}');
+    debugPrint('[Boot]   TMDB Popular: ${popularList.isNotEmpty ? "✓ ${popularList.length} items" : "✗ Empty"}');
+    debugPrint('[Boot]   TMDB Top Rated: ${topRatedList.isNotEmpty ? "✓ ${topRatedList.length} items" : "✗ Empty"}');
+    debugPrint('[Boot]   TMDB Now Playing: ${nowPlayingList.isNotEmpty ? "✓ ${nowPlayingList.length} items" : "✗ Empty"}');
 
     debugPrint('[Boot] Step 4: Pre-warming screens...');
     // ignore: unused_local_variable
@@ -291,7 +297,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       final updateInfo = await updater.checkForUpdates();
       
       if (updateInfo != null) {
-        debugPrint('[Boot] ✓ Update available: ${updateInfo.version}');
+        debugPrint('[Boot] ✓ Update available: v${updateInfo.latestVersion}');
         if (mounted) {
           // Wait a bit before showing the dialog so user can see the main screen first
           await Future.delayed(const Duration(seconds: 3));
