@@ -74,6 +74,7 @@ flutter:
     # For local dev, download from https://github.com/YouROK/TorrServer/releases
     # and uncomment the line for your platform.
     #- assets/bin/android/TorrServer-arm64
+    #- assets/bin/android/TorrServer-arm7
     #- assets/bin/windows/TorrServer.exe
     #- assets/bin/linux/TorrServer
     #- assets/bin/macos/TorrServer

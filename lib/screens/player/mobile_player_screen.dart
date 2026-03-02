@@ -579,10 +579,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   /// so the details page never sees stale landscape dimensions.
   Future<void> _exitPlayer() async {
     _saveWatchHistory();
+    // Snap to portrait first, then restore all allowed orientations
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // Give the system time to finish rotating before revealing the page behind
     await Future.delayed(const Duration(milliseconds: 350));
+    // Restore all orientations so main screen can rotate freely
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     if (mounted) Navigator.of(context).pop();
   }
 

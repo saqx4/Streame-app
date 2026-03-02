@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'home_screen.dart';
 import 'discover_screen.dart';
 import 'search_screen.dart';
@@ -30,16 +31,44 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
-  String? _pendingComicSearch;
-  String? _pendingMangaSearch;
+  PageController _pageController = PageController();
+  bool _lastNavRailState = false;
+
+  // Cache screens so they are NOT recreated on every build/orientation change
+  late final List<Widget> _cachedScreens;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     MainScreen.stremioSearchNotifier.addListener(_onStremioSearch);
+    _cachedScreens = [
+      const HomeScreen(),
+      const DiscoverScreen(),
+      const SearchScreen(),
+      const MyListScreen(),
+      const LiveMatchesScreen(),
+      const IptvLoginScreen(),
+      const AudiobookScreen(),
+      const BooksScreen(),
+      const MusicScreen(),
+      ComicsScreen(initialSearch: null),
+      MangaScreen(initialSearch: null),
+      const JellyfinScreen(),
+      const SettingsScreen(),
+    ];
+  }
+
+  /// Re-apply immersive mode + allowed orientations after every metrics change
+  /// (rotation, keyboard, split-screen, etc.) so the system UI never glitches.
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (Platform.isAndroid) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
   }
 
   void _onStremioSearch() {
@@ -49,27 +78,9 @@ class _MainScreenState extends State<MainScreen> {
     _pageController.jumpToPage(2);
   }
 
-  List<Widget> get _screens => [
-    const HomeScreen(),
-    const DiscoverScreen(),
-    const SearchScreen(),
-    const MyListScreen(),
-    const LiveMatchesScreen(),
-    const IptvLoginScreen(),
-    const AudiobookScreen(),
-    const BooksScreen(),
-    const MusicScreen(),
-    ComicsScreen(initialSearch: _pendingComicSearch),
-    MangaScreen(initialSearch: _pendingMangaSearch),
-    const JellyfinScreen(),
-    const SettingsScreen(),
-  ];
-
   void _onItemTapped(int index) {
     setState(() { 
       _selectedIndex = index;
-      if (index != 9) _pendingComicSearch = null;
-      if (index != 10) _pendingMangaSearch = null;
       // Indices: 0=Home 1=Discover 2=Search 3=MyList 4=LiveMatches 5=IPTV 6=Audiobooks 7=Books 8=Music 9=Comics 10=Manga 11=Jellyfin 12=Settings
     });
     _pageController.jumpToPage(index);
@@ -77,7 +88,6 @@ class _MainScreenState extends State<MainScreen> {
 
   void searchComics(String query) {
     setState(() {
-      _pendingComicSearch = query;
       _selectedIndex = 9;
     });
     _pageController.jumpToPage(9);
@@ -85,7 +95,6 @@ class _MainScreenState extends State<MainScreen> {
 
   void searchManga(String query) {
     setState(() {
-      _pendingMangaSearch = query;
       _selectedIndex = 10;
     });
     _pageController.jumpToPage(10);
@@ -93,6 +102,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     MainScreen.stremioSearchNotifier.removeListener(_onStremioSearch);
     _pageController.dispose();
     super.dispose();
@@ -106,19 +116,29 @@ class _MainScreenState extends State<MainScreen> {
     
     final bool useNavRail = isDesktop || isLandscape || (Platform.isAndroid && screenWidth > 900);
 
+    // When useNavRail changes (portrait↔landscape on phone), the PageView
+    // lives inside a different layout structure. Recreate the controller so
+    // the viewport dimensions are correctly re-measured — this is what
+    // prevents the "half-black / half-squished" bug after rotation.
+    if (useNavRail != _lastNavRailState) {
+      _lastNavRailState = useNavRail;
+      final oldController = _pageController;
+      _pageController = PageController(initialPage: _selectedIndex);
+      // Dispose old controller after this frame so Flutter doesn't complain
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
+    }
+
     return Scaffold(
-      body: OrientationBuilder(
-        builder: (context, orientation) {
-          return Container(
-            decoration: AppTheme.backgroundDecoration,
-            child: Row(
-              children: [
-                if (useNavRail)
-                  SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
-                      child: IntrinsicHeight(
-                        child: NavigationRail(
+      body: Container(
+        decoration: AppTheme.backgroundDecoration,
+        child: Row(
+          children: [
+            if (useNavRail)
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
                           backgroundColor: Colors.transparent,
                           selectedIndex: _selectedIndex,
                           onDestinationSelected: _onItemTapped,
@@ -211,17 +231,16 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                 
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: _screens,
-                  ),
-                ),
-              ],
+            Expanded(
+              child: PageView(
+                key: ValueKey('pv_${useNavRail}_'),
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: _cachedScreens,
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
       bottomNavigationBar: useNavRail
           ? null
