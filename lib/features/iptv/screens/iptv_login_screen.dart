@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../services/iptv_service.dart';
 import 'iptv_home_screen.dart';
 
@@ -20,6 +21,7 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
   bool _loading = false;
   bool _obscurePassword = true;
   bool _checkingSession = true;
+  bool _useDefault = true;
   String? _error;
 
   final _iptvService = IptvService();
@@ -122,14 +124,101 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            children: [
+              // ── Mode toggle (Default / Custom) ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Row(
                   children: [
+                    Expanded(child: _buildModeButton('Default', Icons.public, _useDefault, () {
+                      if (!_useDefault) setState(() => _useDefault = true);
+                    })),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildModeButton('Custom', Icons.tune, !_useDefault, () {
+                      if (_useDefault) setState(() => _useDefault = false);
+                    })),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ── Content ──
+              Expanded(
+                child: _useDefault ? _buildDefaultWebView() : _buildCustomLogin(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeButton(String label, IconData icon, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: selected
+              ? const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF0D47A1)])
+              : null,
+          color: selected ? null : Colors.white.withValues(alpha: 0.06),
+          border: Border.all(
+            color: selected ? const Color(0xFF1565C0) : Colors.white.withValues(alpha: 0.08),
+            width: selected ? 1.5 : 1,
+          ),
+          boxShadow: selected
+              ? [BoxShadow(color: const Color(0xFF1565C0).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))]
+              : [],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: selected ? Colors.white : Colors.white38, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                color: selected ? Colors.white : Colors.white54,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 15,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultWebView() {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: InAppWebView(
+        initialUrlRequest: URLRequest(url: WebUri('https://iptvplaytorrio.pages.dev')),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          domStorageEnabled: true,
+          useWideViewPort: true,
+          loadWithOverviewMode: true,
+          supportZoom: false,
+          transparentBackground: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomLogin() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
                     // Logo area
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -273,10 +362,7 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
+          );
   }
 
   Widget _buildXtreamForm() {
