@@ -176,7 +176,7 @@ class _MyListScreenState extends State<MyListScreen> {
                       onTap: () => _openItem(item),
                       onRemove: () async {
                         await _myList.remove(item['uniqueId']);
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Removed "${item['title']}" from My List'),

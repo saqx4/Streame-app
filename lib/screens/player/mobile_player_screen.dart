@@ -568,7 +568,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     _isBufferingNotifier.dispose();
 
     _player.dispose();
-    TorrServerService().removeTorrent(widget.mediaPath);
+
+    // Remove torrent from TorrServer on player exit (use magnetLink for hash,
+    // fall back to mediaPath which may be a TorrServer stream URL).
+    final torrentId = widget.magnetLink ?? widget.mediaPath;
+    TorrServerService().removeTorrent(torrentId);
 
     WakelockPlus.disable();
 

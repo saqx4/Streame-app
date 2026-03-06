@@ -144,7 +144,7 @@ class _MoviePosterState extends State<MoviePoster> {
                   top: 6, left: 6,
                   child: ValueListenableBuilder<int>(
                     valueListenable: MyListService.changeNotifier,
-                    builder: (context, _, __) {
+                    builder: (context, _, _) {
                       final uid = MyListService.movieId(widget.movie.id, widget.movie.mediaType);
                       final inList = MyListService().contains(uid);
                       return GestureDetector(

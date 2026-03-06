@@ -425,6 +425,62 @@ class TraktService {
   //  P L A Y B A C K   P R O G R E S S   ( R E S U M E )
   // ═══════════════════════════════════════════════════════════════════════
 
+  /// Remove a playback progress item from Trakt.
+  /// Looks up the Trakt playback ID by matching tmdbId (+ season/episode),
+  /// then calls DELETE /sync/playback/{id}.
+  Future<bool> removePlaybackProgress({
+    required int tmdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+  }) async {
+    final token = await _getValidToken();
+    if (token == null) return false;
+
+    try {
+      // First, fetch current playback items to find the Trakt playback ID
+      final playbackItems = await getPlaybackProgress();
+      int? playbackId;
+
+      for (final item in playbackItems) {
+        final type = item['type']?.toString();
+        if (type == 'movie' && (mediaType == 'movie' || mediaType == 'movies')) {
+          final movie = item['movie'] as Map<String, dynamic>? ?? {};
+          final ids = movie['ids'] as Map<String, dynamic>? ?? {};
+          if (ids['tmdb'] == tmdbId) {
+            playbackId = item['id'] as int?;
+            break;
+          }
+        } else if (type == 'episode' && (mediaType == 'tv' || mediaType == 'series')) {
+          final show = item['show'] as Map<String, dynamic>? ?? {};
+          final showIds = show['ids'] as Map<String, dynamic>? ?? {};
+          final ep = item['episode'] as Map<String, dynamic>? ?? {};
+          if (showIds['tmdb'] == tmdbId &&
+              ep['season'] == season &&
+              ep['number'] == episode) {
+            playbackId = item['id'] as int?;
+            break;
+          }
+        }
+      }
+
+      if (playbackId == null) {
+        debugPrint('[Trakt] No matching playback item found for tmdb:$tmdbId S:$season E:$episode');
+        return false;
+      }
+
+      final resp = await http.delete(
+        Uri.parse('$_baseUrl/sync/playback/$playbackId'),
+        headers: _authHeaders(token),
+      );
+      debugPrint('[Trakt] Remove playback (id:$playbackId tmdb:$tmdbId): ${resp.statusCode}');
+      return resp.statusCode == 204 || resp.statusCode == 200;
+    } catch (e) {
+      debugPrint('[Trakt] Remove playback error: $e');
+      return false;
+    }
+  }
+
   /// GET /sync/playback — items the user is still in the middle of.
   /// Returns raw Trakt response list.
   Future<List<Map<String, dynamic>>> getPlaybackProgress() async {

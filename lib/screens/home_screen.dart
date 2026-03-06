@@ -180,9 +180,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final name = item['name']?.toString() ?? 'Unknown';
     final poster = item['poster']?.toString() ?? '';
     final isCustomId = !id.startsWith('tt');
+    
+    // Check if this is a collection by ID prefix
+    final isCollection = id.startsWith('ctmdb.') || type == 'collections';
 
     // IMDB ID → TMDB lookup
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       try {
         final movie = await _api.findByImdbId(id, mediaType: type == 'series' ? 'tv' : 'movie');
         if (movie != null && mounted) {
@@ -196,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
 
     // For non-custom IDs that failed, try name search
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       try {
         final results = await _api.searchMulti(name);
         if (results.isNotEmpty && mounted) {
@@ -213,8 +216,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       } catch (_) {}
     }
 
-    // Custom ID or all lookups failed
+    // Custom ID, collection, or all lookups failed
     if (mounted) {
+      // Override type to 'collections' if it's a collection ID
+      final actualType = isCollection ? 'collections' : (type == 'series' ? 'tv' : 'movie');
+      
       final movie = Movie(
         id: id.hashCode,
         imdbId: id.startsWith('tt') ? id : null,
@@ -224,11 +230,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         voteAverage: double.tryParse(item['imdbRating']?.toString() ?? '') ?? 0,
         releaseDate: item['releaseInfo']?.toString() ?? '',
         overview: item['description']?.toString() ?? '',
-        mediaType: type == 'series' ? 'tv' : 'movie',
+        mediaType: actualType,
       );
+      
+      // Update the stremioItem type to collections if needed
+      final updatedItem = Map<String, dynamic>.from(item);
+      if (isCollection) {
+        updatedItem['type'] = 'collections';
+      }
+      
       // Always use DetailsScreen for Stremio items
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => DetailsScreen(movie: movie, stremioItem: item),
+        builder: (_) => DetailsScreen(movie: movie, stremioItem: updatedItem),
       ));
     }
   }
@@ -868,8 +881,8 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
           streamUrl = await TorrServerService().streamTorrent(magnetLink, season: season, episode: episode);
         }
       } else if (method == 'trakt_import') {
-        // Trakt-imported items have no stream source — open details page
-        if (mounted) {
+        // Trakt-imported items have no stream source — find one automatically
+        if (context.mounted) {
           final mediaType = item['mediaType'] as String? ?? (season != null ? 'tv' : 'movie');
           final movie = Movie(
             id: tmdbId,
@@ -883,11 +896,21 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
             genres: [],
             imdbId: item['imdbId'],
           );
+          final navigator = Navigator.of(context);
           final isStreaming = await SettingsService().isStreamingModeEnabled();
-          Navigator.push(context, MaterialPageRoute(
+          navigator.push(MaterialPageRoute(
             builder: (_) => isStreaming
-                ? StreamingDetailsScreen(movie: movie)
-                : DetailsScreen(movie: movie),
+                ? StreamingDetailsScreen(
+                    movie: movie,
+                    initialSeason: season,
+                    initialEpisode: episode,
+                    startPosition: startPos,
+                  )
+                : DetailsScreen(
+                    movie: movie,
+                    initialSeason: season,
+                    initialEpisode: episode,
+                  ),
           ));
         }
         return;
@@ -937,6 +960,108 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
 
   Future<void> _removeItem(Map<String, dynamic> item) async {
     await WatchHistoryService().removeItem(item['uniqueId']);
+
+    // Also remove from Trakt playback progress if logged in
+    final tmdbId = item['tmdbId'] as int?;
+    if (tmdbId != null) {
+      final mediaType = item['mediaType']?.toString() ?? 'movie';
+      final season = item['season'] as int?;
+      final episode = item['episode'] as int?;
+      TraktService().removePlaybackProgress(
+        tmdbId: tmdbId,
+        mediaType: mediaType,
+        season: season,
+        episode: episode,
+      );
+    }
+  }
+
+  /// Opens the details page for a history item based on streaming mode and item type
+  Future<void> _openHistoryItemDetails(Map<String, dynamic> item) async {
+    final tmdbId = item['tmdbId'] as int;
+    final title = item['title'] as String;
+    final posterPath = item['posterPath'] as String;
+    final season = item['season'] as int?;
+    final episode = item['episode'] as int?;
+    final mediaType = item['mediaType'] as String? ?? (season != null ? 'tv' : 'movie');
+    
+    final movie = Movie(
+      id: tmdbId,
+      title: title,
+      posterPath: posterPath,
+      backdropPath: '',
+      overview: '',
+      releaseDate: '',
+      voteAverage: 0,
+      mediaType: mediaType,
+      genres: [],
+      imdbId: item['imdbId'],
+    );
+
+    final isStreamingMode = await SettingsService().isStreamingModeEnabled();
+    
+    // Determine which screen to open based on streaming mode and item type
+    if (isStreamingMode) {
+      // Streaming mode ON -> always open StreamingDetailsScreen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StreamingDetailsScreen(
+              movie: movie,
+              initialSeason: season,
+              initialEpisode: episode,
+            ),
+          ),
+        );
+      }
+    } else {
+      // Streaming mode OFF
+      // Check if it's a Stremio addon with custom ID
+      final stremioItemId = item['stremioId'] as String?;
+      final stremioAddonBase = item['stremioAddonBaseUrl'] as String?;
+      final isCustomId = stremioItemId != null && 
+                         stremioAddonBase != null && 
+                         !stremioItemId.startsWith('tt');
+      
+      if (isCustomId) {
+        // Stremio addon with custom ID -> open DetailsScreen (torrent mode)
+        Map<String, dynamic>? stremioItem = {
+          'id': stremioItemId,
+          '_addonBaseUrl': stremioAddonBase,
+          'type': item['stremioType'] ?? (season != null ? 'series' : 'movie'),
+          'name': title,
+        };
+        
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DetailsScreen(
+                movie: movie,
+                stremioItem: stremioItem,
+                initialSeason: season,
+                initialEpisode: episode,
+              ),
+            ),
+          );
+        }
+      } else {
+        // Regular content -> open DetailsScreen (torrent mode)
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DetailsScreen(
+                movie: movie,
+                initialSeason: season,
+                initialEpisode: episode,
+              ),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -997,6 +1122,7 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
                     item: historyItem,
                     onTap: () => _resumePlayback(historyItem),
                     onRemove: () => _removeItem(historyItem),
+                    onInfo: () => _openHistoryItemDetails(historyItem),
                     isLoading: _loadingItemId == itemId,
                   );
                 },
@@ -1013,12 +1139,14 @@ class _HistoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
   final VoidCallback onRemove;
+  final VoidCallback onInfo;
   final bool isLoading;
 
   const _HistoryCard({
     required this.item,
     required this.onTap,
     required this.onRemove,
+    required this.onInfo,
     this.isLoading = false,
   });
 
@@ -1108,17 +1236,34 @@ class _HistoryCard extends StatelessWidget {
             
             Positioned(
               top: 4, right: 4,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: onRemove,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+              child: Column(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: onRemove,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
+                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: onInfo,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
+                        child: const Icon(Icons.info_outline, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             
@@ -1427,7 +1572,7 @@ class _MyListButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: MyListService.changeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final inList = MyListService().contains(_uniqueId);
         return GestureDetector(
           onTap: () async {

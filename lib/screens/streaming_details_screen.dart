@@ -12,8 +12,17 @@ import 'player_screen.dart';
 
 class StreamingDetailsScreen extends StatefulWidget {
   final Movie movie;
+  final int? initialSeason;
+  final int? initialEpisode;
+  final Duration? startPosition;
 
-  const StreamingDetailsScreen({super.key, required this.movie});
+  const StreamingDetailsScreen({
+    super.key,
+    required this.movie,
+    this.initialSeason,
+    this.initialEpisode,
+    this.startPosition,
+  });
 
   @override
   State<StreamingDetailsScreen> createState() => _StreamingDetailsScreenState();
@@ -50,6 +59,8 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   void initState() {
     super.initState();
     _movie = widget.movie;
+    if (widget.initialSeason != null) _selectedSeason = widget.initialSeason!;
+    if (widget.initialEpisode != null) _selectedEpisode = widget.initialEpisode!;
     _fetchDetails();
   }
 
@@ -58,7 +69,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
       final Movie fullDetails;
       if (_movie.mediaType == 'tv') {
         fullDetails = await _api.getTvDetails(widget.movie.id);
-        await _fetchSeason(1);
+        await _fetchSeason(widget.initialSeason ?? 1);
       } else {
         fullDetails = await _api.getMovieDetails(widget.movie.id);
       }
@@ -77,6 +88,11 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
           _similarContent = similar;
           _isLoading = false;
         });
+
+        // Auto-start extraction when opened with a start position (e.g. from Continue Watching / Trakt)
+        if (widget.startPosition != null) {
+          _startExtraction();
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -169,58 +185,6 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
 
     bool found = false;
 
-    try {
-      setState(() => _statusMessage = 'Trying Amri.gg...');
-      debugPrint('[StreamExtractor] Trying Amri provider');
-      
-      final amriResult = await _extractor.extractWithAmri(
-        tmdbId: _movie.id.toString(),
-        isMovie: _movie.mediaType != 'tv',
-        season: _movie.mediaType == 'tv' ? _selectedSeason : null,
-        episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
-      );
-      
-      debugPrint('[StreamExtractor] Amri result: ${amriResult != null ? "SUCCESS" : "NULL"}');
-      
-      if (amriResult != null) {
-        debugPrint('[StreamExtractor] Amri URL: ${amriResult.url}');
-        debugPrint('[StreamExtractor] Amri sources count: ${amriResult.sources?.length ?? 0}');
-        
-        found = true;
-        if (mounted) {
-          if (Navigator.canPop(context)) Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PlayerScreen(
-                streamUrl: amriResult.url,
-                audioUrl: amriResult.audioUrl,
-                title: _movie.mediaType == 'tv' 
-                    ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode' 
-                    : _movie.title,
-                headers: amriResult.headers,
-                movie: _movie,
-                providers: _providers,
-                activeProvider: 'amri',
-                selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
-                selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
-                sources: amriResult.sources,
-              ),
-            ),
-          );
-        }
-        setState(() {
-          _isExtracting = false;
-          _statusMessage = null;
-        });
-        return;
-      } else {
-        debugPrint('[StreamExtractor] Amri returned null, falling back');
-      }
-    } catch (e) {
-      debugPrint('[Amri] Error: $e');
-    }
-
     final providerKeys = _providers.keys.toList();
 
     for (var key in providerKeys) {
@@ -262,6 +226,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
                   activeProvider: key,
                   selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
                   selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
+                  startPosition: widget.startPosition,
                 ),
               ),
             );

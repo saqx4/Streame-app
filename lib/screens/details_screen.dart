@@ -28,7 +28,11 @@ class DetailsScreen extends StatefulWidget {
   /// Optional: when opened from a Stremio addon search result with a custom ID,
   /// pass the original item so we can auto-select the right addon and use its ID.
   final Map<String, dynamic>? stremioItem;
-  const DetailsScreen({super.key, required this.movie, this.stremioItem});
+  /// Optional: pre-select a season (e.g. from Continue Watching / Trakt import).
+  final int? initialSeason;
+  /// Optional: pre-select an episode (e.g. from Continue Watching / Trakt import).
+  final int? initialEpisode;
+  const DetailsScreen({super.key, required this.movie, this.stremioItem, this.initialSeason, this.initialEpisode});
 
   @override
   State<DetailsScreen> createState() => _DetailsScreenState();
@@ -66,6 +70,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
   Map<String, dynamic>? _seasonData;
   bool _isLoadingSeason = false;
 
+  // Collection state
+  List<Map<String, dynamic>> _collectionItems = [];
+  bool _isCollection = false;
+
   bool _isJackettConfigured = false;
   bool _isProwlarrConfigured = false;
 
@@ -88,6 +96,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
   void initState() {
     super.initState();
     _movie = widget.movie;
+    if (widget.initialSeason != null) _selectedSeason = widget.initialSeason!;
+    if (widget.initialEpisode != null) _selectedEpisode = widget.initialEpisode!;
     _checkHistory();
     _loadSortPreference();
     _checkIndexerConfiguration();
@@ -207,6 +217,27 @@ class _DetailsScreenState extends State<DetailsScreen> {
         debugPrint('[DetailsScreen] _addonBaseUrl: ${stremioItem['_addonBaseUrl']}');
         debugPrint('[DetailsScreen] _addonName: ${stremioItem['_addonName']}');
         debugPrint('[DetailsScreen] type: ${stremioItem['type']}');
+        
+        // Update movie mediaType if it's a collection
+        if (stremioItem['type'] == 'collections') {
+          _movie = Movie(
+            id: _movie.id,
+            imdbId: _movie.imdbId,
+            title: _movie.title,
+            posterPath: _movie.posterPath,
+            backdropPath: _movie.backdropPath,
+            voteAverage: _movie.voteAverage,
+            releaseDate: _movie.releaseDate,
+            overview: _movie.overview,
+            mediaType: 'collections',
+            genres: _movie.genres,
+            runtime: _movie.runtime,
+            numberOfSeasons: _movie.numberOfSeasons,
+            logoPath: _movie.logoPath,
+            screenshots: _movie.screenshots,
+          );
+        }
+        
         if (mounted) {
           setState(() {
             _streamAddons = streamAddons;
@@ -227,7 +258,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final Movie fullDetails;
       if (_movie.mediaType == 'tv') {
         fullDetails = await _api.getTvDetails(widget.movie.id);
-        await _fetchSeason(1);
+        await _fetchSeason(widget.initialSeason ?? 1);
       } else {
         fullDetails = await _api.getMovieDetails(widget.movie.id);
       }
@@ -376,7 +407,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
           _seasonData = data;
           _isLoadingSeason = false;
           _selectedSeason = seasonNumber;
-          _selectedEpisode = 1;
+          // Only reset to episode 1 if no initial episode was provided,
+          // or if we're navigating to a different season after init.
+          if (widget.initialEpisode != null && seasonNumber == widget.initialSeason) {
+            _selectedEpisode = widget.initialEpisode!;
+          } else {
+            _selectedEpisode = 1;
+          }
         });
         if (_selectedSourceId == 'playtorrio') {
           _autoSearch();
@@ -488,6 +525,28 @@ class _DetailsScreenState extends State<DetailsScreen> {
     setState(() { _isStremioFetching = true; _errorMessage = null; _stremioStreams = []; _allCombinedStremioStreams = []; _loadedAddonBaseUrls.clear(); });
     
     try {
+      // For collections, fetch meta to get videos array with collection items
+      if (type == 'collections') {
+        final meta = await _stremio.getMeta(baseUrl: addonBaseUrl, type: type, id: customId);
+        if (meta != null && meta['videos'] != null) {
+          final videos = meta['videos'] as List;
+          debugPrint('[CustomIdStreams] Got ${videos.length} collection items from meta');
+          
+          // Parse videos to build collection structure
+          _parseCollectionVideos(videos);
+          
+          // Collections don't have streams - they're just containers for other content
+          // The UI will display the collection items and allow navigation to them
+          if (mounted) {
+            setState(() {
+              _isStremioFetching = false;
+              _errorMessage = null;
+            });
+          }
+          return;
+        }
+      }
+      
       // For series, first fetch meta to get videos array with season/episode info
       if (type == 'series') {
         final meta = await _stremio.getMeta(baseUrl: addonBaseUrl, type: type, id: customId);
@@ -592,6 +651,32 @@ class _DetailsScreenState extends State<DetailsScreen> {
         if (episodes.isEmpty || _selectedEpisode > episodes.length) {
           _selectedEpisode = episodes.isNotEmpty ? episodes.first['episode'] : 1;
         }
+      });
+    }
+  }
+
+  /// Parses the videos array from collection meta to build collection items list
+  void _parseCollectionVideos(List videos) {
+    if (videos.isEmpty) return;
+    
+    final List<Map<String, dynamic>> items = [];
+    for (final video in videos) {
+      if (video is! Map) continue;
+      
+      items.add({
+        'id': video['id'],
+        'title': video['title'] ?? 'Unknown',
+        'thumbnail': video['thumbnail'],
+        'released': video['released'],
+        'ratings': video['ratings'],
+        'overview': video['overview'],
+      });
+    }
+    
+    if (mounted) {
+      setState(() {
+        _collectionItems = items;
+        _isCollection = true;
       });
     }
   }
@@ -1191,6 +1276,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 const SizedBox(height: 16),
                 _ExpandableSynopsis(text: _movie.overview),
                 const SizedBox(height: 16),
+                // Collection items display
+                if (_isCollection && _collectionItems.isNotEmpty) ...[
+                  _buildCollectionItemsSection(),
+                  const SizedBox(height: 16),
+                ],
                 Builder(builder: (ctx) {
                   final cast = _getCastNames();
                   if (cast.isEmpty) return const SizedBox.shrink();
@@ -1213,7 +1303,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   );
                 }),
                 _buildRecommendationsSection(),
-                if (_movie.mediaType == 'tv') ...[
+                if (_movie.mediaType == 'tv' && !_isCollection) ...[
                   _buildSeasonSelector(),
                   const SizedBox(height: 16),
                   _buildEpisodeSelector(),
@@ -1222,13 +1312,15 @@ class _DetailsScreenState extends State<DetailsScreen> {
                     style: TextStyle(color: Colors.white24, fontSize: 10)),
                   const SizedBox(height: 20),
                 ],
-                _buildSourceToggle(),
-                const SizedBox(height: 12),
-                _buildSourceChips(),
-                const SizedBox(height: 16),
-                _buildResultsHeader(),
-                const SizedBox(height: 10),
-                _buildStreamList(),
+                if (!_isCollection) ...[
+                  _buildSourceToggle(),
+                  const SizedBox(height: 12),
+                  _buildSourceChips(),
+                  const SizedBox(height: 16),
+                  _buildResultsHeader(),
+                  const SizedBox(height: 10),
+                  _buildStreamList(),
+                ],
                 const SizedBox(height: 32),
               ],
             ),
@@ -1393,6 +1485,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
         Text(_movie.overview,
           style: const TextStyle(color: Color(0xFFB0B0C0), fontSize: 13.5, height: 1.6)),
         const SizedBox(height: 20),
+        // Collection items display
+        if (_isCollection && _collectionItems.isNotEmpty) ...[
+          _buildCollectionItemsSection(),
+          const SizedBox(height: 20),
+        ],
         if (_castMembers.isNotEmpty) _buildDesktopCastRow(),
         _buildRecommendationsSection(),
         const SizedBox(height: 24),
@@ -1405,6 +1502,19 @@ class _DetailsScreenState extends State<DetailsScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildRightPanel() {
+    // For collections, don't show stream/torrent sections
+    if (_isCollection) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'This is a collection. Select an item from the list to view details and streams.',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+        ],
+      );
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2328,6 +2438,141 @@ class _DetailsScreenState extends State<DetailsScreen> {
         },
       ),
     );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  //  RECOMMENDATIONS SECTION
+  // ═════════════════════════════════════════════════════════════════════════════
+  //  COLLECTION ITEMS SECTION
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCollectionItemsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('Collection Items'),
+        const SizedBox(height: 12),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _collectionItems.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = _collectionItems[index];
+            final id = item['id']?.toString() ?? '';
+            final title = item['title']?.toString() ?? 'Unknown';
+            final thumbnail = item['thumbnail']?.toString() ?? '';
+            final ratings = item['ratings']?.toString() ?? '';
+            final overview = item['overview']?.toString() ?? '';
+
+            return FocusableControl(
+              onTap: () => _openCollectionItem(id),
+              borderRadius: 12,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (thumbnail.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: thumbnail,
+                          width: 120,
+                          height: 68,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => Container(
+                            width: 120,
+                            height: 68,
+                            color: Colors.white.withValues(alpha: 0.1),
+                            child: const Icon(Icons.movie, color: Colors.white24),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (ratings.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              ratings,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                          if (overview.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              overview,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Opens a collection item by navigating to its detail page
+  Future<void> _openCollectionItem(String id) async {
+    // Try TMDB lookup first for IMDB IDs
+    if (id.startsWith('tt')) {
+      try {
+        final movie = await _api.findByImdbId(id, mediaType: 'movie');
+        if (movie != null && mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
+          return;
+        }
+      } catch (e) {
+        debugPrint('[CollectionItem] TMDB lookup failed: $e');
+      }
+    }
+
+    // Fallback: create minimal Movie object
+    if (mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(
+        movie: Movie(
+          id: id.hashCode,
+          imdbId: id.startsWith('tt') ? id : null,
+          title: id,
+          posterPath: '', backdropPath: '', voteAverage: 0,
+          releaseDate: '', overview: '',
+          mediaType: 'movie',
+        ),
+      )));
+    }
   }
 
   // ═════════════════════════════════════════════════════════════════════════════

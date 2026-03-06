@@ -322,6 +322,7 @@ class StremioService {
 
   /// Fetches full meta for a specific item (with retry).
   /// GET {baseUrl}/meta/{type}/{id}.json
+  /// Supports both regular content and collections (which have a 'videos' array).
   Future<Map<String, dynamic>?> getMeta({
     required String baseUrl,
     required String type,
@@ -334,7 +335,14 @@ class StremioService {
       final response = await _retryGet(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['meta'] as Map<String, dynamic>?;
+        final meta = data['meta'] as Map<String, dynamic>?;
+        
+        // For collections, convert videos array to a format similar to TV episodes
+        if (meta != null && meta['type'] == 'collections' && meta['videos'] is List) {
+          meta['_isCollection'] = true;
+        }
+        
+        return meta;
       }
     } catch (e) {
       debugPrint('[StremioService] Meta fetch error ($url): $e');

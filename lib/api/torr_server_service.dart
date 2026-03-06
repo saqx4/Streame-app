@@ -741,6 +741,16 @@ class TorrServerService {
         return xt.substring('urn:btih:'.length).toLowerCase();
       }
     }
+
+    // TorrServer stream URL: http://host:port/stream/<file>?link=<hash>&index=...
+    if (magnetOrHash.contains('/stream/')) {
+      final uri = Uri.tryParse(magnetOrHash);
+      final link = uri?.queryParameters['link'];
+      if (link != null && link.isNotEmpty) {
+        // The link param is typically the bare hash
+        return _extractHash(link);
+      }
+    }
     return null;
   }
 

@@ -1912,7 +1912,7 @@ class _MusicScreenState extends State<MusicScreen> with WidgetsBindingObserver, 
                 final updatedPlaylist = MusicPlaylist(name: fromPlaylist.name, tracks: updatedTracks);
                 await _storageService.savePlaylist(updatedPlaylist);
                 await _loadUserData();
-                if (mounted) {
+                if (context.mounted) {
                   final messenger = ScaffoldMessenger.of(context);
                   setState(() => _selectedPlaylist = updatedPlaylist);
                   messenger.showSnackBar(

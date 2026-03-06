@@ -542,8 +542,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
     _player.dispose();
 
-    // Cleanup torrent from engine (no-op if not a torrent stream)
-    TorrServerService().removeTorrent(widget.mediaPath);
+    // Remove torrent from TorrServer on player exit (use magnetLink for hash,
+    // fall back to mediaPath which may be a TorrServer stream URL).
+    final torrentId = widget.magnetLink ?? widget.mediaPath;
+    TorrServerService().removeTorrent(torrentId);
 
     super.dispose();
   }

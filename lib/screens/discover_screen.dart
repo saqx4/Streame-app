@@ -548,7 +548,7 @@ class _AddToMyListButton extends StatelessWidget {
     final uid = MyListService.movieId(movie.id, movie.mediaType);
     return ValueListenableBuilder<int>(
       valueListenable: MyListService.changeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final inList = MyListService().contains(uid);
         return GestureDetector(
           onTap: () async {

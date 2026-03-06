@@ -166,6 +166,9 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
     final type = item['type']?.toString() ?? 'movie';
     final name = item['name']?.toString() ?? 'Unknown';
     final isCustomId = !id.startsWith('tt');
+    
+    // Check if this is a collection by ID prefix
+    final isCollection = id.startsWith('ctmdb.') || type == 'collections';
 
     // Tag item with addon info from the selected catalog
     if (_selectedCatalog != null) {
@@ -174,7 +177,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
     }
 
     // If IMDB id → resolve via TMDB
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       final tmdb = TmdbApi();
       try {
         final movie = await tmdb.findByImdbId(id, mediaType: type == 'series' ? 'tv' : 'movie');
@@ -186,7 +189,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
     }
 
     // For non-custom IDs that failed IMDB lookup, try name search
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       final tmdb = TmdbApi();
       try {
         final results = await tmdb.searchMulti(name);
@@ -201,8 +204,13 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
       } catch (_) {}
     }
 
-    // Custom ID or all lookups failed → use Stremio poster directly
+    // Custom ID, collection, or all lookups failed → use Stremio poster directly
     if (mounted) {
+      // Update the item type to collections if needed
+      if (isCollection) {
+        item['type'] = 'collections';
+      }
+      
       final movie = _stremioMetaToMovie(item);
       _navigateToDetails(movie, stremioItem: item);
     }
@@ -210,7 +218,10 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
 
   Movie _stremioMetaToMovie(Map<String, dynamic> meta) {
     final id = meta['id']?.toString() ?? '';
+    final type = meta['type']?.toString() ?? 'movie';
     final imdbId = id.startsWith('tt') ? id : null;
+    final isCollection = id.startsWith('ctmdb.') || type == 'collections';
+    
     return Movie(
       id: imdbId != null ? 0 : id.hashCode,
       imdbId: imdbId,
@@ -221,7 +232,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
       releaseDate: meta['releaseInfo']?.toString() ?? '',
       overview: meta['description']?.toString() ?? '',
       genres: (meta['genres'] as List?)?.cast<String>() ?? [],
-      mediaType: (meta['type'] == 'series' || meta['type'] == 'channel') ? 'tv' : 'movie',
+      mediaType: isCollection ? 'collections' : ((type == 'series' || type == 'channel') ? 'tv' : 'movie'),
       numberOfSeasons: 0,
     );
   }
@@ -973,7 +984,7 @@ class _AddToMyListStremioButton extends StatelessWidget {
     final uid = MyListService.stremioItemId(item);
     return ValueListenableBuilder<int>(
       valueListenable: MyListService.changeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final inList = MyListService().contains(uid);
         return GestureDetector(
           onTap: () async {

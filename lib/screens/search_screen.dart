@@ -213,9 +213,12 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
     final name = item['name']?.toString() ?? 'Unknown';
     final poster = item['poster']?.toString() ?? '';
     final isCustomId = !id.startsWith('tt');
+    
+    // Check if this is a collection by ID prefix
+    final isCollection = id.startsWith('ctmdb.') || type == 'collections';
 
     // For IMDB IDs, try TMDB lookup first for a richer details page
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       try {
         final movie = await _api.findByImdbId(id, mediaType: type == 'series' ? 'tv' : 'movie');
         if (movie != null && mounted) {
@@ -232,7 +235,7 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
     }
 
     // If it's a custom ID, or IMDB lookup failed, try name search
-    if (!isCustomId) {
+    if (!isCustomId && !isCollection) {
       try {
         final results = await _api.searchMulti(name);
         if (results.isNotEmpty && mounted) {
@@ -252,8 +255,11 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
       } catch (_) {}
     }
 
-    // Custom ID or all lookups failed: open DetailsScreen with stremioItem
+    // Custom ID, collection, or all lookups failed: open DetailsScreen with stremioItem
     if (mounted) {
+      // Override type to 'collections' if it's a collection ID
+      final actualType = isCollection ? 'collections' : (type == 'series' ? 'tv' : 'movie');
+      
       final movie = Movie(
         id: id.hashCode,
         imdbId: id.startsWith('tt') ? id : null,
@@ -263,12 +269,19 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
         voteAverage: double.tryParse(item['imdbRating']?.toString() ?? '') ?? 0,
         releaseDate: item['releaseInfo']?.toString() ?? '',
         overview: item['description']?.toString() ?? '',
-        mediaType: type == 'series' ? 'tv' : 'movie',
+        mediaType: actualType,
       );
+      
+      // Update the stremioItem type to collections if needed
+      final updatedItem = Map<String, dynamic>.from(item);
+      if (isCollection) {
+        updatedItem['type'] = 'collections';
+      }
+      
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => DetailsScreen(
           movie: movie,
-          stremioItem: item, // pass the full item with _addonBaseUrl, id, etc.
+          stremioItem: updatedItem, // pass the full item with _addonBaseUrl, id, etc.
         ),
       ));
     }
@@ -649,7 +662,7 @@ class _AddToMyListButton extends StatelessWidget {
     final uid = MyListService.movieId(movie.id, movie.mediaType);
     return ValueListenableBuilder<int>(
       valueListenable: MyListService.changeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final inList = MyListService().contains(uid);
         return GestureDetector(
           onTap: () async {
@@ -697,7 +710,7 @@ class _AddToMyListStremioButton extends StatelessWidget {
     final uid = MyListService.stremioItemId(item);
     return ValueListenableBuilder<int>(
       valueListenable: MyListService.changeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final inList = MyListService().contains(uid);
         return GestureDetector(
           onTap: () async {
