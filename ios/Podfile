@@ -41,18 +41,4 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
-
-  # libtorrent's static library uses SCNetworkReachability from SystemConfiguration.
-  # The podspec doesn't declare it, so we inject it into the Pods-Runner xcconfigs.
-  xcconfig_dir = File.join(installer.sandbox.root, 'Target Support Files', 'Pods-Runner')
-  Dir.glob(File.join(xcconfig_dir, '*.xcconfig')).each do |path|
-    content = File.read(path)
-    unless content.include?('SystemConfiguration')
-      content = content.gsub(
-        /^OTHER_LDFLAGS = (.*)$/,
-        'OTHER_LDFLAGS = \1 -framework "SystemConfiguration"'
-      )
-      File.write(path, content)
-    end
-  end
 end
