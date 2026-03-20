@@ -238,9 +238,10 @@ class _CdnSportEvent {
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
 const _base = 'https://streamed.pk';
+const _ua = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'};
 
 Future<List<_Match>> _fetchMatches(String endpoint) async {
-  final resp = await http.get(Uri.parse('$_base$endpoint'))
+  final resp = await http.get(Uri.parse('$_base$endpoint'), headers: _ua)
       .timeout(const Duration(seconds: 12));
   if (resp.statusCode != 200) return [];
   return (jsonDecode(resp.body) as List)
@@ -250,7 +251,7 @@ Future<List<_Match>> _fetchMatches(String endpoint) async {
 
 Future<List<_Sport>> _fetchSports() async {
   try {
-    final resp = await http.get(Uri.parse('$_base/api/sports'))
+    final resp = await http.get(Uri.parse('$_base/api/sports'), headers: _ua)
         .timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) return [];
     return (jsonDecode(resp.body) as List)
@@ -262,7 +263,7 @@ Future<List<_Sport>> _fetchSports() async {
 }
 
 Future<List<_Stream>> _fetchStreams(String source, String id) async {
-  final resp = await http.get(Uri.parse('$_base/api/stream/$source/$id'))
+  final resp = await http.get(Uri.parse('$_base/api/stream/$source/$id'), headers: _ua)
       .timeout(const Duration(seconds: 12));
   if (resp.statusCode != 200) return [];
   final body = jsonDecode(resp.body);
@@ -273,7 +274,7 @@ Future<List<_Stream>> _fetchStreams(String source, String id) async {
 String _badgeUrl(String badge) => '$_base/api/images/badge/$badge.webp';
 
 Future<List<_PpvStream>> _fetchPpvStreams() async {
-  final resp = await http.get(Uri.parse('https://old.ppv.to/api/streams'))
+  final resp = await http.get(Uri.parse('https://old.ppv.to/api/streams'), headers: _ua)
       .timeout(const Duration(seconds: 12));
   if (resp.statusCode != 200) return [];
   final body = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -289,7 +290,7 @@ Future<List<_PpvStream>> _fetchPpvStreams() async {
 }
 
 Future<List<_CdnChannel>> _fetchCdnChannels() async {
-  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free'))
+  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free'), headers: _ua)
       .timeout(const Duration(seconds: 12));
   if (resp.statusCode != 200) return [];
   final body = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -299,7 +300,7 @@ Future<List<_CdnChannel>> _fetchCdnChannels() async {
 }
 
 Future<List<_CdnSportEvent>> _fetchCdnSports() async {
-  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free'))
+  final resp = await http.get(Uri.parse('https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free'), headers: _ua)
       .timeout(const Duration(seconds: 12));
   if (resp.statusCode != 200) return [];
   final body = jsonDecode(resp.body) as Map<String, dynamic>;

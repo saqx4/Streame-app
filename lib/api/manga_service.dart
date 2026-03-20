@@ -217,6 +217,10 @@ class ScanlationGroup {
 class MangaService {
   static const String _baseUrl = 'https://comix.to/api/v2';
   static const String _likedKey = 'liked_manga';
+  static const Map<String, String> _headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+  };
 
   Future<List<Manga>> getManga({int page = 1, int? genreId}) async {
     try {
@@ -225,7 +229,7 @@ class MangaService {
         url = '$_baseUrl/manga?order[views_30d]=desc&genres[]=$genreId&genres_mode=and&limit=28&page=$page';
       }
       debugPrint('[MangaService] Fetching page $page: $url');
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url), headers: _headers);
 
       debugPrint('[MangaService] Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -250,7 +254,7 @@ class MangaService {
       final encodedQuery = Uri.encodeComponent(query);
       final url = '$_baseUrl/manga?order[relevance]=desc&keyword=$encodedQuery&genres_mode=and&limit=28&page=$page';
       debugPrint('[MangaService] Searching page $page: $url');
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url), headers: _headers);
 
       debugPrint('[MangaService] Search response status: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -278,7 +282,7 @@ class MangaService {
       try {
         final url = '$_baseUrl/manga/$hashId/chapters?limit=100&page=$page&order[number]=desc';
         debugPrint('[MangaService] Fetching chapters page $page: $url');
-        final response = await http.get(Uri.parse(url));
+        final response = await http.get(Uri.parse(url), headers: _headers);
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
