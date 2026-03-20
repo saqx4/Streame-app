@@ -496,6 +496,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
+  libtorrent_flutter:
+    dependency: "direct main"
+    description:
+      name: libtorrent_flutter
+      sha256: "8fbeb6b017b501b4de857f3ff4e60bef862033caf54d17262b716852b05c5aaa"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.5"
   lints:
     dependency: transitive
     description:

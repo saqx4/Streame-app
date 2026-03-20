@@ -470,103 +470,361 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildMobileLayout() {
-    return Column(
-      children: [
-        _buildMobileAppBar(),
-        _buildMobileCatalogChips(),
-        if (_selectedCatalog != null && (_selectedCatalog!['genres'] as List).isNotEmpty)
-          _buildGenreChips(),
-        if (_selectedCatalog != null && _selectedCatalog!['supportsSearch'] == true)
-          _buildSearchBar(),
-        Expanded(child: _buildContentGrid()),
-      ],
-    );
-  }
-
-  Widget _buildMobileAppBar() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 8, 8, 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white70),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const SizedBox(width: 4),
-          const Expanded(
-            child: Text('Addon Catalogs', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-          ),
-          _buildTypeFilterDropdown(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeFilterDropdown() {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.filter_list, color: Colors.white70),
-      color: AppTheme.bgCard,
-      onSelected: (type) => setState(() => _filterType = type),
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: 'all', child: Text('All Types', style: TextStyle(color: Colors.white70))),
-        const PopupMenuItem(value: 'movie', child: Text('Movies', style: TextStyle(color: Colors.white70))),
-        const PopupMenuItem(value: 'series', child: Text('Series', style: TextStyle(color: Colors.white70))),
-      ],
-    );
-  }
-
-  Widget _buildMobileCatalogChips() {
-    final catalogs = _filteredCatalogs;
-    if (catalogs.isEmpty) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: catalogs.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final cat = catalogs[index];
-          final isSelected = _selectedCatalog != null &&
-              _selectedCatalog!['addonBaseUrl'] == cat['addonBaseUrl'] &&
-              _selectedCatalog!['catalogId'] == cat['catalogId'] &&
-              _selectedCatalog!['catalogType'] == cat['catalogType'];
-
-          return GestureDetector(
-            onTap: () => _selectCatalog(cat),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.bgCard,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.white12),
-              ),
+    return SafeArea(
+      bottom: false,
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          // ── App Bar ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '${cat['catalogName']}',
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 18),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '(${cat['addonName']})',
-                    style: TextStyle(
-                      color: isSelected ? Colors.white54 : Colors.white30,
-                      fontSize: 10,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Catalogs', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
+                        if (_selectedCatalog != null)
+                          Text(
+                            '${_selectedCatalog!['addonName']} • ${_selectedCatalog!['catalogName']}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Catalog picker button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.dashboard_rounded, color: AppTheme.primaryColor, size: 20),
+                      onPressed: _showCatalogPicker,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        },
+          ),
+
+          // ── Type filter chips ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
+                children: [
+                  _buildMobileFilterPill('All', 'all'),
+                  const SizedBox(width: 8),
+                  _buildMobileFilterPill('Movies', 'movie'),
+                  const SizedBox(width: 8),
+                  _buildMobileFilterPill('Series', 'series'),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Quick catalog scroller ──
+          SliverToBoxAdapter(
+            child: _buildMobileCatalogScroller(),
+          ),
+
+          // ── Genre chips ──
+          if (_selectedCatalog != null && (_selectedCatalog!['genres'] as List).isNotEmpty)
+            SliverToBoxAdapter(child: _buildGenreChips()),
+
+          // ── Search bar ──
+          if (_selectedCatalog != null && _selectedCatalog!['supportsSearch'] == true)
+            SliverToBoxAdapter(child: _buildSearchBar()),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
+        body: _buildContentGrid(),
+      ),
+    );
+  }
+
+  Widget _buildMobileFilterPill(String label, String type) {
+    final selected = _filterType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _filterType = type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white54,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCatalogScroller() {
+    final catalogs = _filteredCatalogs;
+    if (catalogs.isEmpty) return const SizedBox.shrink();
+
+    // Group catalogs by addon
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final c in catalogs) {
+      grouped.putIfAbsent(c['addonName'] as String, () => []).add(c);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: SizedBox(
+        height: 80,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: catalogs.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            final cat = catalogs[index];
+            final isSelected = _selectedCatalog != null &&
+                _selectedCatalog!['addonBaseUrl'] == cat['addonBaseUrl'] &&
+                _selectedCatalog!['catalogId'] == cat['catalogId'] &&
+                _selectedCatalog!['catalogType'] == cat['catalogType'];
+            final addonIcon = (cat['addonIcon'] ?? '').toString();
+
+            return GestureDetector(
+              onTap: () => _selectCatalog(cat),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 130,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : AppTheme.bgCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.06),
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (addonIcon.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: CachedNetworkImage(
+                              imageUrl: addonIcon, width: 16, height: 16,
+                              errorWidget: (_, __, ___) => Icon(
+                                cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
+                                size: 16, color: Colors.white38,
+                              ),
+                            ),
+                          )
+                        else
+                          Icon(
+                            cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
+                            size: 16, color: isSelected ? AppTheme.primaryColor : Colors.white38,
+                          ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: cat['catalogType'] == 'series'
+                                ? Colors.blue.withValues(alpha: 0.2)
+                                : AppTheme.primaryColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            (cat['catalogType'] as String).toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              color: cat['catalogType'] == 'series' ? Colors.blue[300] : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      cat['catalogName'] as String,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      cat['addonName'] as String,
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showCatalogPicker() {
+    final catalogs = _filteredCatalogs;
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final c in catalogs) {
+      grouped.putIfAbsent(c['addonName'] as String, () => []).add(c);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.bgDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                const Icon(Icons.dashboard_rounded, color: AppTheme.primaryColor, size: 22),
+                const SizedBox(width: 10),
+                const Text('All Catalogs', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('${catalogs.length}', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13)),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white10, height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              children: [
+                for (final entry in grouped.entries) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+                    child: Row(
+                      children: [
+                        if ((entry.value.first['addonIcon'] ?? '').toString().isNotEmpty) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: CachedNetworkImage(
+                              imageUrl: entry.value.first['addonIcon'],
+                              width: 20, height: 20,
+                              errorWidget: (_, __, ___) => const Icon(Icons.extension, size: 20, color: Colors.white38),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(entry.key,
+                            style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                      ],
+                    ),
+                  ),
+                  for (final cat in entry.value)
+                    _buildCatalogPickerTile(cat, ctx),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCatalogPickerTile(Map<String, dynamic> cat, BuildContext sheetCtx) {
+    final isSelected = _selectedCatalog != null &&
+        _selectedCatalog!['addonBaseUrl'] == cat['addonBaseUrl'] &&
+        _selectedCatalog!['catalogId'] == cat['catalogId'] &&
+        _selectedCatalog!['catalogType'] == cat['catalogType'];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.pop(sheetCtx);
+            _selectCatalog(cat);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
+                  size: 20,
+                  color: isSelected ? AppTheme.primaryColor : Colors.white38,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    cat['catalogName'] as String,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white70,
+                      fontSize: 14,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: cat['catalogType'] == 'series'
+                        ? Colors.blue.withValues(alpha: 0.15)
+                        : AppTheme.primaryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    (cat['catalogType'] as String).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: cat['catalogType'] == 'series' ? Colors.blue[300] : AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 18),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

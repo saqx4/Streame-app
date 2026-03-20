@@ -24,7 +24,7 @@ class Audiobook {
   });
 
   String get thumbUrl {
-    if (source == 'audiozaic' || source == 'goldenaudiobook') return coverImage;
+    if (source == 'audiozaic' || source == 'goldenaudiobook' || source == 'appaudiobooks') return coverImage;
     return 'https://tokybook.com/images/$audioBookId';
   }
 
@@ -127,11 +127,32 @@ class AudiobookService {
     return _cleanTitle(title).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
+  int _relevanceScore(String title, String query) {
+    final titleLower = title.toLowerCase();
+    if (titleLower == query) return 0; // Exact match
+    if (titleLower.startsWith(query)) return 1; // Starts with query
+    if (titleLower.contains(query)) return 2; // Contains query
+    // Partial word matching — count how many query words appear in the title
+    final queryWords = query.split(RegExp(r'\s+'));
+    int matches = queryWords.where((w) => titleLower.contains(w)).length;
+    if (matches == queryWords.length) return 3; // All words present
+    return 4 + (queryWords.length - matches); // Fewer matches = higher score
+  }
+
   Future<List<Audiobook>> searchAudiobooks(String query) async {
     try {
-      final goldenResults = await _searchGoldenAudiobook(query);
-      final tokyResults = await _searchTokybook(query);
-      final audiozaicResults = await _searchAudiozaic(query);
+      // Run all scrapers in parallel for speed
+      final results = await Future.wait([
+        _searchGoldenAudiobook(query),
+        _searchAppAudiobooks(query),
+        _searchTokybook(query),
+        _searchAudiozaic(query),
+      ]);
+
+      final goldenResults = results[0];
+      final appAudioResults = results[1];
+      final tokyResults = results[2];
+      final audiozaicResults = results[3];
       
       final Map<String, Audiobook> uniqueBooks = {};
       
@@ -141,7 +162,15 @@ class AudiobookService {
         if (key.isNotEmpty) uniqueBooks[key] = book;
       }
       
-      // 2. Add Tokybook results
+      // 2. Add AppAudiobooks results
+      for (var book in appAudioResults) {
+        final key = _normalizeTitle(book.title);
+        if (key.isNotEmpty && !uniqueBooks.containsKey(key)) {
+          uniqueBooks[key] = book;
+        }
+      }
+      
+      // 3. Add Tokybook results
       for (var book in tokyResults) {
         final key = _normalizeTitle(book.title);
         if (key.isNotEmpty && !uniqueBooks.containsKey(key)) {
@@ -149,7 +178,7 @@ class AudiobookService {
         }
       }
       
-      // 3. Add Audiozaic results
+      // 4. Add Audiozaic results
       for (var book in audiozaicResults) {
         final key = _normalizeTitle(book.title);
         if (key.isNotEmpty && !uniqueBooks.containsKey(key)) {
@@ -157,7 +186,11 @@ class AudiobookService {
         }
       }
 
-      return uniqueBooks.values.toList();
+      // Sort by relevance to search query
+      final queryNorm = query.toLowerCase().trim();
+      final bookList = uniqueBooks.values.toList();
+      bookList.sort((a, b) => _relevanceScore(a.title, queryNorm).compareTo(_relevanceScore(b.title, queryNorm)));
+      return bookList;
     } catch (e) {
       debugPrint('AudiobookService Error (searchAudiobooks): $e');
     }
@@ -295,6 +328,9 @@ class AudiobookService {
     }
     if (book.source == 'audiozaic') {
       return _getAudiozaicChapters(book);
+    }
+    if (book.source == 'appaudiobooks') {
+      return _getAppAudiobooksChapters(book);
     }
     return _getTokyChapters(book);
   }
@@ -457,6 +493,129 @@ class AudiobookService {
       return chapters;
     } catch (e) {
       debugPrint('AudiobookService Error (_getAudiozaicChapters): $e');
+    }
+    return [];
+  }
+
+  // --- AppAudiobooks.net ---
+
+  Future<List<Audiobook>> _searchAppAudiobooks(String query) async {
+    try {
+      final searchUrl = 'https://appaudiobooks.net/wp-admin/admin-ajax.php'
+          '?s=${Uri.encodeComponent(query)}'
+          '&action=searchwp_live_search'
+          '&swpengine=default'
+          '&swpquery=${Uri.encodeComponent(query)}'
+          '&origin_id=0';
+
+      final response = await http.get(Uri.parse(searchUrl), headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://appaudiobooks.net/',
+      });
+
+      if (response.statusCode != 200) return [];
+
+      final document = hp.parse(response.body);
+      final links = document.querySelectorAll('a[href]');
+
+      List<Audiobook> results = [];
+      final seen = <String>{};
+
+      for (var link in links) {
+        final pageUrl = link.attributes['href'] ?? '';
+        if (pageUrl.isEmpty || !pageUrl.contains('appaudiobooks.net')) continue;
+        if (seen.contains(pageUrl)) continue;
+        seen.add(pageUrl);
+
+        var title = _cleanTitle(link.text.trim());
+        if (title.isEmpty) continue;
+
+        final uri = Uri.parse(pageUrl);
+        final pathSegments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+        final slug = pathSegments.isNotEmpty ? pathSegments.last : pageUrl.hashCode.toString();
+
+        results.add(Audiobook(
+          uuid: pageUrl,
+          audioBookId: 'aab_$slug',
+          dynamicSlugId: pageUrl,
+          title: title,
+          coverImage: '',
+          source: 'appaudiobooks',
+          pageUrl: pageUrl,
+        ));
+      }
+
+      // Fetch covers from each result page in parallel
+      final futures = results.map((book) async {
+        try {
+          final cover = await _fetchAppAudiobookCover(book.pageUrl!);
+          if (cover.isNotEmpty) {
+            return Audiobook(
+              uuid: book.uuid,
+              audioBookId: book.audioBookId,
+              dynamicSlugId: book.dynamicSlugId,
+              title: book.title,
+              coverImage: cover,
+              source: book.source,
+              pageUrl: book.pageUrl,
+            );
+          }
+        } catch (_) {}
+        return book;
+      }).toList();
+
+      return await Future.wait(futures);
+    } catch (e) {
+      debugPrint('AudiobookService Error (_searchAppAudiobooks): $e');
+    }
+    return [];
+  }
+
+  Future<String> _fetchAppAudiobookCover(String pageUrl) async {
+    try {
+      final res = await http.get(Uri.parse(pageUrl), headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      });
+      if (res.statusCode != 200) return '';
+      final doc = hp.parse(res.body);
+      final img = doc.querySelector('.wp-caption img') ?? doc.querySelector('.entry img');
+      return img?.attributes['src'] ?? '';
+    } catch (_) {}
+    return '';
+  }
+
+  Future<List<AudiobookChapter>> _getAppAudiobooksChapters(Audiobook book) async {
+    try {
+      if (book.pageUrl == null) return [];
+
+      final pageRes = await http.get(Uri.parse(book.pageUrl!), headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      });
+      if (pageRes.statusCode != 200) return [];
+
+      final document = hp.parse(pageRes.body);
+      final audios = document.querySelectorAll('audio.wp-audio-shortcode');
+
+      List<AudiobookChapter> chapters = [];
+      for (int i = 0; i < audios.length; i++) {
+        final sourceTag = audios[i].querySelector('source');
+        var streamUrl = sourceTag?.attributes['src'] ?? '';
+
+        // Strip query params like ?_=1
+        if (streamUrl.contains('?')) {
+          streamUrl = streamUrl.substring(0, streamUrl.indexOf('?'));
+        }
+
+        if (streamUrl.isNotEmpty) {
+          chapters.add(AudiobookChapter(
+            title: 'Chapter ${i + 1}',
+            url: streamUrl,
+          ));
+        }
+      }
+      return chapters;
+    } catch (e) {
+      debugPrint('AudiobookService Error (_getAppAudiobooksChapters): $e');
     }
     return [];
   }

@@ -2,7 +2,7 @@ name: play_torrio_native
 description: "PlayTorrio - Your cinema universe, Stream anything, anywhere."
 publish_to: 'none'
 
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ^3.11.0
@@ -48,6 +48,7 @@ dependencies:
   archive: ^4.0.4
   package_info_plus: ^9.0.0
   ota_update: ^7.1.0
+  libtorrent_flutter: 1.6.5
 
 dev_dependencies:
   flutter_test:
@@ -57,7 +58,7 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   windows:
     generate: true
     image_path: "assets/icon/icon.png"
@@ -70,11 +71,3 @@ flutter:
 
   assets:
     - assets/icon/
-    # TorrServer binaries — CI downloads these automatically.
-    # For local dev, download from https://github.com/YouROK/TorrServer/releases
-    # and uncomment the line for your platform.
-    #- assets/bin/android/TorrServer-arm64
-    #- assets/bin/android/TorrServer-arm7
-    #- assets/bin/windows/TorrServer.exe
-    #- assets/bin/linux/TorrServer
-    #- assets/bin/macos/TorrServer

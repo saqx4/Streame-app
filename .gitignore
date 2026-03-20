@@ -48,14 +48,6 @@ app.*.map.json
 android/release.keystore
 android/key.properties
 
-# TorrServer binaries — CI downloads these automatically.
-# For local dev, grab them from https://github.com/YouROK/TorrServer/releases
-assets/bin/android/TorrServer*
-assets/bin/windows/TorrServer*
-assets/bin/linux/TorrServer
-assets/bin/macos/TorrServer
-android/app/src/main/jniLibs/*/libtorrserver.so
-
 # Generated platform folders (CI creates linux/ & macos/ on the fly)
 /linux/
 /macos/

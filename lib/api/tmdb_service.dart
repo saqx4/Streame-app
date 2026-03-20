@@ -44,4 +44,22 @@ class TmdbService {
     }
     return '';
   }
+
+  /// Fetches season details including all episodes for a given TV show season.
+  /// Returns the TMDB season object with an 'episodes' list.
+  Future<Map<String, dynamic>> getTvSeasonDetails(int tvId, int seasonNumber) async {
+    final url = '$baseUrl/tv/$tvId/season/$seasonNumber?api_key=$apiKey';
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch season details: ${response.statusCode}');
+    }
+  }
+
+  /// Returns the total number of seasons for a TV show.
+  Future<int> getTvSeasonCount(int tvId) async {
+    final data = await getTvShowDetails(tvId.toString());
+    return (data['number_of_seasons'] as int?) ?? 0;
+  }
 }

@@ -8,7 +8,7 @@ import '../api/settings_service.dart';
 import '../api/stremio_service.dart';
 import '../api/stream_providers.dart';
 import '../api/debrid_api.dart';
-import '../api/torr_server_service.dart';
+import '../api/torrent_stream_service.dart';
 import '../utils/app_theme.dart';
 import '../widgets/loading_overlay.dart';
 import 'player_screen.dart';
@@ -219,9 +219,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
             }
           }
         } else {
-          final service = TorrServerService();
-          await service.start();
-          finalStreamUrl = await service.streamTorrent(
+          finalStreamUrl = await TorrentStreamService().streamTorrent(
             magnet,
             season: _movie.mediaType == 'tv' ? _selectedSeason : null,
             episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,

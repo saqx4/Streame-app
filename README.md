@@ -8,7 +8,7 @@ Made by me. If you like it, star it or whatever.
 
 Movies & TV Shows:
 - Search and browse movies/TV shows with TMDB metadata
-- Stream torrents directly with built-in TorrServer engine
+- Stream torrents directly with built-in libtorrent engine
 - Stremio addon support
 - Real-Debrid and TorBox integration
 - Auto-resume from where you left off
@@ -69,8 +69,6 @@ flutter build windows
 flutter build linux
 flutter build apk
 ```
-
-For building you need to download TorrServer binaries and put them in `assets/bin/windows or /linux or /mac or /android`.
 
 ## License
 

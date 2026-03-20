@@ -28,6 +28,10 @@ class SettingsService {
   static const String _prowlarrBaseUrlKey = 'prowlarr_base_url';
   static const String _prowlarrApiKeyKey = 'prowlarr_api_key';
 
+  // Torrent cache settings
+  static const String _torrentCacheTypeKey = 'torrent_cache_type';
+  static const String _torrentRamCacheMbKey = 'torrent_ram_cache_mb';
+
   Future<List<Map<String, dynamic>>> getStremioAddons() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String> list = prefs.getStringList(_stremioAddonsKey) ?? [];
@@ -168,5 +172,31 @@ class SettingsService {
     final apiKey = await getProwlarrApiKey();
     return baseUrl != null && baseUrl.isNotEmpty && 
            apiKey != null && apiKey.isNotEmpty;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Torrent Cache Settings
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Returns 'ram' or 'disk'. Defaults to 'ram'.
+  Future<String> getTorrentCacheType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_torrentCacheTypeKey) ?? 'ram';
+  }
+
+  Future<void> setTorrentCacheType(String type) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_torrentCacheTypeKey, type);
+  }
+
+  /// RAM cache size in MB. Defaults to 200.
+  Future<int> getTorrentRamCacheMb() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_torrentRamCacheMbKey) ?? 200;
+  }
+
+  Future<void> setTorrentRamCacheMb(int mb) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_torrentRamCacheMbKey, mb);
   }
 }

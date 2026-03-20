@@ -100,6 +100,7 @@ class AudiobookPlayerService {
     String artist = 'Tokybook';
     if (book.source == 'audiozaic') artist = 'Audiozaic';
     if (book.source == 'goldenaudiobook') artist = 'GoldenAudiobook';
+    if (book.source == 'appaudiobooks') artist = 'AppAudiobooks';
 
     _handler?.updateMediaItem(MediaItem(
       id: book.audioBookId,

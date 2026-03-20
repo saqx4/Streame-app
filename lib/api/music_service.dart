@@ -209,12 +209,10 @@ class MusicService {
 
   Future<String?> getYoutubeVideoId(String title, String artist) async {
     try {
-      // 1. Try a very specific search first
       final searchQuery = '$title - $artist (Official Audio)';
       final searchList = await _yt.search.search(searchQuery);
       
       if (searchList.isNotEmpty) {
-        // Find the first one that isn't a "Short" (usually > 60s)
         for (final video in searchList) {
           if (video.duration != null && video.duration!.inSeconds > 60) {
             return video.id.value;
@@ -232,11 +230,7 @@ class MusicService {
     try {
       return await _yt.videos.streamsClient.getManifest(
         videoId,
-        ytClients: [
-          YoutubeApiClient.androidVr,
-          YoutubeApiClient.android,
-          YoutubeApiClient.ios,
-        ],
+        ytClients: [YoutubeApiClient.androidVr, YoutubeApiClient.android, YoutubeApiClient.ios],
       );
     } catch (e) {
       debugPrint('MusicService: Get manifest error: $e');

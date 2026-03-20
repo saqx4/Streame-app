@@ -200,7 +200,7 @@ class TmdbApi {
     }
   }
 
-  Future<List<Movie>> discoverMovies({List<int>? genres, int? year, double? minRating, int page = 1}) async {
+  Future<List<Movie>> discoverMovies({List<int>? genres, int? year, double? minRating, String? language, int page = 1}) async {
     String url = '$_baseUrl/discover/movie?api_key=$_apiKey&page=$page';
     if (genres != null && genres.isNotEmpty) {
       url += '&with_genres=${genres.join(',')}';
@@ -210,6 +210,9 @@ class TmdbApi {
     }
     if (minRating != null) {
       url += '&vote_average.gte=$minRating';
+    }
+    if (language != null) {
+      url += '&with_original_language=$language';
     }
     
     final response = await http.get(Uri.parse(url));
@@ -221,7 +224,7 @@ class TmdbApi {
     }
   }
 
-  Future<List<Movie>> discoverTvShows({List<int>? genres, int? year, double? minRating, int page = 1}) async {
+  Future<List<Movie>> discoverTvShows({List<int>? genres, int? year, double? minRating, String? language, int page = 1}) async {
     String url = '$_baseUrl/discover/tv?api_key=$_apiKey&page=$page';
     if (genres != null && genres.isNotEmpty) {
       url += '&with_genres=${genres.join(',')}';
@@ -231,6 +234,9 @@ class TmdbApi {
     }
     if (minRating != null) {
       url += '&vote_average.gte=$minRating';
+    }
+    if (language != null) {
+      url += '&with_original_language=$language';
     }
     
     final response = await http.get(Uri.parse(url));

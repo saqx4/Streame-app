@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../api/audiobook_service.dart';
 import '../api/audiobook_player_service.dart';
+import '../api/audiobook_download_service.dart';
 import '../utils/app_theme.dart';
 
 class AudiobookPlayerScreen extends StatefulWidget {
@@ -26,11 +27,14 @@ class AudiobookPlayerScreen extends StatefulWidget {
 
 class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> {
   final _service = AudiobookPlayerService();
+  final _downloadService = AudiobookDownloadService();
   double _playbackSpeed = 1.0;
+  bool _isDownloaded = false;
 
   @override
   void initState() {
     super.initState();
+    _checkDownloadStatus();
     _service.loadBook(
       widget.audiobook, 
       widget.chapters, 
@@ -41,6 +45,20 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> {
 
   void _changeChapter(int index) async {
     await _service.changeChapter(index);
+  }
+
+  void _checkDownloadStatus() async {
+    final downloaded = await _downloadService.isBookDownloaded(widget.audiobook.audioBookId);
+    if (mounted) setState(() => _isDownloaded = downloaded);
+    // Load per-chapter download state
+    _downloadService.checkDownloadedChapters(widget.audiobook.audioBookId, widget.chapters.length);
+  }
+
+  void _startDownload() {
+    _downloadService.downloadBook(widget.audiobook, widget.chapters);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Download started...'), duration: Duration(seconds: 2)),
+    );
   }
 
   void _handleExit() async {
@@ -127,9 +145,70 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> {
             'AUDIOBOOK PLAYER',
             style: TextStyle(color: Colors.white54, letterSpacing: 2, fontSize: 13, fontWeight: FontWeight.bold),
           ),
-          _buildSpeedMenu(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDownloadButton(),
+              const SizedBox(width: 4),
+              _buildSpeedMenu(),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDownloadButton() {
+    return ValueListenableBuilder<Map<String, AudiobookDownloadProgress>>(
+      valueListenable: _downloadService.activeDownloads,
+      builder: (context, downloads, _) {
+        final progress = downloads[widget.audiobook.audioBookId];
+
+        if (progress != null && progress.status == 'downloading') {
+          return GestureDetector(
+            onTap: () {
+              _downloadService.cancelDownload(widget.audiobook.audioBookId);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress.progress,
+                      strokeWidth: 2.5,
+                      color: AppTheme.primaryColor,
+                      backgroundColor: Colors.white12,
+                    ),
+                    Icon(Icons.close, color: Colors.white, size: 12),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (_isDownloaded || (progress != null && progress.status == 'completed')) {
+          return IconButton(
+            icon: const Icon(Icons.download_done, color: Colors.greenAccent, size: 24),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Already downloaded'), duration: Duration(seconds: 1)),
+              );
+            },
+            tooltip: 'Downloaded',
+          );
+        }
+
+        return IconButton(
+          icon: const Icon(Icons.download_rounded, color: Colors.white, size: 24),
+          onPressed: _startDownload,
+          tooltip: 'Download all chapters',
+        );
+      },
     );
   }
 
@@ -353,7 +432,17 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: isCurrent ? const Icon(Icons.graphic_eq, color: AppTheme.primaryColor, size: 20) : null,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isCurrent)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(Icons.graphic_eq, color: AppTheme.primaryColor, size: 20),
+                            ),
+                          _buildChapterDownloadIcon(index),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -362,6 +451,39 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChapterDownloadIcon(int index) {
+    final key = '${widget.audiobook.audioBookId}_$index';
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: _downloadService.downloadingChapters,
+      builder: (context, downloading, _) {
+        if (downloading.contains(key)) {
+          return const SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+          );
+        }
+        return ValueListenableBuilder<Set<String>>(
+          valueListenable: _downloadService.downloadedChapterKeys,
+          builder: (context, downloaded, _) {
+            if (downloaded.contains(key)) {
+              return const Icon(Icons.download_done, color: Colors.greenAccent, size: 20);
+            }
+            return GestureDetector(
+              onTap: () {
+                _downloadService.downloadSingleChapter(
+                  widget.audiobook,
+                  widget.chapters[index],
+                  index,
+                );
+              },
+              child: const Icon(Icons.download_outlined, color: Colors.white38, size: 20),
+            );
+          },
+        );
+      },
     );
   }
 

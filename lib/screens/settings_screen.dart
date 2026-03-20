@@ -66,6 +66,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isCheckingUpdate = false;
   final AppUpdaterService _updater = AppUpdaterService();
 
+  // Torrent cache
+  String _torrentCacheType = 'ram';
+  int _torrentRamCacheMb = 200;
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +102,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prowlarrUrl = await _settings.getProwlarrBaseUrl();
     final prowlarrKey = await _settings.getProwlarrApiKey();
 
+    // Load torrent cache settings
+    final cacheType = await _settings.getTorrentCacheType();
+    final ramCacheMb = await _settings.getTorrentRamCacheMb();
+
     if (mounted) {
       setState(() {
         _isStreamingMode = streaming;
@@ -120,6 +128,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         
         _prowlarrUrlController.text = prowlarrUrl ?? '';
         _prowlarrApiKeyController.text = prowlarrKey ?? '';
+        _torrentCacheType = cacheType;
+        _torrentRamCacheMb = ramCacheMb;
       });
     }
   }
@@ -286,6 +296,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildSectionHeader('Prowlarr'),
                     _buildProwlarrConfig(),
                     const SizedBox(height: 32),
+                    _buildSectionHeader('Torrent Engine'),
+                    _buildFocusableDropdown(
+                      'Cache Type',
+                      'Choose where torrent data is cached during streaming.',
+                      _torrentCacheType == 'ram' ? 'RAM' : 'Disk',
+                      ['RAM', 'Disk'],
+                      (val) async {
+                        if (val != null) {
+                          final type = val == 'RAM' ? 'ram' : 'disk';
+                          await _settings.setTorrentCacheType(type);
+                          setState(() => _torrentCacheType = type);
+                        }
+                      },
+                    ),
+                    if (_torrentCacheType == 'ram')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
+                            child: Text(
+                              'RAM Cache Size: $_torrentRamCacheMb MB',
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                          ),
+                          Slider(
+                            value: _torrentRamCacheMb.toDouble(),
+                            min: 50,
+                            max: 2048,
+                            divisions: 39,
+                            activeColor: Colors.deepPurpleAccent,
+                            inactiveColor: Colors.white12,
+                            label: '$_torrentRamCacheMb MB',
+                            onChanged: (val) {
+                              setState(() => _torrentRamCacheMb = val.round());
+                            },
+                            onChangeEnd: (val) async {
+                              await _settings.setTorrentRamCacheMb(val.round());
+                            },
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 32),
                     _buildSectionHeader('Debrid Support'),
                     _buildFocusableToggle(
                       'Use Debrid for Streams',
@@ -319,7 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 64),
                     const Center(
                       child: Text(
-                        'PlayTorrio Native v1.0.3',
+                        'PlayTorrio Native v1.0.4',
                         style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
                       ),
                     ),

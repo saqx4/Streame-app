@@ -1,20 +1,17 @@
 package com.example.play_torrio_native
 
+import android.os.Bundle
 import com.ryanheise.audioservice.AudioServiceActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
-    private val CHANNEL = "com.playtorrio.native/path"
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "getNativeLibraryDir") {
-                result.success(applicationInfo.nativeLibraryDir)
-            } else {
-                result.notImplemented()
-            }
-        }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Match the window background to the app's dark theme so any area
+        // exposed during a Flutter surface resize (rotation) is the same
+        // colour — not white/black.  Everything else (immersive mode,
+        // orientation, system-bar visibility) is handled by Flutter's
+        // SystemChrome from the Dart side to avoid conflicts.
+        window.decorView.setBackgroundColor(0xFF0B0B12.toInt())
     }
 }

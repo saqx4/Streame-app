@@ -1,9 +1,19 @@
 class StreamProviders {
   static final Map<String, dynamic> providers = {
+    'webstreamr': {
+      'name': 'WebStreamr',
+      'movie': (tmdbId) => 'https://webstreamr.hayd.uk/stream/movie/$tmdbId.json',
+      'tv': (tmdbId, s, e) => 'https://webstreamr.hayd.uk/stream/series/$tmdbId:$s:$e.json',
+    },
     'vidlink': {
       'name': 'VidLink',
       'movie': (tmdbId) => 'https://vidlink.pro/movie/$tmdbId',
       'tv': (tmdbId, s, e) => 'https://vidlink.pro/tv/$tmdbId/$s/$e',
+    },
+    'mappl': {
+      'name': 'Mappl',
+      'movie': (tmdbId) => 'https://mappl.tv/watch/movie/$tmdbId',
+      'tv': (tmdbId, s, e) => 'https://mappl.tv/watch/tv/$tmdbId-$s-$e',
     },
     'vixsrc': {
       'name': 'VixSrc',

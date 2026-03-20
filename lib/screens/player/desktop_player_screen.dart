@@ -13,10 +13,19 @@ import 'menus.dart';
 import '../../models/movie.dart';
 import '../../models/stream_source.dart';
 import '../../api/subtitle_api.dart';
-import '../../api/torr_server_service.dart';
+import '../../api/torrent_stream_service.dart';
 import '../../api/stream_extractor.dart';
 import '../../services/watch_history_service.dart';
 import '../../api/trakt_service.dart';
+import '../../api/webstreamr_service.dart';
+import '../../api/stremio_service.dart';
+import '../../api/stream_providers.dart';
+import '../../api/settings_service.dart';
+import '../../api/debrid_api.dart';
+import '../../api/torrent_api.dart';
+import '../../api/torrent_filter.dart';
+import '../../api/tmdb_service.dart';
+import '../player_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLASSY WIDGET PRIMITIVES  (MPVEx-style frosted black glass)
@@ -449,6 +458,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
   // ── Provider switching ────────────────────────────────────────────────────
   String? _currentProvider;
+  List<StreamSource>? _currentSources;
+  String? _currentUrl;
+  int _currentFallbackSourceIndex = 0;
   bool _isSwitchingProvider = false;
 
   // ── Feature State ────────────────────────────────────────────────────────
@@ -458,6 +470,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   double _subtitleSize = 44.0;
   // ignore: unused_field
   final double _subtitleBottomPadding = 24.0;
+
+  // ── Next Episode State ────────────────────────────────────────────────────
+  bool _isLoadingNextEp = false;
+  bool _nearEndOfEpisode = false;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  LIFECYCLE
@@ -469,6 +485,8 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     
     // ── Provider initialization ──────────────────────────────────────────
     _currentProvider = widget.activeProvider;
+    _currentSources = widget.sources;
+    _currentUrl = widget.mediaPath;
     
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
@@ -542,10 +560,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
     _player.dispose();
 
-    // Remove torrent from TorrServer on player exit (use magnetLink for hash,
-    // fall back to mediaPath which may be a TorrServer stream URL).
+    // Remove torrent from engine on player exit (use magnetLink for hash,
+    // fall back to mediaPath which may be a stream URL).
     final torrentId = widget.magnetLink ?? widget.mediaPath;
-    TorrServerService().removeTorrent(torrentId);
+    TorrentStreamService().removeTorrent(torrentId);
 
     super.dispose();
   }
@@ -628,34 +646,149 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   Future<void> _initPlayback() async {
     if (_disposed) return;
     
-    int retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        _subscribeToStreams();
-        await _configureMpvProperties();
-        await _player.open(
-          Media(widget.mediaPath, httpHeaders: widget.headers),
-        );
-        return; // Success, exit
-      } catch (e) {
-        retryCount++;
-        debugPrint('[Player] Open failed (attempt $retryCount/$maxRetries): $e');
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+    });
+
+    // 1. Try sources in current provider list
+    if (_currentSources != null && _currentSources!.isNotEmpty) {
+      while (_currentFallbackSourceIndex < _currentSources!.length) {
+        final i = _currentFallbackSourceIndex;
+        final source = _currentSources![i];
+        debugPrint('[Player] Trying source ${i + 1}/${_currentSources!.length}: ${source.title}');
         
-        if (retryCount < maxRetries) {
-          // Wait before retry with exponential backoff
-          await Future.delayed(Duration(milliseconds: 500 * retryCount));
-        } else {
-          // All retries failed, show error
-          if (!mounted || _disposed) return;
+        try {
+          _subscribeToStreams();
+          await _configureMpvProperties();
+          await _player.open(Media(source.url, httpHeaders: widget.headers));
+          _player.setVolume(_volumeNotifier.value);
           setState(() {
-            _hasError = true;
-            _errorMessage = e.toString();
+            _currentUrl = source.url;
           });
+          return; // Opened successfully
+        } catch (e) {
+          debugPrint('[Player] Source $i catch error: $e');
+          _currentFallbackSourceIndex++;
+        }
+      }
+      
+      // All sources in current provider failed
+      await _autoFallbackToNextProvider();
+    } else {
+      // No sources list, just try the primary mediaPath
+      int retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount < maxRetries) {
+        try {
+          _subscribeToStreams();
+          await _configureMpvProperties();
+          await _player.open(Media(widget.mediaPath, httpHeaders: widget.headers));
+          _player.setVolume(_volumeNotifier.value);
+          return;
+        } catch (e) {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            await _autoFallbackToNextProvider();
+            return;
+          }
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
         }
       }
     }
+  }
+
+  Future<void> _autoFallbackToNextProvider() async {
+    if (widget.providers == null || widget.providers!.isEmpty) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'All sources and providers failed.';
+      });
+      return;
+    }
+
+    final providerKeys = widget.providers!.keys.toList();
+    int currentIndex = providerKeys.indexOf(_currentProvider ?? '');
+    
+    // Try the next provider in the list
+    for (int i = currentIndex + 1; i < providerKeys.length; i++) {
+      final nextKey = providerKeys[i];
+      debugPrint('[Player] Auto-falling back to provider: $nextKey');
+      
+      final success = await _silentSwitchProvider(nextKey);
+      if (success) return;
+    }
+
+    // If we're here, everything failed
+    if (mounted) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Could not find any working stream from any provider.';
+      });
+    }
+  }
+
+  /// Switches provider without showing full error UI on failure, returns success
+  Future<bool> _silentSwitchProvider(String newProvider) async {
+    try {
+      final provider = widget.providers![newProvider];
+      String? streamUrl;
+      Map<String, String>? headers;
+      List<StreamSource>? sources;
+
+      if (newProvider == 'webstreamr' && widget.movie?.imdbId != null) {
+        final webStreamr = WebStreamrService();
+        final webStreamrSources = await webStreamr.getStreams(
+          imdbId: widget.movie!.imdbId!,
+          isMovie: widget.movie!.mediaType == 'movie',
+          season: widget.selectedSeason,
+          episode: widget.selectedEpisode,
+        );
+        if (webStreamrSources.isNotEmpty) {
+          streamUrl = webStreamrSources.first.url;
+          sources = webStreamrSources;
+        }
+      } else {
+        final String providerUrl;
+        if (widget.movie!.mediaType == 'tv') {
+          providerUrl = provider['tv'](
+            widget.movie!.id.toString(),
+            widget.selectedSeason,
+            widget.selectedEpisode,
+          );
+        } else {
+          providerUrl = provider['movie'](widget.movie!.id.toString());
+        }
+        
+        final extractor = StreamExtractor();
+        final result = await extractor.extract(providerUrl);
+        if (result != null && result.url.isNotEmpty) {
+          streamUrl = result.url;
+          headers = result.headers;
+          sources = result.sources;
+        }
+      }
+      
+      if (streamUrl != null && streamUrl.isNotEmpty) {
+        final currentPos = _positionNotifier.value;
+        await _player.open(Media(streamUrl, httpHeaders: headers));
+        if (currentPos.inSeconds > 0) await _player.seek(currentPos);
+        
+        setState(() {
+          _currentProvider = newProvider;
+          _currentSources = sources;
+          _currentUrl = streamUrl;
+          _currentFallbackSourceIndex = 0; // Reset for the new provider
+          _hasError = false;
+          _errorMessage = '';
+        });
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[Player] Silent fallback to $newProvider failed: $e');
+    }
+    return false;
   }
 
   void _subscribeToStreams() {
@@ -663,6 +796,20 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     _positionSub = _player.stream.position.listen((pos) {
       if (_disposed) return;
       _positionNotifier.value = pos;
+
+      // Near-end detection for next episode button
+      if (_isNextEpisodeAvailable && !_nearEndOfEpisode) {
+        final dur = _durationNotifier.value;
+        if (dur.inSeconds > 0) {
+          final remaining = dur - pos;
+          final threshold = dur.inMinutes < 10
+              ? Duration(seconds: (dur.inSeconds * 0.05).round())
+              : const Duration(minutes: 2);
+          if (remaining <= threshold) {
+            setState(() => _nearEndOfEpisode = true);
+          }
+        }
+      }
     });
 
     // Duration – triggers auto-resume on first valid duration
@@ -719,7 +866,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       
       // Only surface fatal errors to UI (connection failures are often transient)
       if (err.contains('Failed') || err.contains('No such file')) {
-        if (mounted) setState(() { _hasError = true; _errorMessage = err; });
+        debugPrint('[Player] Fatal error detected on source $_currentFallbackSourceIndex, progressing fallback...');
+        _currentFallbackSourceIndex++;
+        _initPlayback();
       }
     });
 
@@ -1170,7 +1319,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   void _showSourcesMenu() {
-    if (widget.sources == null || widget.sources!.isEmpty) {
+    if (_currentSources == null || _currentSources!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('No sources available'),
         duration: Duration(seconds: 1),
@@ -1203,10 +1352,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           Expanded(
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: widget.sources!.length,
+              itemCount: _currentSources!.length,
               itemBuilder: (context, index) {
-                final source = widget.sources![index];
-                final isCurrent = source.url == widget.mediaPath;
+                final source = _currentSources![index];
+                final isCurrent = source.url == _currentUrl;
                 return ListTile(
                   leading: Icon(
                     Icons.play_circle_outline,
@@ -1242,6 +1391,13 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                       await _player.open(
                         Media(source.url, httpHeaders: widget.headers),
                       );
+
+                      setState(() {
+                        _currentUrl = source.url;
+                        _currentFallbackSourceIndex = 0; // Reset index on manual selection
+                        _hasError = false;
+                        _errorMessage = '';
+                      });
                       
                       // Seek to saved position
                       if (currentPos.inSeconds > 0) {
@@ -1276,6 +1432,285 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Loop: ${_loopEnabled ? "ON" : "OFF"}'),
         duration: const Duration(seconds: 1)));
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  NEXT EPISODE
+  // ───────────────────────────────────────────────────────────────────────────
+
+  bool get _isNextEpisodeAvailable =>
+      widget.movie != null &&
+      widget.movie!.mediaType == 'tv' &&
+      widget.selectedSeason != null &&
+      widget.selectedEpisode != null;
+
+  bool get _showNextEpButton =>
+      _isNextEpisodeAvailable && (_nearEndOfEpisode || _isLoadingNextEp);
+
+  Future<void> _nextEpisode() async {
+    if (!_isNextEpisodeAvailable || _isLoadingNextEp) return;
+
+    setState(() => _isLoadingNextEp = true);
+
+    try {
+      final tmdb = TmdbService();
+      final tvId = widget.movie!.id;
+      int nextSeason = widget.selectedSeason!;
+      int nextEpisode = widget.selectedEpisode! + 1;
+
+      // Check if next episode exists in current season
+      final seasonData = await tmdb.getTvSeasonDetails(tvId, nextSeason);
+      final episodes = seasonData['episodes'] as List<dynamic>? ?? [];
+      final maxEp = episodes.isNotEmpty
+          ? episodes.map((e) => e['episode_number'] as int).reduce((a, b) => a > b ? a : b)
+          : 0;
+
+      if (nextEpisode > maxEp) {
+        // Try next season
+        final totalSeasons = await tmdb.getTvSeasonCount(tvId);
+        if (nextSeason < totalSeasons) {
+          nextSeason++;
+          nextEpisode = 1;
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No more episodes available')),
+            );
+          }
+          setState(() => _isLoadingNextEp = false);
+          return;
+        }
+      }
+
+      debugPrint('[NextEp] Playing S${nextSeason}E$nextEpisode');
+
+      // Save current watch history before switching
+      _saveWatchHistory();
+
+      String? streamUrl;
+      String? magnetLink;
+      int? fileIndex;
+      Map<String, String>? headers;
+      String? activeProvider = widget.activeProvider;
+
+      final isTorrent = widget.magnetLink != null &&
+          widget.activeProvider != 'stremio_direct';
+      final isStremioDirect = widget.activeProvider == 'stremio_direct';
+      final isWebStreamr = widget.activeProvider == 'webstreamr';
+      final isAmri = widget.activeProvider == 'amri';
+
+      if (isStremioDirect && widget.stremioAddonBaseUrl != null) {
+        // ── Stremio addon: re-fetch streams for next episode ────────────
+        final stremio = StremioService();
+        final stremioId = widget.stremioId ?? widget.movie!.imdbId;
+        if (stremioId == null) throw Exception('No Stremio ID available');
+
+        final epId = '$stremioId:$nextSeason:$nextEpisode';
+        final streams = await stremio.getStreams(
+          baseUrl: widget.stremioAddonBaseUrl!,
+          type: 'series',
+          id: epId,
+        );
+
+        if (streams.isEmpty) throw Exception('No streams found for S${nextSeason}E$nextEpisode');
+
+        final stream = streams.first as Map<String, dynamic>;
+
+        if (stream['url'] != null) {
+          streamUrl = stream['url'] as String;
+          final proxyHeaders = stream['behaviorHints']?['proxyHeaders']?['request'];
+          if (proxyHeaders is Map) {
+            headers = Map<String, String>.from(proxyHeaders);
+          }
+        } else if (stream['infoHash'] != null) {
+          // Stremio returned a torrent hash — resolve it
+          final infoHash = stream['infoHash'] as String;
+          final streamTitle = (stream['title'] ?? stream['name'] ?? '').toString();
+          final dn = streamTitle.isNotEmpty ? '&dn=${Uri.encodeComponent(streamTitle)}' : '';
+          final sourcesList = stream['sources'];
+          final trackerParams = StringBuffer();
+          if (sourcesList is List) {
+            for (final src in sourcesList) {
+              if (src is String && src.startsWith('tracker:')) {
+                trackerParams.write('&tr=${Uri.encodeComponent(src.substring(8))}');
+              }
+            }
+          }
+          magnetLink = 'magnet:?xt=urn:btih:$infoHash$dn$trackerParams';
+
+          final settings = SettingsService();
+          final useDebrid = await settings.useDebridForStreams();
+          final debridService = await settings.getDebridService();
+
+          if (useDebrid && debridService != 'None') {
+            final debrid = DebridApi();
+            final files = debridService == 'Real-Debrid'
+                ? await debrid.resolveRealDebrid(magnetLink)
+                : await debrid.resolveTorBox(magnetLink);
+            if (files.isNotEmpty) {
+              final s = 'S${nextSeason.toString().padLeft(2, '0')}';
+              final e = 'E${nextEpisode.toString().padLeft(2, '0')}';
+              final match = files.where((f) =>
+                  f.filename.toUpperCase().contains(s) &&
+                  f.filename.toUpperCase().contains(e)).toList();
+              if (match.isNotEmpty) {
+                fileIndex = files.indexOf(match.first);
+                streamUrl = match.first.downloadUrl;
+              } else {
+                files.sort((a, b) => b.filesize.compareTo(a.filesize));
+                streamUrl = files.first.downloadUrl;
+              }
+            }
+          } else {
+            streamUrl = await TorrentStreamService().streamTorrent(
+              magnetLink,
+              season: nextSeason,
+              episode: nextEpisode,
+            );
+            if (streamUrl != null) {
+              final idx = Uri.parse(streamUrl).queryParameters['index'];
+              if (idx != null) fileIndex = int.tryParse(idx);
+            }
+          }
+          activeProvider = 'torrent';
+        }
+      } else if (isTorrent) {
+        // ── Torrent: re-search for next episode ───────────────────────
+        final s = nextSeason.toString().padLeft(2, '0');
+        final e = nextEpisode.toString().padLeft(2, '0');
+        final query = '${widget.movie!.title} S${s}E$e';
+        debugPrint('[NextEp] Searching torrents: $query');
+
+        final torrentApi = TorrentApi();
+        final results = await torrentApi.searchTorrents(query);
+        final filtered = await TorrentFilter.filterTorrentsAsync(
+          results,
+          widget.movie!.title,
+          requiredSeason: nextSeason,
+          requiredEpisode: nextEpisode,
+        );
+
+        if (filtered.isEmpty) throw Exception('No torrents found for S${s}E$e');
+
+        // Pick best result (highest seeders)
+        filtered.sort((a, b) => b.seeders.compareTo(a.seeders));
+        magnetLink = filtered.first.magnet;
+
+        final settings = SettingsService();
+        final useDebrid = await settings.useDebridForStreams();
+        final debridService = await settings.getDebridService();
+
+        if (useDebrid && debridService != 'None') {
+          final debrid = DebridApi();
+          final files = debridService == 'Real-Debrid'
+              ? await debrid.resolveRealDebrid(magnetLink)
+              : await debrid.resolveTorBox(magnetLink);
+          if (files.isNotEmpty) {
+            final sStr = 'S${s}';
+            final eStr = 'E${e}';
+            final match = files.where((f) =>
+                f.filename.toUpperCase().contains(sStr) &&
+                f.filename.toUpperCase().contains(eStr)).toList();
+            if (match.isNotEmpty) {
+              fileIndex = files.indexOf(match.first);
+              streamUrl = match.first.downloadUrl;
+            } else {
+              files.sort((a, b) => b.filesize.compareTo(a.filesize));
+              streamUrl = files.first.downloadUrl;
+            }
+          }
+        } else {
+          streamUrl = await TorrentStreamService().streamTorrent(
+            magnetLink,
+            season: nextSeason,
+            episode: nextEpisode,
+          );
+          if (streamUrl != null) {
+            final idx = Uri.parse(streamUrl).queryParameters['index'];
+            if (idx != null) fileIndex = int.tryParse(idx);
+          }
+        }
+      } else if (isWebStreamr) {
+        // ── WebStreamr: fetch next episode streams ────────────────────
+        final imdbId = widget.movie!.imdbId;
+        if (imdbId == null || imdbId.isEmpty) throw Exception('No IMDB ID for WebStreamr');
+
+        final webStreamr = WebStreamrService();
+        final sources = await webStreamr.getStreams(
+          imdbId: imdbId,
+          isMovie: false,
+          season: nextSeason,
+          episode: nextEpisode,
+        );
+        if (sources.isEmpty) throw Exception('No WebStreamr sources for S${nextSeason}E$nextEpisode');
+        streamUrl = sources.first.url;
+      } else if (isAmri) {
+        // ── AMRI: re-extract for next episode ─────────────────────────
+        final extractor = StreamExtractor();
+        final result = await extractor.extractWithAmri(
+          tmdbId: widget.movie!.id.toString(),
+          isMovie: false,
+          season: nextSeason,
+          episode: nextEpisode,
+        );
+        if (result == null) throw Exception('AMRI extraction failed for S${nextSeason}E$nextEpisode');
+        streamUrl = result.url;
+        headers = result.headers.isNotEmpty ? result.headers : null;
+      } else if (widget.activeProvider != null) {
+        // ── Stream provider (vidlink, vixsrc, etc.) ───────────────────
+        final provider = StreamProviders.providers[widget.activeProvider];
+        if (provider == null || provider['tv'] == null) {
+          throw Exception('Provider ${widget.activeProvider} does not support TV');
+        }
+
+        final providerUrl = provider['tv'](
+          widget.movie!.id.toString(),
+          nextSeason,
+          nextEpisode,
+        );
+        final extractor = StreamExtractor();
+        final result = await extractor.extract(providerUrl, timeout: const Duration(seconds: 20));
+        if (result == null) throw Exception('Extraction failed for S${nextSeason}E$nextEpisode');
+        streamUrl = result.url;
+        headers = result.headers.isNotEmpty ? result.headers : null;
+      }
+
+      if (streamUrl == null || streamUrl.isEmpty) {
+        throw Exception('Could not find stream for S${nextSeason}E$nextEpisode');
+      }
+
+      if (!mounted) return;
+
+      // Navigate to new player with next episode
+      final nextTitle = '${widget.movie!.title} - S$nextSeason E$nextEpisode';
+      final navigator = Navigator.of(context);
+      navigator.pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            streamUrl: streamUrl!,
+            title: nextTitle,
+            headers: headers,
+            movie: widget.movie,
+            selectedSeason: nextSeason,
+            selectedEpisode: nextEpisode,
+            magnetLink: magnetLink,
+            fileIndex: fileIndex,
+            activeProvider: activeProvider,
+            stremioId: widget.stremioId,
+            stremioAddonBaseUrl: widget.stremioAddonBaseUrl,
+            providers: widget.providers,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[NextEp] Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Next episode error: $e')),
+        );
+        setState(() => _isLoadingNextEp = false);
+      }
+    }
   }
 
   void _showProviderMenu() {
@@ -1353,29 +1788,52 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     
     try {
       final provider = widget.providers![newProvider];
-      final String url;
-      
-      if (widget.movie!.mediaType == 'tv') {
-        url = provider['tv'](
-          widget.movie!.id.toString(),
-          widget.selectedSeason,
-          widget.selectedEpisode,
-        );
-      } else {
-        url = provider['movie'](widget.movie!.id.toString());
-      }
       
       messenger.showSnackBar(SnackBar(
         content: Text('Extracting from ${provider['name']}...'),
         duration: const Duration(seconds: 2),
       ));
+
+      String? streamUrl;
+      Map<String, String>? headers;
+      List<StreamSource>? sources;
+
+      if (newProvider == 'webstreamr' && widget.movie?.imdbId != null) {
+        final webStreamr = WebStreamrService();
+        final webStreamrSources = await webStreamr.getStreams(
+          imdbId: widget.movie!.imdbId!,
+          isMovie: widget.movie!.mediaType == 'movie',
+          season: widget.selectedSeason,
+          episode: widget.selectedEpisode,
+        );
+        if (webStreamrSources.isNotEmpty) {
+          streamUrl = webStreamrSources.first.url;
+          sources = webStreamrSources;
+        }
+      } else {
+        final String providerUrl;
+        if (widget.movie!.mediaType == 'tv') {
+          providerUrl = provider['tv'](
+            widget.movie!.id.toString(),
+            widget.selectedSeason,
+            widget.selectedEpisode,
+          );
+        } else {
+          providerUrl = provider['movie'](widget.movie!.id.toString());
+        }
+        
+        final extractor = StreamExtractor();
+        final result = await extractor.extract(providerUrl);
+        if (result != null && result.url.isNotEmpty) {
+          streamUrl = result.url;
+          headers = result.headers;
+          sources = result.sources;
+        }
+      }
       
-      final extractor = StreamExtractor();
-      final result = await extractor.extract(url);
-      
-      if (result != null && result.url.isNotEmpty) {
+      if (streamUrl != null && streamUrl.isNotEmpty) {
         await _player.open(
-          Media(result.url, httpHeaders: result.headers),
+          Media(streamUrl, httpHeaders: headers),
         );
         
         if (currentPos.inSeconds > 0) {
@@ -1384,6 +1842,11 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         
         setState(() {
           _currentProvider = newProvider;
+          _currentSources = sources;
+          _currentUrl = streamUrl;
+          _currentFallbackSourceIndex = 0; // Reset index on manual switch
+          _hasError = false;
+          _errorMessage = '';
         });
         
         if (mounted) {
@@ -1459,7 +1922,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     } else if (key == LogicalKeyboardKey.arrowLeft) {
       final delta = HardwareKeyboard.instance.isShiftPressed
           ? const Duration(seconds: -30)
-          : const Duration(seconds: -5);
+          : const Duration(seconds: -10);
       var newPos = _positionNotifier.value + delta;
       if (newPos < Duration.zero) newPos = Duration.zero;
       if (newPos > _durationNotifier.value) newPos = _durationNotifier.value;
@@ -1467,7 +1930,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     } else if (key == LogicalKeyboardKey.arrowRight) {
       final delta = HardwareKeyboard.instance.isShiftPressed
           ? const Duration(seconds: 30)
-          : const Duration(seconds: 5);
+          : const Duration(seconds: 10);
       var newPos = _positionNotifier.value + delta;
       if (newPos < Duration.zero) newPos = Duration.zero;
       if (newPos > _durationNotifier.value) newPos = _durationNotifier.value;
@@ -1524,8 +1987,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_hasError) return _buildErrorScreen();
-
     return Theme(
         data: ThemeData.dark(),
         child: Scaffold(
@@ -1575,10 +2036,60 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                     child: _buildControlsOverlay(),
                   ),
                 ),
+
+                // ── Embedded Error Overlay ───────────────────────────────
+                if (_hasError) _buildEmbeddedError(),
               ],
             ),
           ),
         ),
+    );
+  }
+
+  Widget _buildEmbeddedError() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.6),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
+            const SizedBox(height: 20),
+            const Text(
+              'Playback Failed',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 60),
+              child: Text(
+                _errorMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GlassPillButton(
+                  text: 'Retry',
+                  onTap: _initPlayback,
+                ),
+                const SizedBox(width: 16),
+                GlassPillButton(
+                  text: 'Switch Provider',
+                  onTap: _showProviderMenu,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1646,9 +2157,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
               icon: Icons.subtitles_outlined,
               onPressed: _showSubtitlesMenu,
             ),
-            // Show sources button only for Amri provider
-            if (widget.activeProvider == 'amri' && widget.sources != null && widget.sources!.isNotEmpty) ...[
-              const SizedBox(width: 6),
+            // Show sources button only for Amri or WebStreamr provider
+            if ((_currentProvider == 'amri' || _currentProvider == 'webstreamr') && _currentSources != null && _currentSources!.isNotEmpty) ...[
+              const SizedBox(width: 8),
               GlassIconButton(
                 icon: Icons.video_library_outlined,
                 onPressed: _showSourcesMenu,
@@ -1676,6 +2187,48 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           ),
         ),
       ),
+
+      // ── NEXT EPISODE OVERLAY ──────────────────────────────────────────
+      if (_showNextEpButton)
+        Positioned(
+          bottom: 100,
+          right: 24,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _isLoadingNextEp ? null : _nextEpisode,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_isLoadingNextEp)
+                    const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                    )
+                  else
+                    const Text(
+                      'Next Episode',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_rounded,
+                      color: Colors.white, size: 20),
+                ]),
+              ),
+            ),
+          ),
+        ),
 
       // ── BOTTOM CONTROLS ────────────────────────────────────────────────
       Positioned(
@@ -1738,10 +2291,14 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                           inactiveTrackColor: Colors.white24,
                           thumbColor: Colors.white,
                         ),
-                        child: Slider(
-                          value: vol,
-                          min: 0, max: 150,
-                          onChanged: (v) => _player.setVolume(v),
+                        child: Focus(
+                          canRequestFocus: false,
+                          descendantsAreFocusable: false,
+                          child: Slider(
+                            value: vol,
+                            min: 0, max: 150,
+                            onChanged: (v) => _player.setVolume(v),
+                          ),
                         ),
                       ),
                     ),
@@ -1857,47 +2414,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     ]);
   }
 
-  Widget _buildErrorScreen() {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 52),
-          const SizedBox(height: 16),
-          const Text('Playback Error',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-          if (_errorMessage.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(_errorMessage,
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-                textAlign: TextAlign.center),
-          ],
-          const SizedBox(height: 24),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED)),
-              onPressed: () {
-                setState(() { _hasError = false; _errorMessage = ''; });
-                _initPlayback();
-              },
-            ),
-            const SizedBox(width: 12),
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back',
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ]),
-        ]),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

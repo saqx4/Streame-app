@@ -6,6 +6,7 @@ import '../api/audiobook_player_service.dart';
 import '../api/music_player_service.dart';
 import '../utils/app_theme.dart';
 import 'audiobook_player_screen.dart';
+import 'audiobook_downloads_screen.dart';
 
 class AudiobookScreen extends StatefulWidget {
   const AudiobookScreen({super.key});
@@ -243,14 +244,29 @@ class _AudiobookScreenState extends State<AudiobookScreen> with WidgetsBindingOb
             'Audiobooks',
             style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
           ),
-          IconButton(
-            icon: Icon(
-              _showLiked ? Icons.favorite : Icons.favorite_border,
-              color: _showLiked ? Colors.redAccent : Colors.white,
-              size: 28,
-            ),
-            onPressed: _toggleLikedView,
-            tooltip: 'Liked Audiobooks',
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.download_rounded, color: Colors.white, size: 26),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AudiobookDownloadsScreen()),
+                  );
+                },
+                tooltip: 'Downloads',
+              ),
+              IconButton(
+                icon: Icon(
+                  _showLiked ? Icons.favorite : Icons.favorite_border,
+                  color: _showLiked ? Colors.redAccent : Colors.white,
+                  size: 28,
+                ),
+                onPressed: _toggleLikedView,
+                tooltip: 'Liked Audiobooks',
+              ),
+            ],
           ),
         ],
       ),

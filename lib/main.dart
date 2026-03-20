@@ -10,7 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'api/audio_handler.dart';
 import 'api/audiobook_player_service.dart';
-import 'api/torr_server_service.dart';
+import 'api/torrent_stream_service.dart';
 import 'api/tmdb_api.dart';
 import 'api/local_server_service.dart';
 import 'api/music_player_service.dart';
@@ -122,7 +122,7 @@ class _PlayTorrioAppState extends State<PlayTorrioApp> with WidgetsBindingObserv
       bool isPreventClose = await windowManager.isPreventClose();
       if (isPreventClose) {
         await PlayerPoolService().dispose();
-        await TorrServerService().cleanup();
+        await TorrentStreamService().cleanup();
         await WebViewCleanup.cleanupWebView2Cache();
         await windowManager.destroy();
       }
@@ -133,7 +133,7 @@ class _PlayTorrioAppState extends State<PlayTorrioApp> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       PlayerPoolService().dispose();
-      TorrServerService().cleanup();
+      TorrentStreamService().cleanup();
       WebViewCleanup.cleanupWebView2Cache();
     }
   }
@@ -205,20 +205,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     debugPrint('[Boot] Step 2: Initializing services in parallel...');
     final api = TmdbApi();
     
-    debugPrint('[Boot]   - Starting TorrServer...');
+    debugPrint('[Boot]   - Starting TorrentStream engine...');
     debugPrint('[Boot]   - Starting LocalServer...');
     debugPrint('[Boot]   - Initializing MusicPlayer...');
     debugPrint('[Boot]   - Fetching TMDB data (trending, popular, top rated, now playing)...');
     
     final results = await Future.wait([
-      TorrServerService().start().timeout(
+      TorrentStreamService().start().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          debugPrint('[Boot] ⚠ TorrServer startup timed out after 10s');
+          debugPrint('[Boot] ⚠ TorrentStream startup timed out after 10s');
           return false;
         },
       ).catchError((e, st) {
-        debugPrint('[Boot] ✗ TorrServer error: $e');
+        debugPrint('[Boot] ✗ TorrentStream error: $e');
         debugPrint('[Boot] Stack trace: $st');
         return false;
       }),
@@ -247,9 +247,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     ]);
 
     debugPrint('[Boot] Step 3: Service initialization results:');
-    final torrServerReady = (results[0] as bool?) == true;
+    final torrentEngineReady = (results[0] as bool?) == true;
     // LocalServer and MusicPlayer return void, just check if they completed without throwing
-    debugPrint('[Boot]   TorrServer: ${torrServerReady ? "✓ READY" : "✗ FAILED"}');
+    debugPrint('[Boot]   TorrentStream: ${torrentEngineReady ? "✓ READY" : "✗ FAILED"}');
     debugPrint('[Boot]   LocalServer: ✓ READY');
     debugPrint('[Boot]   MusicPlayer: ✓ READY');
     

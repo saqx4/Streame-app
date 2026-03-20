@@ -29,11 +29,46 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   final List<String> _selectedGenreNames = [];
   final List<int> _selectedYears = [];
   double _minRating = 0;
+  String? _selectedLanguage; // ISO 639-1 code
 
   // Genre Maps
   final Map<String, int> _movieGenreMap = {};
   final Map<String, int> _tvGenreMap = {};
   List<String> _allGenreNames = [];
+
+  // Language map (display name -> ISO 639-1 code)
+  static const Map<String, String> _languageMap = {
+    'English': 'en',
+    'Spanish': 'es',
+    'French': 'fr',
+    'German': 'de',
+    'Italian': 'it',
+    'Portuguese': 'pt',
+    'Russian': 'ru',
+    'Japanese': 'ja',
+    'Korean': 'ko',
+    'Chinese': 'zh',
+    'Hindi': 'hi',
+    'Arabic': 'ar',
+    'Turkish': 'tr',
+    'Thai': 'th',
+    'Swedish': 'sv',
+    'Danish': 'da',
+    'Norwegian': 'no',
+    'Finnish': 'fi',
+    'Dutch': 'nl',
+    'Polish': 'pl',
+    'Czech': 'cs',
+    'Romanian': 'ro',
+    'Hungarian': 'hu',
+    'Greek': 'el',
+    'Hebrew': 'he',
+    'Indonesian': 'id',
+    'Malay': 'ms',
+    'Vietnamese': 'vi',
+    'Tagalog': 'tl',
+    'Ukrainian': 'uk',
+  };
 
   @override
   bool get wantKeepAlive => true;
@@ -92,6 +127,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
             genres: genreIds,
             year: year,
             minRating: _minRating > 0 ? _minRating : null,
+            language: _selectedLanguage,
           ));
         }
         
@@ -103,6 +139,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
             genres: genreIds,
             year: year,
             minRating: _minRating > 0 ? _minRating : null,
+            language: _selectedLanguage,
           ));
         }
       }
@@ -304,6 +341,80 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
     );
   }
 
+  void _showLanguageMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.bgCard,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.6,
+              maxChildSize: 0.9,
+              builder: (context, scrollController) {
+                final languages = _languageMap.keys.toList();
+                return ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const Text("Select Language", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilterChip(
+                          label: const Text('Any'),
+                          selected: _selectedLanguage == null,
+                          onSelected: (_) {
+                            setModalState(() => _selectedLanguage = null);
+                          },
+                          backgroundColor: Colors.white10,
+                          selectedColor: AppTheme.primaryColor,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(color: _selectedLanguage == null ? Colors.white : Colors.white70),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
+                        ),
+                        ...languages.map((name) {
+                          final code = _languageMap[name]!;
+                          final isSelected = _selectedLanguage == code;
+                          return FilterChip(
+                            label: Text(name),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              setModalState(() => _selectedLanguage = isSelected ? null : code);
+                            },
+                            backgroundColor: Colors.white10,
+                            selectedColor: AppTheme.primaryColor,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.white70),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() => _currentPage = 1);
+                        _loadData();
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                      child: const Text("Apply", style: TextStyle(color: Colors.white)),
+                    )
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showRatingMenu() {
     showDialog(
       context: context,
@@ -390,6 +501,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                         _FilterButton(label: "Genres", onTap: _showGenreMenu, isActive: _selectedGenreNames.isNotEmpty),
                         _FilterButton(label: "Year", onTap: _showYearMenu, isActive: _selectedYears.isNotEmpty),
                         _FilterButton(label: "Rating", onTap: _showRatingMenu, isActive: _minRating > 0),
+                        _FilterButton(label: _selectedLanguage != null ? "Lang: ${_languageMap.entries.firstWhere((e) => e.value == _selectedLanguage, orElse: () => MapEntry(_selectedLanguage!, _selectedLanguage!)).key}" : "Language", onTap: _showLanguageMenu, isActive: _selectedLanguage != null),
                       ],
                     ),
                   ),

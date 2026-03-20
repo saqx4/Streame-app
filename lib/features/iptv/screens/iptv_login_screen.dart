@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:http/http.dart' as http;
+import 'package:visibility_detector/visibility_detector.dart';
+import '../models/iptv_credential.dart';
 import '../services/iptv_service.dart';
 import 'iptv_home_screen.dart';
 
@@ -22,6 +25,7 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
   bool _obscurePassword = true;
   bool _checkingSession = true;
   bool _useDefault = true;
+  bool _sessionChecked = false;
   String? _error;
 
   final _iptvService = IptvService();
@@ -30,15 +34,27 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _checkExistingSession();
+    // Pre-load credential data immediately (fast, no navigation).
+    // Auto-navigation to IptvHomeScreen is deferred until the tab
+    // is actually visible (handled by VisibilityDetector in build).
+    _preloadSession();
   }
 
-  Future<void> _checkExistingSession() async {
-    await _iptvService.loadSavedCredential();
-    if (_iptvService.isLoggedIn && mounted) {
-      _navigateToHome();
-    } else if (mounted) {
+  Future<void> _preloadSession() async {
+    try {
+      await _iptvService.loadSavedCredential();
+    } catch (_) {}
+    if (mounted) {
       setState(() => _checkingSession = false);
+    }
+  }
+
+  void _onVisibilityChanged(VisibilityInfo info) {
+    if (!_sessionChecked && info.visibleFraction > 0) {
+      _sessionChecked = true;
+      if (_iptvService.isLoggedIn && mounted) {
+        _navigateToHome();
+      }
     }
   }
 
@@ -96,26 +112,33 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     if (_checkingSession) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0F),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.live_tv, size: 64, color: Color(0xFF00E5FF)),
-              const SizedBox(height: 20),
-              Text('IPTV', style: GoogleFonts.bebasNeue(fontSize: 32, color: Colors.white, letterSpacing: 4)),
-              const SizedBox(height: 20),
-              const CircularProgressIndicator(color: Color(0xFF00E5FF)),
-            ],
+      return VisibilityDetector(
+        key: const Key('iptv-login-visibility'),
+        onVisibilityChanged: (_) {},
+        child: Scaffold(
+          backgroundColor: const Color(0xFF0A0A0F),
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.live_tv, size: 64, color: Color(0xFF00E5FF)),
+                const SizedBox(height: 20),
+                Text('IPTV', style: GoogleFonts.bebasNeue(fontSize: 32, color: Colors.white, letterSpacing: 4)),
+                const SizedBox(height: 20),
+                const CircularProgressIndicator(color: Color(0xFF00E5FF)),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0F),
-      body: Container(
+    return VisibilityDetector(
+      key: const Key('iptv-login-visibility'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A0A0F),
+        body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -149,6 +172,7 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -193,11 +217,13 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
     );
   }
 
+  static const String _defaultIptvUrl = 'https://iptvplaytorrio.pages.dev';
+
   Widget _buildDefaultWebView() {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: InAppWebView(
-        initialUrlRequest: URLRequest(url: WebUri('https://iptvplaytorrio.pages.dev')),
+        initialUrlRequest: URLRequest(url: WebUri(_defaultIptvUrl)),
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
           domStorageEnabled: true,
@@ -205,7 +231,34 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
           loadWithOverviewMode: true,
           supportZoom: false,
           transparentBackground: true,
+          mediaPlaybackRequiresUserGesture: false,
+          allowsInlineMediaPlayback: true,
+          supportMultipleWindows: false,
         ),
+        shouldOverrideUrlLoading: (ctrl, action) async {
+          final url = action.request.url?.toString() ?? '';
+          final embedHost = Uri.tryParse(_defaultIptvUrl)?.host ?? '';
+          // Allow all iframe / sub-frame loads (video players, embeds)
+          if (!action.isForMainFrame) {
+            return NavigationActionPolicy.ALLOW;
+          }
+          // Allow navigation within the main IPTV domain
+          if (url.contains(embedHost)) {
+            return NavigationActionPolicy.ALLOW;
+          }
+          // Main-frame navigation away from our domain = ad click
+          // Silently ping the ad URL so the tracker thinks it was opened
+          http.get(Uri.parse(url), headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/122.0.0.0 Safari/537.36',
+            'Referer': _defaultIptvUrl,
+          }).catchError((_) => http.Response('', 200));
+          return NavigationActionPolicy.CANCEL;
+        },
+        onCreateWindow: (controller, createWindowAction) async {
+          return false;
+        },
       ),
     );
   }
@@ -358,6 +411,137 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
                         ),
                       ),
                     ),
+
+                    // ── Saved Playlists ──
+                    if (_iptvService.savedCredentials.isNotEmpty) ...[
+                      const SizedBox(height: 32),
+                      Row(
+                        children: [
+                          Container(width: 3, height: 18, decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF),
+                            borderRadius: BorderRadius.circular(2),
+                          )),
+                          const SizedBox(width: 10),
+                          Text('Saved Playlists', style: GoogleFonts.poppins(
+                            color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600,
+                          )),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ..._iptvService.savedCredentials.map((cred) {
+                        final isActive = _iptvService.credential?.id == cred.id;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () async {
+                                setState(() => _loading = true);
+                                try {
+                                  await _iptvService.switchToCredential(cred);
+                                  if (mounted) _navigateToHome();
+                                } catch (e) {
+                                  if (mounted) setState(() {
+                                    _error = 'Failed to connect: ${e.toString().replaceFirst("Exception: ", "")}';
+                                    _loading = false;
+                                  });
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: isActive
+                                      ? const Color(0xFF1565C0).withValues(alpha: 0.15)
+                                      : Colors.white.withValues(alpha: 0.05),
+                                  border: Border.all(
+                                    color: isActive
+                                        ? const Color(0xFF1565C0).withValues(alpha: 0.5)
+                                        : Colors.white.withValues(alpha: 0.08),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      cred.type == IptvLoginType.xtream ? Icons.dns_outlined : Icons.playlist_play,
+                                      color: isActive ? const Color(0xFF00E5FF) : Colors.white38,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            cred.name,
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 13,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            cred.type == IptvLoginType.xtream
+                                                ? 'Xtream • ${cred.username}'
+                                                : 'M3U Playlist',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.4),
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isActive)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text('Active', style: GoogleFonts.poppins(
+                                          color: const Color(0xFF00E5FF), fontSize: 10, fontWeight: FontWeight.w600,
+                                        )),
+                                      ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            backgroundColor: const Color(0xFF1A1A2E),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                            title: const Text('Remove Playlist', style: TextStyle(color: Colors.white)),
+                                            content: Text('Remove "${cred.name}"?', style: const TextStyle(color: Colors.white70)),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true && mounted) {
+                                          await _iptvService.removeCredential(cred.id);
+                                          setState(() {});
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
                   ],
                 ),
               ),

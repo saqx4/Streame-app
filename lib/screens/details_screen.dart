@@ -7,7 +7,7 @@ import '../models/movie.dart';
 import '../api/tmdb_api.dart';
 import '../models/torrent_result.dart';
 import '../api/torrent_api.dart';
-import '../api/torr_server_service.dart';
+import '../api/torrent_stream_service.dart';
 import '../api/stremio_service.dart';
 import '../api/torrent_filter.dart';
 import '../api/settings_service.dart';
@@ -16,6 +16,7 @@ import '../services/jackett_service.dart';
 import '../services/prowlarr_service.dart';
 import '../services/link_resolver.dart';
 import '../services/watch_history_service.dart';
+import '../services/episode_watched_service.dart';
 import '../utils/extensions.dart';
 import '../utils/app_theme.dart';
 import '../widgets/loading_overlay.dart';
@@ -70,6 +71,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
   Map<String, dynamic>? _seasonData;
   bool _isLoadingSeason = false;
 
+  // Episode watched tracking
+  final EpisodeWatchedService _episodeWatchedService = EpisodeWatchedService();
+  Set<String> _watchedEpisodes = {};
+
   // Collection state
   List<Map<String, dynamic>> _collectionItems = [];
   bool _isCollection = false;
@@ -101,6 +106,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _checkHistory();
     _loadSortPreference();
     _checkIndexerConfiguration();
+    _loadWatchedEpisodes();
     _fetchDetails();
   }
 
@@ -126,6 +132,16 @@ class _DetailsScreenState extends State<DetailsScreen> {
       episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
     );
     if (mounted) setState(() => _lastProgress = progress);
+  }
+
+  Future<void> _loadWatchedEpisodes() async {
+    final set = await _episodeWatchedService.getWatchedSet(_movie.id);
+    if (mounted) setState(() => _watchedEpisodes = set);
+  }
+
+  Future<void> _toggleEpisodeWatched(int season, int episode) async {
+    await _episodeWatchedService.toggle(_movie.id, season, episode);
+    await _loadWatchedEpisodes();
   }
 
   Future<void> _loadSortPreference() async {
@@ -426,6 +442,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         } else {
           _fetchStremioStreams();
         }
+        _loadWatchedEpisodes();
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingSeason = false);
@@ -941,11 +958,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
     final useDebrid = await _settings.useDebridForStreams();
     final debridService = await _settings.getDebridService();
 
+    // Determine stremio item ID for resume (custom ID or IMDB ID)
+    final stremioId = widget.stremioItem?['id']?.toString() ?? _movie.imdbId;
+    final stremioAddonBaseUrl = stream['_addonBaseUrl']?.toString() ?? _selectedSourceId;
+
     if (stream['url'] != null) {
       if (!mounted) return;
-      // Determine stremio item ID for resume (custom ID or IMDB ID)
-      final stremioId = widget.stremioItem?['id']?.toString() ?? _movie.imdbId;
-      final stremioAddonBaseUrl = stream['_addonBaseUrl']?.toString() ?? _selectedSourceId;
       Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(
         streamUrl: stream['url'], title: _movie.title,
         headers: Map<String, String>.from(stream['behaviorHints']?['proxyHeaders']?['request'] ?? {}),
@@ -989,6 +1007,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
           message: useDebrid && debridService != 'None' ? 'Resolving with $debridService...' : 'Starting Torrent Engine...'));
       final navigator = Navigator.of(context);
       String? url;
+      int? resolvedFileIndex;
       try {
         if (useDebrid && debridService != 'None') {
           final debrid = DebridApi();
@@ -999,18 +1018,26 @@ class _DetailsScreenState extends State<DetailsScreen> {
               final s = 'S${_selectedSeason.toString().padLeft(2, '0')}';
               final e = 'E${_selectedEpisode.toString().padLeft(2, '0')}';
               final match = files.where((f) => f.filename.toUpperCase().contains(s) && f.filename.toUpperCase().contains(e)).toList();
-              files.sort((a, b) => b.filesize.compareTo(a.filesize));
-              url = match.isNotEmpty ? match.first.downloadUrl : files.first.downloadUrl;
+              if (match.isNotEmpty) {
+                resolvedFileIndex = files.indexOf(match.first);
+                url = match.first.downloadUrl;
+              } else {
+                files.sort((a, b) => b.filesize.compareTo(a.filesize));
+                url = files.first.downloadUrl;
+              }
             } else {
               files.sort((a, b) => b.filesize.compareTo(a.filesize));
               url = files.first.downloadUrl;
             }
           }
         } else {
-          url = await TorrServerService().streamTorrent(magnet,
+          url = await TorrentStreamService().streamTorrent(magnet,
             season: _movie.mediaType == 'tv' ? _selectedSeason : null,
-            episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
-            fileIdx: fileIdx);
+            episode: _movie.mediaType == 'tv' ? _selectedEpisode : null);
+          if (url != null) {
+            final idx = Uri.parse(url).queryParameters['index'];
+            if (idx != null) resolvedFileIndex = int.tryParse(idx);
+          }
         }
       } catch (e) { debugPrint('Stremio hash error: $e'); }
       if (navigator.canPop()) navigator.pop();
@@ -1019,7 +1046,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
           streamUrl: url!, title: _movie.title, magnetLink: magnet, movie: _movie,
           selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
           selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
-          startPosition: startPosition)));
+          fileIndex: resolvedFileIndex,
+          startPosition: startPosition,
+          activeProvider: 'stremio_direct',
+          stremioId: stremioId,
+          stremioAddonBaseUrl: stremioAddonBaseUrl)));
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to resolve stream.')));
       }
@@ -1096,6 +1127,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
     String? url;
     String? magnetLink = result.magnet;
+    int? resolvedFileIndex;
 
     try {
       if (!magnetLink.startsWith('magnet:')) {
@@ -1138,17 +1170,26 @@ class _DetailsScreenState extends State<DetailsScreen> {
             final s = 'S${_selectedSeason.toString().padLeft(2, '0')}';
             final e = 'E${_selectedEpisode.toString().padLeft(2, '0')}';
             final match = files.where((f) => f.filename.toUpperCase().contains(s) && f.filename.toUpperCase().contains(e)).toList();
-            files.sort((a, b) => b.filesize.compareTo(a.filesize));
-            url = match.isNotEmpty ? match.first.downloadUrl : files.first.downloadUrl;
+            if (match.isNotEmpty) {
+              resolvedFileIndex = files.indexOf(match.first);
+              url = match.first.downloadUrl;
+            } else {
+              files.sort((a, b) => b.filesize.compareTo(a.filesize));
+              url = files.first.downloadUrl;
+            }
           } else {
             files.sort((a, b) => b.filesize.compareTo(a.filesize));
             url = files.first.downloadUrl;
           }
         }
       } else {
-        url = await TorrServerService().streamTorrent(magnetLink,
+        url = await TorrentStreamService().streamTorrent(magnetLink,
           season: _movie.mediaType == 'tv' ? _selectedSeason : null,
           episode: _movie.mediaType == 'tv' ? _selectedEpisode : null);
+        if (url != null) {
+          final idx = Uri.parse(url).queryParameters['index'];
+          if (idx != null) resolvedFileIndex = int.tryParse(idx);
+        }
       }
     } catch (e) {
       debugPrint('Stream error: $e');
@@ -1163,7 +1204,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
         streamUrl: url!, title: result.name, magnetLink: magnetLink, movie: _movie,
         selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
         selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
-        startPosition: startPosition)));
+        fileIndex: resolvedFileIndex,
+        startPosition: startPosition,
+        activeProvider: 'torrent')));
     }
   }
 
@@ -1676,6 +1719,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
               final sel = _selectedEpisode == epNum;
               final epName = ep['name'] ?? ep['title'] ?? 'Episode $epNum';
               final thumbnail = ep['still_path'] ?? ep['thumbnail'];
+              final isWatched = _watchedEpisodes.contains('${_movie.id}_S${_selectedSeason}_E$epNum');
               
               return FocusableControl(
                 onTap: () {
@@ -1731,6 +1775,24 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.65), borderRadius: BorderRadius.circular(4)),
                               child: Text('$epNum', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          Positioned(
+                            top: 4, right: 4,
+                            child: GestureDetector(
+                              onTap: () => _toggleEpisodeWatched(_selectedSeason, epNum),
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: isWatched ? Colors.green : Colors.black.withValues(alpha: 0.55),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isWatched ? Icons.check : Icons.check,
+                                  size: 14,
+                                  color: isWatched ? Colors.white : Colors.white38,
+                                ),
+                              ),
                             ),
                           ),
                         ]),

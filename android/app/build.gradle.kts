@@ -34,12 +34,6 @@ android {
         multiDexEnabled = true
     }
 
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("src/main/jniLibs")
-        }
-    }
-
     buildTypes {
         release {
             // Enable minification and resource shrinking

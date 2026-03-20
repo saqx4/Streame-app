@@ -9,9 +9,10 @@ import '../api/stremio_service.dart';
 import '../api/stream_extractor.dart';
 import '../api/stream_providers.dart';
 import '../api/amri_extractor.dart';
-import '../api/torr_server_service.dart';
+import '../api/torrent_stream_service.dart';
 import '../api/debrid_api.dart';
 import '../api/trakt_service.dart';
+import '../api/webstreamr_service.dart';
 import '../services/watch_history_service.dart';
 import '../services/my_list_service.dart';
 import '../models/movie.dart';
@@ -274,8 +275,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             child: Column(
               children: [
                 const _ContinueWatchingSection(),
-                _MovieSection(title: 'Trending Now', future: _trendingFuture, onMovieTap: _openDetails),
-                _MovieSection(title: 'Popular Movies', future: _popularFuture, onMovieTap: _openDetails),
+                _MovieSection(title: 'Trending Now', icon: Icons.local_fire_department_rounded, future: _trendingFuture, onMovieTap: _openDetails),
+                _MovieSection(title: 'Popular Movies', icon: Icons.movie_filter_rounded, future: _popularFuture, onMovieTap: _openDetails, isPortrait: true, showRank: true),
                 // ── Stremio Addon Catalogs ──
                 if (_catalogsLoaded)
                   ..._stremioCatalogs.map((cat) {
@@ -289,8 +290,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       onShowAll: () => _openStremioCatalog(cat),
                     );
                   }),
-                _MovieSection(title: 'Top Rated', future: _topRatedFuture, isPortrait: true, onMovieTap: _openDetails),
-                _MovieSection(title: 'New Releases', future: _nowPlayingFuture, onMovieTap: _openDetails),
+                _MovieSection(title: 'Top Rated', icon: Icons.star_rounded, future: _topRatedFuture, onMovieTap: _openDetails),
+                _MovieSection(title: 'New Releases', icon: Icons.new_releases_rounded, future: _nowPlayingFuture, onMovieTap: _openDetails, isPortrait: true),
                 const SizedBox(height: 100),
               ],
             ),
@@ -310,19 +311,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       baseColor: AppTheme.bgCard,
       highlightColor: Colors.white10,
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.65,
+        height: MediaQuery.of(context).size.height * 0.72,
         color: AppTheme.bgCard,
       ),
     );
   }
 
   Widget _buildHeroCarousel(List<Movie> movies) {
-    final height = MediaQuery.of(context).size.height * 0.65;
+    final height = MediaQuery.of(context).size.height * 0.72;
+    final heroMovie = movies[_heroIndex];
     
     return SizedBox(
       height: height,
       child: Stack(
         children: [
+          // Background image with parallax-like crossfade
           PageView.builder(
             controller: _heroController,
             itemCount: movies.length,
@@ -340,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     alignment: Alignment.topCenter,
                     placeholder: (c, u) => Container(color: AppTheme.bgCard),
                   ),
+                  // Multi-layer gradient for depth
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -347,11 +351,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          AppTheme.bgDark.withValues(alpha: 0.3),
-                          AppTheme.bgDark.withValues(alpha: 0.9),
+                          AppTheme.bgDark.withValues(alpha: 0.15),
+                          AppTheme.bgDark.withValues(alpha: 0.7),
                           AppTheme.bgDark,
                         ],
-                        stops: const [0.0, 0.5, 0.85, 1.0],
+                        stops: const [0.0, 0.35, 0.75, 1.0],
+                      ),
+                    ),
+                  ),
+                  // Side vignette
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          AppTheme.bgDark.withValues(alpha: 0.5),
+                          Colors.transparent,
+                          Colors.transparent,
+                          AppTheme.bgDark.withValues(alpha: 0.3),
+                        ],
+                        stops: const [0.0, 0.2, 0.8, 1.0],
                       ),
                     ),
                   ),
@@ -360,96 +380,147 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             },
           ),
           
+          // Content overlay
           Positioned(
             bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [AppTheme.bgDark, Colors.transparent],
-                  stops: [0.2, 1.0],
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Genre chips
+                  if (heroMovie.genres.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: heroMovie.genres.take(3).map((g) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: Text(g, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+                        )).toList(),
+                      ),
+                    ),
+                  // Title
                   Text(
-                    movies[_heroIndex].title,
+                    heroMovie.title,
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      shadows: [const Shadow(color: Colors.black, blurRadius: 20)],
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                      shadows: [const Shadow(color: Colors.black, blurRadius: 30)],
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
                       color: Colors.white,
+                      height: 1.1,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  // Meta row
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
+                          color: Colors.amber.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('TMDB', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                            const SizedBox(width: 3),
+                            Text(
+                              heroMovie.voteAverage.toStringAsFixed(1),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${movies[_heroIndex].voteAverage.toStringAsFixed(1)} ⭐',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        movies[_heroIndex].releaseDate.split('-').first,
-                        style: const TextStyle(color: Colors.white70),
-                      ),
+                      const SizedBox(width: 10),
+                      if (heroMovie.releaseDate.isNotEmpty)
+                        Text(
+                          heroMovie.releaseDate.split('-').first,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      if (heroMovie.mediaType == 'tv') ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('TV SERIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        ),
+                      ],
                     ],
                   ),
+                  // Synopsis
+                  if (heroMovie.overview.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        heroMovie.overview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 20),
+                  // Action buttons
                   Row(
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () => _openDetails(movies[_heroIndex]),
-                        icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                        onPressed: () => _openDetails(heroMovie),
+                        icon: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
                         label: const Text("Watch Now"),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 8,
+                          shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      OutlinedButton.icon(
-                        onPressed: () => _openDetails(movies[_heroIndex]),
-                        icon: const Icon(Icons.info_outline),
-                        label: const Text("Details"),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white30),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(width: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                        ),
+                        child: IconButton(
+                          onPressed: () => _openDetails(heroMovie),
+                          icon: const Icon(Icons.info_outline_rounded, color: Colors.white70),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      _MyListButton.movie(movie: heroMovie),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  // Page indicator
                   Center(
                     child: SmoothPageIndicator(
                       controller: _heroController,
                       count: movies.length,
-                      effect: const ExpandingDotsEffect(
+                      effect: WormEffect(
                         activeDotColor: AppTheme.primaryColor,
-                        dotColor: Colors.white24,
+                        dotColor: Colors.white.withValues(alpha: 0.2),
                         dotHeight: 6,
                         dotWidth: 6,
-                        expansionFactor: 4,
+                        spacing: 8,
                       ),
                     ),
                   ),
@@ -465,15 +536,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
 class _MovieSection extends StatefulWidget {
   final String title;
+  final IconData? icon;
   final Future<List<Movie>> future;
   final Function(Movie) onMovieTap;
   final bool isPortrait;
+  final bool showRank;
 
   const _MovieSection({
     required this.title,
+    this.icon,
     required this.future,
     required this.onMovieTap,
     this.isPortrait = false,
+    this.showRank = false,
   });
 
   @override
@@ -514,54 +589,113 @@ class _MovieSectionState extends State<_MovieSection> {
     return FutureBuilder<List<Movie>>(
       future: widget.future,
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          // Shimmer placeholder while loading
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Shimmer.fromColors(
+                      baseColor: AppTheme.bgCard,
+                      highlightColor: Colors.white10,
+                      child: Container(height: 20, width: 140, decoration: BoxDecoration(color: AppTheme.bgCard, borderRadius: BorderRadius.circular(6))),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: widget.isPortrait ? 240 : 180,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: 5,
+                      separatorBuilder: (_, _) => const SizedBox(width: 14),
+                      itemBuilder: (_, _) => Shimmer.fromColors(
+                        baseColor: AppTheme.bgCard,
+                        highlightColor: Colors.white10,
+                        child: Container(
+                          width: widget.isPortrait ? 150 : 280,
+                          decoration: BoxDecoration(color: AppTheme.bgCard, borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }
         final movies = snapshot.data!;
         
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      FocusableControl(
-                        onTap: _scrollLeft,
-                        borderRadius: 20,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4.0),
-                          child: Icon(Icons.arrow_back_ios_new, color: AppTheme.primaryColor, size: 20),
-                        ),
+                  // Accent bar
+                  Container(
+                    width: 4,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  if (widget.icon != null) ...[
+                    Icon(widget.icon, color: AppTheme.primaryColor, size: 20),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                  ),
+                  FocusableControl(
+                    onTap: _scrollLeft,
+                    borderRadius: 20,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 8),
-                      FocusableControl(
-                        onTap: _scrollRight,
-                        borderRadius: 20,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4.0),
-                          child: Icon(Icons.arrow_forward_ios, color: AppTheme.primaryColor, size: 20),
-                        ),
+                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white54, size: 16),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  FocusableControl(
+                    onTap: _scrollRight,
+                    borderRadius: 20,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
                       ),
-                    ],
+                      child: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+                    ),
                   ),
                 ],
               ),
             ),
             SizedBox(
-              height: widget.isPortrait ? 260 : 180,
+              height: widget.isPortrait ? 260 : 190,
               child: ListView.separated(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: movies.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 16),
+                separatorBuilder: (_, _) => SizedBox(width: widget.showRank ? 6 : 14),
                 itemBuilder: (context, index) => _MovieCard(
                   movie: movies[index],
                   onTap: () => widget.onMovieTap(movies[index]),
                   isPortrait: widget.isPortrait,
+                  rank: widget.showRank ? index + 1 : null,
                 ),
               ),
             ),
@@ -575,11 +709,13 @@ class _MovieSectionState extends State<_MovieSection> {
 class _MovieCard extends StatelessWidget {
   final Movie movie;
   final bool isPortrait;
+  final int? rank;
   final VoidCallback onTap;
 
   const _MovieCard({
     required this.movie,
     this.isPortrait = false,
+    this.rank,
     required this.onTap,
   });
 
@@ -588,81 +724,155 @@ class _MovieCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
     
-    final width = isPortrait 
-        ? (isDesktop ? 200.0 : 160.0) 
-        : (isDesktop ? 340.0 : 280.0);
+    final cardWidth = isPortrait 
+        ? (isDesktop ? 165.0 : 140.0) 
+        : (isDesktop ? 320.0 : 270.0);
         
     final image = isPortrait ? movie.posterPath : movie.backdropPath;
     final imageUrl = image.isNotEmpty ? TmdbApi.getImageUrl(image) : '';
+    final hasRank = rank != null;
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: 12,
-      child: Container(
-        width: width,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (c, u) => Container(color: AppTheme.bgCard),
-                errorWidget: (c, u, e) => const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
-              )
-            else
-              Center(child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
-            
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
-                  stops: [0.6, 1.0],
-                ),
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Big rank number
+        if (hasRank)
+          Text(
+            '$rank',
+            style: TextStyle(
+              fontSize: isPortrait ? 110 : 80,
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withValues(alpha: 0.08),
+              height: 0.85,
+              letterSpacing: -6,
             ),
-            
-            Positioned(
-              bottom: 12, left: 12, right: 12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    movie.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white, 
-                      fontWeight: FontWeight.bold, 
-                      fontSize: isDesktop ? 14 : 13
+          ),
+        FocusableControl(
+          onTap: onTap,
+          borderRadius: 14,
+          child: Container(
+            width: cardWidth,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppTheme.bgCard,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (imageUrl.isNotEmpty)
+                  CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (c, u) => Shimmer.fromColors(
+                      baseColor: AppTheme.bgCard,
+                      highlightColor: Colors.white10,
+                      child: Container(color: AppTheme.bgCard),
+                    ),
+                    errorWidget: (c, u, e) => Container(
+                      color: AppTheme.bgCard,
+                      child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white24))),
+                    ),
+                  )
+                else
+                  Container(
+                    color: AppTheme.bgCard,
+                    child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white24))),
+                  ),
+                
+                // Gradient overlay
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.black.withValues(alpha: 0.95),
+                      ],
+                      stops: const [0.0, 0.45, 0.8, 1.0],
                     ),
                   ),
-                  if (!isPortrait)
-                    Text(
-                      movie.releaseDate.split('-').first,
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+                
+                // Rating badge (top right)
+                if (movie.voteAverage > 0)
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(
+                            movie.voteAverage.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ],
+                      ),
                     ),
-                ],
-              ),
-            ),
+                  ),
 
-            // My List add/remove button
-            Positioned(
-              top: 6, left: 6,
-              child: _MyListButton.movie(movie: movie),
+                // Bottom content
+                Positioned(
+                  bottom: 10, left: 10, right: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        movie.title,
+                        maxLines: isPortrait ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white, 
+                          fontWeight: FontWeight.bold, 
+                          fontSize: isDesktop ? 14 : 13,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (movie.releaseDate.isNotEmpty)
+                            Text(
+                              movie.releaseDate.split('-').first,
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                            ),
+                          if (movie.mediaType == 'tv') ...[
+                            if (movie.releaseDate.isNotEmpty) ...[
+                              Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                            ],
+                            Text('TV', style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // My List button
+                Positioned(
+                  top: 8, left: 8,
+                  child: _MyListButton.movie(movie: movie),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -798,6 +1008,53 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
         // Re-extract stream using saved sourceId (tmdbId + season + episode)
         final sourceId = item['sourceId'] as String;
         activeProvider = sourceId;
+        
+        if (sourceId == 'webstreamr') {
+          debugPrint('[Resume] Using WebStreamrService for $title');
+          final webStreamr = WebStreamrService();
+          final imdbId = item['imdbId']?.toString() ?? '';
+          if (imdbId.isNotEmpty) {
+            final webStreamrSources = await webStreamr.getStreams(
+              imdbId: imdbId,
+              isMovie: season == null,
+              season: season,
+              episode: episode,
+            );
+            if (webStreamrSources.isNotEmpty) {
+              streamUrl = webStreamrSources.first.url;
+              if (mounted) {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PlayerScreen(
+                      streamUrl: streamUrl!,
+                      title: title,
+                      movie: Movie(
+                        id: tmdbId,
+                        title: title,
+                        posterPath: posterPath,
+                        backdropPath: '', 
+                        overview: '', 
+                        releaseDate: '', 
+                        voteAverage: 0, 
+                        mediaType: season != null ? 'tv' : 'movie', 
+                        genres: [], 
+                        imdbId: imdbId,
+                      ),
+                      selectedSeason: season,
+                      selectedEpisode: episode,
+                      activeProvider: 'webstreamr',
+                      startPosition: startPos,
+                      sources: webStreamrSources,
+                    ),
+                  ),
+                );
+                return;
+              }
+            }
+          }
+        }
+
         final provider = StreamProviders.providers[sourceId];
         if (provider == null) {
            throw Exception("Provider $sourceId not available");
@@ -878,7 +1135,7 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
         } else {
           // Local Torrent Engine
           debugPrint('[Resume] Using local torrent engine');
-          streamUrl = await TorrServerService().streamTorrent(magnetLink, season: season, episode: episode);
+          streamUrl = await TorrentStreamService().streamTorrent(magnetLink, season: season, episode: episode, fileIdx: fileIndex);
         }
       } else if (method == 'trakt_import') {
         // Trakt-imported items have no stream source — find one automatically
@@ -967,7 +1224,7 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
       final mediaType = item['mediaType']?.toString() ?? 'movie';
       final season = item['season'] as int?;
       final episode = item['episode'] as int?;
-      TraktService().removePlaybackProgress(
+      await TraktService().removePlaybackProgress(
         tmdbId: tmdbId,
         mediaType: mediaType,
         season: season,
@@ -1077,44 +1334,61 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Continue Watching", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  if (history.isNotEmpty)
-                    Row(
-                      children: [
-                        FocusableControl(
-                          onTap: _scrollLeft,
-                          borderRadius: 20,
-                          child: const Padding(
-                            padding: EdgeInsets.all(4.0),
-                            child: Icon(Icons.arrow_back_ios_new, color: AppTheme.primaryColor, size: 20),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FocusableControl(
-                          onTap: _scrollRight,
-                          borderRadius: 20,
-                          child: const Padding(
-                            padding: EdgeInsets.all(4.0),
-                            child: Icon(Icons.arrow_forward_ios, color: AppTheme.primaryColor, size: 20),
-                          ),
-                        ),
-                      ],
+                  Container(
+                    width: 4,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurpleAccent,
+                      borderRadius: BorderRadius.circular(2),
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.play_circle_outline_rounded, color: Colors.deepPurpleAccent, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text("Continue Watching", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                  ),
+                  if (history.isNotEmpty) ...[
+                    FocusableControl(
+                      onTap: _scrollLeft,
+                      borderRadius: 20,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.white54, size: 16),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    FocusableControl(
+                      onTap: _scrollRight,
+                      borderRadius: 20,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             SizedBox(
-              height: 160,
+              height: 175,
               child: ListView.separated(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: history.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 16),
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
                 itemBuilder: (context, index) {
                   final historyItem = history[index];
                   final itemId = historyItem['uniqueId'] as String;
@@ -1156,86 +1430,78 @@ class _HistoryCard extends StatelessWidget {
     final title = item['title'] as String;
     final season = item['season'] as int?;
     final episode = item['episode'] as int?;
+    final episodeTitle = item['episodeTitle'] as String?;
     final position = item['position'] as int;
     final duration = item['duration'] as int;
     
     final progress = duration > 0 ? (position / duration).clamp(0.0, 1.0) : 0.0;
+    final remaining = duration > 0 ? Duration(milliseconds: duration - position) : Duration.zero;
+    final remainingText = remaining.inMinutes > 0 ? '${remaining.inMinutes}m left' : '';
     final imageUrl = posterPath.isNotEmpty
         ? (posterPath.startsWith('http') ? posterPath : TmdbApi.getImageUrl(posterPath))
         : '';
     
-    final subtitle = season != null ? 'S$season E$episode' : (item['method'] == 'torrent' ? 'Torrent' : 'Stream');
+    final subtitle = season != null 
+        ? 'S$season E$episode${episodeTitle != null && episodeTitle.isNotEmpty ? ' • $episodeTitle' : ''}'
+        : '';
 
     return FocusableControl(
       onTap: isLoading ? () {} : onTap,
-      borderRadius: 12,
+      borderRadius: 14,
       child: Container(
-        width: 260,
+        width: 280,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            Row(
-              children: [
-                SizedBox(
-                  width: 106,
-                  height: double.infinity,
-                  child: imageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (c, u) => Container(color: Colors.black26),
-                      )
-                    : Container(color: Colors.black26, child: const Icon(Icons.movie, color: Colors.white24)),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: item['method'] == 'torrent' ? Colors.green.withValues(alpha: 0.2) : Colors.blue.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: item['method'] == 'torrent' ? Colors.green.withValues(alpha: 0.5) : Colors.blue.withValues(alpha: 0.5)),
-                          ),
-                          child: Text(
-                            item['method'] == 'torrent' ? 'TORRENT' : 'STREAM',
-                            style: TextStyle(
-                              color: item['method'] == 'torrent' ? Colors.green : Colors.blue,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // Full bleed poster image
+            if (imageUrl.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (c, u) => Container(color: AppTheme.bgCard),
+              )
+            else
+              Container(color: AppTheme.bgCard, child: const Icon(Icons.movie, color: Colors.white24, size: 40)),
             
+            // Dark overlay gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.85),
+                    Colors.black.withValues(alpha: 0.95),
+                  ],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
+                ),
+              ),
+            ),
+
+            // Play button (center)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.85),
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.3), blurRadius: 16, spreadRadius: 2)],
+                ),
+                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+              ),
+            ),
+
+            // Top-right actions
             Positioned(
-              top: 4, right: 4,
+              top: 6, right: 6,
               child: Column(
                 children: [
                   Material(
@@ -1244,9 +1510,9 @@ class _HistoryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       onTap: onRemove,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        child: const Icon(Icons.close_rounded, color: Colors.white70, size: 14),
                       ),
                     ),
                   ),
@@ -1257,29 +1523,74 @@ class _HistoryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       onTap: onInfo,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.info_outline, color: Colors.white, size: 14),
+                        child: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 14),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            
+
+            // Bottom content: title + episode + progress
             Positioned(
               bottom: 0, left: 0, right: 0,
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: Colors.white10,
-                color: Colors.deepPurpleAccent,
-                minHeight: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        if (subtitle.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                            ),
+                          ),
+                        if (remainingText.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              remainingText,
+                              style: TextStyle(color: Colors.deepPurpleAccent.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Progress bar
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      color: Colors.deepPurpleAccent,
+                      minHeight: 3,
+                    ),
+                  ),
+                ],
               ),
             ),
             
             if (isLoading)
                Container(
-                 color: Colors.black54,
+                 decoration: BoxDecoration(
+                   color: Colors.black.withValues(alpha: 0.6),
+                   borderRadius: BorderRadius.circular(14),
+                 ),
                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
                ),
           ],
@@ -1351,19 +1662,28 @@ class _StremioCatalogSectionState extends State<_StremioCatalogSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 14),
           child: Row(
             children: [
+              Container(
+                width: 4,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
               if (addonIcon.isNotEmpty) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: CachedNetworkImage(
                     imageUrl: addonIcon,
-                    width: 22, height: 22,
-                    errorWidget: (_, _, _) => const Icon(Icons.extension, size: 22, color: Colors.white38),
+                    width: 20, height: 20,
+                    errorWidget: (_, _, _) => const Icon(Icons.extension, size: 20, color: Colors.white38),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
               ],
               Expanded(
                 child: Column(
@@ -1371,11 +1691,11 @@ class _StremioCatalogSectionState extends State<_StremioCatalogSection> {
                   children: [
                     Text(
                       catalogName,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.3),
                     ),
                     Text(
                       addonName,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
                     ),
                   ],
                 ),
@@ -1387,35 +1707,44 @@ class _StremioCatalogSectionState extends State<_StremioCatalogSection> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Show All', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.primaryColor),
+                      Icon(Icons.arrow_forward_ios, size: 11, color: AppTheme.primaryColor),
                     ],
                   ),
                 ),
               ),
               if (isDesktop) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 FocusableControl(
                   onTap: _scrollLeft,
                   borderRadius: 20,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4.0),
-                    child: Icon(Icons.arrow_back_ios_new, color: AppTheme.primaryColor, size: 18),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.arrow_back_ios_new, color: Colors.white54, size: 16),
                   ),
                 ),
                 const SizedBox(width: 4),
                 FocusableControl(
                   onTap: _scrollRight,
                   borderRadius: 20,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4.0),
-                    child: Icon(Icons.arrow_forward_ios, color: AppTheme.primaryColor, size: 18),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
                   ),
                 ),
               ],
@@ -1470,15 +1799,15 @@ class _StremioCatalogCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 12,
+      borderRadius: 14,
       child: Container(
         width: width,
         height: height,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -1487,7 +1816,11 @@ class _StremioCatalogCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.bgCard),
+                placeholder: (_, _) => Shimmer.fromColors(
+                  baseColor: AppTheme.bgCard,
+                  highlightColor: Colors.white10,
+                  child: Container(color: AppTheme.bgCard),
+                ),
                 errorWidget: (_, _, _) => Container(
                   color: AppTheme.bgCard,
                   child: Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
@@ -1496,34 +1829,39 @@ class _StremioCatalogCard extends StatelessWidget {
             else
               Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
 
-            // Gradient
+            // Improved gradient
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
-                  stops: [0.55, 1.0],
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.black.withValues(alpha: 0.95),
+                  ],
+                  stops: const [0.0, 0.4, 0.75, 1.0],
                 ),
               ),
             ),
 
-            // Rating
+            // Rating badge
             if (rating.isNotEmpty)
               Positioned(
-                top: 6, right: 6,
+                top: 8, right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star, size: 10, color: Colors.amber),
+                      const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
                       const SizedBox(width: 2),
-                      Text(rating, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      Text(rating, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
                     ],
                   ),
                 ),
@@ -1531,18 +1869,18 @@ class _StremioCatalogCard extends StatelessWidget {
 
             // Name
             Positioned(
-              bottom: 8, left: 8, right: 8,
+              bottom: 10, left: 10, right: 10,
               child: Text(
                 name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, height: 1.2),
               ),
             ),
 
-            // My List add/remove button
+            // My List button
             Positioned(
-              top: 6, left: 6,
+              top: 8, left: 8,
               child: _MyListButton.stremio(stremioItem: item),
             ),
           ],
@@ -1605,13 +1943,13 @@ class _MyListButton extends StatelessWidget {
             }
           },
           child: Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: Colors.black.withValues(alpha: 0.55),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              inList ? Icons.bookmark : Icons.add,
+              inList ? Icons.bookmark_rounded : Icons.add_rounded,
               size: 16,
               color: inList ? AppTheme.primaryColor : Colors.white70,
             ),

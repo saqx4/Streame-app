@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'home_screen.dart';
@@ -13,6 +14,7 @@ import 'comics_screen.dart';
 import 'manga_screen.dart';
 import 'jellyfin_screen.dart';
 import 'live_matches_screen.dart';
+import 'magnet_player_screen.dart';
 import '../features/iptv/screens/iptv_login_screen.dart';
 import '../utils/app_theme.dart';
 
@@ -33,8 +35,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  PageController _pageController = PageController();
-  bool _lastNavRailState = false;
 
   // Cache screens so they are NOT recreated on every build/orientation change
   late final List<Widget> _cachedScreens;
@@ -49,6 +49,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       const DiscoverScreen(),
       const SearchScreen(),
       const MyListScreen(),
+      const MagnetPlayerScreen(),
       const LiveMatchesScreen(),
       const IptvLoginScreen(),
       const AudiobookScreen(),
@@ -61,13 +62,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     ];
   }
 
-  /// Re-apply immersive mode + allowed orientations after every metrics change
-  /// (rotation, keyboard, split-screen, etc.) so the system UI never glitches.
+  /// Re-apply immersive mode after metrics changes settle (rotation, etc.).
+  /// Some Android devices (especially Samsung) reset system-bar visibility on
+  /// configuration changes. This callback debounces to let the rotation
+  /// animation finish first, then re-hides the bars.  No `setState` needed —
+  /// Flutter already rebuilds widgets that depend on `MediaQuery`.
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
     if (Platform.isAndroid) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
+      });
     }
   }
 
@@ -75,65 +83,106 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final data = MainScreen.stremioSearchNotifier.value;
     if (data == null || (data['query'] ?? '').isEmpty) return;
     setState(() => _selectedIndex = 2);
-    _pageController.jumpToPage(2);
   }
 
   void _onItemTapped(int index) {
     setState(() { 
       _selectedIndex = index;
-      // Indices: 0=Home 1=Discover 2=Search 3=MyList 4=LiveMatches 5=IPTV 6=Audiobooks 7=Books 8=Music 9=Comics 10=Manga 11=Jellyfin 12=Settings
+      // Indices: 0=Home 1=Discover 2=Search 3=MyList 4=Magnet 5=LiveMatches 6=IPTV 7=Audiobooks 8=Books 9=Music 10=Comics 11=Manga 12=Jellyfin 13=Settings
     });
-    _pageController.jumpToPage(index);
   }
 
   void searchComics(String query) {
     setState(() {
-      _selectedIndex = 9;
+      _selectedIndex = 10;
     });
-    _pageController.jumpToPage(9);
   }
 
   void searchManga(String query) {
     setState(() {
-      _selectedIndex = 10;
+      _selectedIndex = 11;
     });
-    _pageController.jumpToPage(10);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     MainScreen.stremioSearchNotifier.removeListener(_onStremioSearch);
-    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isLandscape = screenWidth > 800;
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
     
-    final bool useNavRail = isDesktop || isLandscape || (Platform.isAndroid && screenWidth > 900);
+    final bool useNavRail = isDesktop || isLandscape;
 
-    // When useNavRail changes (portrait↔landscape on phone), the PageView
-    // lives inside a different layout structure. Recreate the controller so
-    // the viewport dimensions are correctly re-measured — this is what
-    // prevents the "half-black / half-squished" bug after rotation.
-    if (useNavRail != _lastNavRailState) {
-      _lastNavRailState = useNavRail;
-      final oldController = _pageController;
-      _pageController = PageController(initialPage: _selectedIndex);
-      // Dispose old controller after this frame so Flutter doesn't complain
-      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
-    }
 
     return Scaffold(
-      body: Container(
-        decoration: AppTheme.backgroundDecoration,
-        child: Row(
-          children: [
-            if (useNavRail)
+      body: Stack(
+        children: [
+          // Base gradient
+          Container(decoration: AppTheme.backgroundDecoration),
+          // Ambient purple glow – top-right
+          Positioned(
+            top: -80,
+            right: -60,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.primaryColor.withValues(alpha: 0.18),
+                    AppTheme.primaryColor.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Ambient cyan glow – bottom-left
+          Positioned(
+            bottom: 40,
+            left: -80,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.accentColor.withValues(alpha: 0.08),
+                    AppTheme.accentColor.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Soft violet glow – center-left
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.35,
+            left: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF6200EA).withValues(alpha: 0.10),
+                    const Color(0xFF6200EA).withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Content layer
+          Row(
+            children: [
+              if (useNavRail)
               SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
@@ -179,6 +228,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               icon: Icon(Icons.bookmark_outline, color: Colors.white54),
                               selectedIcon: Icon(Icons.bookmark, color: Colors.white),
                               label: Text('My List'),
+                            ),
+                            NavigationRailDestination(
+                              icon: Icon(Icons.link_rounded, color: Colors.white54),
+                              selectedIcon: Icon(Icons.link_rounded, color: Colors.white),
+                              label: Text('Magnet'),
                             ),
                             NavigationRailDestination(
                               icon: Icon(Icons.sports_soccer_outlined, color: Colors.white54),
@@ -232,15 +286,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   ),
                 
             Expanded(
-              child: PageView(
-                key: ValueKey('pv_${useNavRail}_'),
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
+              child: IndexedStack(
+                index: _selectedIndex,
                 children: _cachedScreens,
               ),
             ),
           ],
         ),
+        ],
       ),
       bottomNavigationBar: useNavRail
           ? null
@@ -254,6 +307,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       {'icon': Icons.explore_outlined, 'active': Icons.explore, 'label': 'Discover'},
       {'icon': Icons.search, 'active': Icons.search, 'label': 'Search'},
       {'icon': Icons.bookmark_outline, 'active': Icons.bookmark, 'label': 'My List'},
+      {'icon': Icons.link_rounded, 'active': Icons.link_rounded, 'label': 'Magnet'},
       {'icon': Icons.sports_soccer_outlined, 'active': Icons.sports_soccer_rounded, 'label': 'Live Matches'},
       {'icon': Icons.live_tv_outlined, 'active': Icons.live_tv, 'label': 'IPTV'},
       {'icon': Icons.menu_book_outlined, 'active': Icons.menu_book, 'label': 'Audiobooks'},
@@ -265,13 +319,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       {'icon': Icons.settings_outlined, 'active': Icons.settings, 'label': 'Settings'},
     ];
 
-    return Container(
-      height: 80,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0418),
-        border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
-      ),
-      child: Stack(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F0418).withValues(alpha: 0.75),
+            border: const Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+          ),
+          child: Stack(
         children: [
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -327,7 +384,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   gradient: LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
-                    colors: [Colors.transparent, const Color(0xFF0F0418).withValues(alpha: 0.8)],
+                    colors: [Colors.transparent, const Color(0xFF0F0418).withValues(alpha: 0.7)],
                   ),
                 ),
                 child: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white24),
@@ -336,6 +393,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+      ),
+    ),
     );
   }
 }

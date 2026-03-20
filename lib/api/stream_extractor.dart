@@ -227,7 +227,8 @@ class StreamExtractor {
             rUrl.contains('playlist') ||
             rUrl.contains('master') ||
             rUrl.contains('.mpd') ||
-            rUrl.contains('manifest')) &&
+            rUrl.contains('manifest') ||
+            rUrl.contains('heistotron.uk/p/')) &&
         !rUrl.contains('google')) {
 
        if (rUrl.contains('/audio/') || rUrl.contains('audio_')) {

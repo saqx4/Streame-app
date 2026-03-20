@@ -361,10 +361,76 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
 
       // 10. Interaction
       const interact = () => {
+        // Quality Selection logic
+        const selectHighestQuality = () => {
+          // 1. JW Player quality selection
+          const jwSettings = document.querySelector('.jw-icon-settings, .jw-settings-content');
+          if (jwSettings) {
+            const qualityItems = Array.from(document.querySelectorAll('.jw-settings-content-item, .jw-reset-ul li'));
+            if (qualityItems.length > 0) {
+              const qualities = qualityItems.map(item => ({
+                item,
+                label: item.innerText.toLowerCase()
+              })).filter(q => /^\d+p|4k|hd/i.test(q.label));
+              
+              if (qualities.length > 0) {
+                // Sort qualities: 4k/2160 > 1080 > 720 > etc.
+                qualities.sort((a, b) => {
+                  const getVal = (s) => {
+                    if (s.includes('4k') || s.includes('2160')) return 2160;
+                    const m = s.match(/(\d+)p/);
+                    return m ? parseInt(m[1]) : 0;
+                  };
+                  return getVal(b.label) - getVal(a.label);
+                });
+                
+                const highest = qualities[0];
+                if (!highest.item.classList.contains('jw-settings-item-active') && 
+                    !highest.item.classList.contains('active')) {
+                  console.log('PT_LOG: Selecting highest quality: ' + highest.label);
+                  highest.item.click();
+                }
+              }
+            }
+          }
+
+          // 2. Generic quality buttons/items (often used in sites like Anitaro)
+          const qualityButtons = Array.from(document.querySelectorAll('button, li, .quality-item, [class*="quality"]'));
+          const qualityOptions = qualityButtons.filter(b => {
+            const txt = b.innerText.trim().toLowerCase();
+            return /^(4k|2160p|1080p|720p|480p|360p)\$/i.test(txt);
+          });
+
+          if (qualityOptions.length > 0) {
+            qualityOptions.sort((a, b) => {
+              const getVal = (el) => {
+                const s = el.innerText.toLowerCase();
+                if (s.includes('4k') || s.includes('2160')) return 2160;
+                const m = s.match(/(\d+)p/);
+                return m ? parseInt(m[1]) : 0;
+              };
+              return getVal(b) - getVal(a);
+            });
+
+            const highest = qualityOptions[0];
+            const isSelected = highest.classList.contains('active') || 
+                              highest.classList.contains('selected') ||
+                              highest.getAttribute('aria-checked') === 'true';
+            
+            if (!isSelected) {
+              console.log('PT_LOG: Generic quality selection: ' + highest.innerText);
+              highest.click();
+            }
+          }
+        };
+
         const selectors = ['.play-icon-main', '.jw-display-icon-container', '.vjs-big-play-button', '[class*="play" i]', 'button'];
         selectors.forEach(s => document.querySelectorAll(s).forEach(b => {
           if (b.getBoundingClientRect().width > 0) b.click();
         }));
+        
+        selectHighestQuality();
+
         document.querySelectorAll('video').forEach(v => {
           if (v.paused) v.play().catch(() => {});
           if (v.src) log('VIDEO_SRC', v.src);

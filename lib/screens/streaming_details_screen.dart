@@ -7,7 +7,9 @@ import '../api/tmdb_api.dart';
 import '../api/stream_extractor.dart';
 import '../api/stremio_service.dart';
 import '../api/stream_providers.dart';
+import '../api/webstreamr_service.dart';
 import '../widgets/loading_overlay.dart';
+import '../services/episode_watched_service.dart';
 import 'player_screen.dart';
 
 class StreamingDetailsScreen extends StatefulWidget {
@@ -33,6 +35,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   String? _statusMessage;
   final StreamExtractor _extractor = StreamExtractor();
   final StremioService _stremio = StremioService();
+  final WebStreamrService _webStreamr = WebStreamrService();
   final TmdbApi _api = TmdbApi();
   late Movie _movie;
   bool _isLoading = true;
@@ -48,6 +51,10 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   int _selectedEpisode = 1;
   Map<String, dynamic>? _seasonData;
   bool _isLoadingSeason = false;
+
+  // Episode watched tracking
+  final EpisodeWatchedService _episodeWatchedService = EpisodeWatchedService();
+  Set<String> _watchedEpisodes = {};
   
   final ScrollController _similarScrollController = ScrollController();
   final ScrollController _screenshotsScrollController = ScrollController();
@@ -61,6 +68,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     _movie = widget.movie;
     if (widget.initialSeason != null) _selectedSeason = widget.initialSeason!;
     if (widget.initialEpisode != null) _selectedEpisode = widget.initialEpisode!;
+    _loadWatchedEpisodes();
     _fetchDetails();
   }
 
@@ -109,6 +117,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
           _isLoadingSeason = false;
           _selectedSeason = seasonNumber;
         });
+        _loadWatchedEpisodes();
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingSeason = false);
@@ -122,6 +131,16 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     _screenshotsScrollController.dispose();
     _episodeScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWatchedEpisodes() async {
+    final set = await _episodeWatchedService.getWatchedSet(_movie.id);
+    if (mounted) setState(() => _watchedEpisodes = set);
+  }
+
+  Future<void> _toggleEpisodeWatched(int season, int episode) async {
+    await _episodeWatchedService.toggle(_movie.id, season, episode);
+    await _loadWatchedEpisodes();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -185,29 +204,18 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
 
     bool found = false;
 
-    final providerKeys = _providers.keys.toList();
-
-    for (var key in providerKeys) {
-      if (!mounted) break;
-      
-      final provider = _providers[key];
-      final String url;
-      if (_movie.mediaType == 'tv') {
-        url = provider['tv'](
-          widget.movie.id.toString(),
-          _selectedSeason.toString(),
-          _selectedEpisode.toString(),
-        );
-      } else {
-        url = provider['movie'](widget.movie.id.toString());
-      }
-      
-      setState(() => _statusMessage = 'Searching ${provider['name']}...');
-      debugPrint('[StreamExtractor] Trying ${provider['name']} source: $url');
-
+    // 1. Try WebStreamr first if IMDB ID is available
+    if (_movie.imdbId != null && _movie.imdbId!.isNotEmpty) {
+      setState(() => _statusMessage = 'Searching WebStreamr...');
       try {
-        var result = await _extractor.extract(url, timeout: const Duration(seconds: 5));
-        if (result != null) {
+        final webStreamrSources = await _webStreamr.getStreams(
+          imdbId: _movie.imdbId!,
+          isMovie: _movie.mediaType == 'movie',
+          season: _selectedSeason,
+          episode: _selectedEpisode,
+        );
+
+        if (webStreamrSources.isNotEmpty) {
           found = true;
           if (mounted) {
             if (Navigator.canPop(context)) Navigator.pop(context);
@@ -215,26 +223,82 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => PlayerScreen(
-                  streamUrl: result.url,
-                  audioUrl: result.audioUrl,
+                  streamUrl: webStreamrSources.first.url,
                   title: _movie.mediaType == 'tv' 
                       ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode' 
                       : _movie.title,
-                  headers: result.headers,
                   movie: _movie,
                   providers: _providers,
-                  activeProvider: key,
+                  activeProvider: 'webstreamr',
                   selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
                   selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
                   startPosition: widget.startPosition,
+                  sources: webStreamrSources,
                 ),
               ),
             );
           }
-          break;
         }
       } catch (e) {
-        debugPrint('Error extracting from $key: $e');
+        debugPrint('Error fetching from WebStreamr: $e');
+      }
+    }
+
+    if (!found) {
+      final providerKeys = _providers.keys.toList();
+
+      for (var key in providerKeys) {
+        if (!mounted) break;
+        if (key == 'webstreamr') continue; // Already tried directly
+        
+        final provider = _providers[key];
+        
+        final String url;
+        if (_movie.mediaType == 'tv') {
+          url = provider['tv'](
+            widget.movie.id.toString(),
+            _selectedSeason.toString(),
+            _selectedEpisode.toString(),
+          );
+        } else {
+          url = provider['movie'](widget.movie.id.toString());
+        }
+        
+        setState(() => _statusMessage = 'Searching ${provider['name']}...');
+        debugPrint('[StreamExtractor] Trying ${provider['name']} source: $url');
+
+        try {
+          var result = await _extractor.extract(url, timeout: const Duration(seconds: 5));
+          if (result != null) {
+            found = true;
+            if (mounted) {
+              if (Navigator.canPop(context)) Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PlayerScreen(
+                    streamUrl: result.url,
+                    audioUrl: result.audioUrl,
+                    title: _movie.mediaType == 'tv' 
+                        ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode' 
+                        : _movie.title,
+                    headers: result.headers,
+                    movie: _movie,
+                    providers: _providers,
+                    activeProvider: key,
+                    selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
+                    selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
+                    startPosition: widget.startPosition,
+                    sources: result.sources,
+                  ),
+                ),
+              );
+            }
+            break;
+          }
+        } catch (e) {
+          debugPrint('Error extracting from $key: $e');
+        }
       }
     }
 
@@ -721,12 +785,15 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
                 final title = (episode['name'] ?? 'Episode $epNum').toString();
                 final still = episode['still_path'] as String?;
                 final isSelected = _selectedEpisode == epNum;
+                final isWatched = _watchedEpisodes.contains('${_movie.id}_S${_selectedSeason}_E$epNum');
 
                 return _HorizontalEpisodeCard(
                   epNum: epNum,
                   title: title,
                   stillPath: still,
                   isSelected: isSelected,
+                  isWatched: isWatched,
+                  onToggleWatched: () => _toggleEpisodeWatched(_selectedSeason, epNum),
                   onTap: () {
                     setState(() => _selectedEpisode = epNum);
                     _startExtraction();
@@ -969,14 +1036,18 @@ class _HorizontalEpisodeCard extends StatefulWidget {
   final String title;
   final String? stillPath;
   final bool isSelected;
+  final bool isWatched;
   final VoidCallback onTap;
+  final VoidCallback onToggleWatched;
 
   const _HorizontalEpisodeCard({
     required this.epNum,
     required this.title,
     required this.stillPath,
     required this.isSelected,
+    required this.isWatched,
     required this.onTap,
+    required this.onToggleWatched,
   });
 
   @override
@@ -1071,6 +1142,25 @@ class _HorizontalEpisodeCardState extends State<_HorizontalEpisodeCard> {
                       ),
                       child: const Icon(Icons.play_arrow_rounded,
                           color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
+                // watched checkmark
+                Positioned(
+                  top: 6, right: 6,
+                  child: GestureDetector(
+                    onTap: widget.onToggleWatched,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: widget.isWatched ? Colors.green : Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check,
+                        size: 14,
+                        color: widget.isWatched ? Colors.white : Colors.white38,
+                      ),
                     ),
                   ),
                 ),

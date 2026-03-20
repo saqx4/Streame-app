@@ -565,6 +565,16 @@ class TraktService {
 
         if (tmdbId == null) continue;
 
+        // Check if dismissed locally
+        final uniqueId = season != null && episode != null 
+            ? '${tmdbId}_S${season}_E$episode' 
+            : '$tmdbId';
+            
+        if (await WatchHistoryService().isDismissed(uniqueId)) {
+          debugPrint('[Trakt] Skipping dismissed item: $title ($uniqueId)');
+          continue;
+        }
+
         // Fetch poster from TMDB
         posterPath = await _fetchTmdbPoster(tmdbId, mediaType);
 

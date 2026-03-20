@@ -12,6 +12,7 @@ class WatchHistoryService {
   }
 
   static const String _key = 'watch_history';
+  static const String _dismissedKey = 'dismissed_history';
   final _controller = StreamController<List<Map<String, dynamic>>>.broadcast();
   List<Map<String, dynamic>> _current = [];
 
@@ -91,6 +92,18 @@ class WatchHistoryService {
       }
 
       await prefs.setString(_key, json.encode(list));
+      
+      // 3. Remove from dismissed list if it was there
+      final String? dismissedJson = prefs.getString(_dismissedKey);
+      if (dismissedJson != null) {
+        List<dynamic> dismissedList = json.decode(dismissedJson);
+        if (dismissedList.contains(uniqueId)) {
+          dismissedList.remove(uniqueId);
+          await prefs.setString(_dismissedKey, json.encode(dismissedList));
+          debugPrint('[WatchHistory] Removed $uniqueId from dismissed list (re-watching)');
+        }
+      }
+
       debugPrint('[WatchHistory] Saved progress for $title ($uniqueId) at $position ms');
       debugPrint('[WatchHistory] Method: $method, MagnetLink: ${magnetLink?.substring(0, 50)}..., FileIndex: $fileIndex');
       
@@ -139,19 +152,46 @@ class WatchHistoryService {
   Future<void> removeItem(String uniqueId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // 1. Remove from active history
       final String? jsonString = prefs.getString(_key);
-      if (jsonString == null) return;
+      if (jsonString != null) {
+        List<dynamic> list = json.decode(jsonString);
+        list.removeWhere((item) => item['uniqueId'] == uniqueId);
+        await prefs.setString(_key, json.encode(list));
+        
+        // Emit update
+        _current = list.cast<Map<String, dynamic>>();
+        _controller.add(_current);
+      }
 
-      List<dynamic> list = json.decode(jsonString);
-      list.removeWhere((item) => item['uniqueId'] == uniqueId);
-      
-      await prefs.setString(_key, json.encode(list));
-      
-      // Emit update
-      _current = list.cast<Map<String, dynamic>>();
-      _controller.add(_current);
+      // 2. Add to dismissed list so it's never re-imported from Trakt
+      final String? dismissedJson = prefs.getString(_dismissedKey);
+      List<dynamic> dismissedList = dismissedJson != null ? json.decode(dismissedJson) : [];
+      if (!dismissedList.contains(uniqueId)) {
+        dismissedList.add(uniqueId);
+        // Keep dismissed list reasonable (e.g. last 100 items)
+        if (dismissedList.length > 100) {
+          dismissedList = dismissedList.sublist(dismissedList.length - 100);
+        }
+        await prefs.setString(_dismissedKey, json.encode(dismissedList));
+        debugPrint('[WatchHistory] Added $uniqueId to dismissed list');
+      }
     } catch (e) {
       debugPrint('[WatchHistory] Error removing item: $e');
+    }
+  }
+
+  // Check if item is dismissed
+  Future<bool> isDismissed(String uniqueId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? jsonString = prefs.getString(_dismissedKey);
+      if (jsonString == null) return false;
+      final List<dynamic> list = json.decode(jsonString);
+      return list.contains(uniqueId);
+    } catch (e) {
+      return false;
     }
   }
   

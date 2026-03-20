@@ -1,8 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 #  PlayTorrio — Multi-Platform CI/CD
 #  Builds: Android (split APK), Windows (installer), Linux x64 (AppImage),
-#          macOS ARM64 (Apple Silicon)
-#  TorrServer is downloaded fresh from GitHub releases during each build.
+#          macOS ARM64 (Apple Silicon), iOS (IPA — sideload)
 # ──────────────────────────────────────────────────────────────────────────────
 name: Build PlayTorrio
 
@@ -13,7 +12,6 @@ on:
 
 env:
   FLUTTER_CHANNEL: stable
-  TORRSERVER_REPO: YouROK/TorrServer
 
 # ═══════════════════════════════════════════════════════════════════════════════
 jobs:
@@ -31,21 +29,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
-
-      - name: Download TorrServer
-        shell: pwsh
-        run: |
-          $torrUrl = "https://github.com/${{ env.TORRSERVER_REPO }}/releases/latest/download"
-          New-Item -ItemType Directory -Force -Path assets\bin\windows | Out-Null
-          Write-Host "Downloading TorrServer-windows-amd64.exe ..."
-          Invoke-WebRequest "$torrUrl/TorrServer-windows-amd64.exe" -OutFile assets\bin\windows\TorrServer.exe
-
-      - name: Enable Windows TorrServer asset
-        shell: pwsh
-        run: |
-          (Get-Content pubspec.yaml -Raw) `
-            -replace '#- assets/bin/windows/TorrServer\.exe', '- assets/bin/windows/TorrServer.exe' |
-            Set-Content pubspec.yaml -NoNewline
 
       - run: flutter pub get
       - run: flutter build windows --release
@@ -162,10 +145,8 @@ jobs:
           fi
 
           # ── Entitlements ──
-          # Disable App Sandbox and enable all permissions needed for
-          # TorrServer binary execution + hardened runtime compatibility.
           for f in macos/Runner/DebugProfile.entitlements macos/Runner/Release.entitlements; do
-            # Disable sandbox (the root cause of TorrServer process-exec denial)
+            # Disable sandbox
             /usr/libexec/PlistBuddy -c "Delete :com.apple.security.app-sandbox" "$f" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.app-sandbox bool false" "$f"
 
@@ -173,25 +154,13 @@ jobs:
             /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-jit" "$f" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-jit bool true" "$f"
 
-            # Hardened runtime: allow loading unsigned helper binaries (TorrServer)
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.disable-library-validation" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$f"
-
-            # Hardened runtime: unsigned executable memory (Go runtime in TorrServer)
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-unsigned-executable-memory" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-unsigned-executable-memory bool true" "$f"
-
-            # Hardened runtime: allow DYLD env vars for child processes
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-dyld-environment-variables" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-dyld-environment-variables bool true" "$f"
-
-            # Network: server (TorrServer listens on localhost:8090)
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.server" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.server bool true" "$f"
-
             # Network: client (torrent peer connections + API calls)
             /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.client" "$f" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$f"
+
+            # Network: server (libtorrent HTTP stream server)
+            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.server" "$f" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.server bool true" "$f"
           done
 
           # ── App name ──
@@ -199,20 +168,6 @@ jobs:
             macos/Runner/Info.plist || \
           /usr/libexec/PlistBuddy -c "Add :CFBundleName string PlayTorrio" \
             macos/Runner/Info.plist
-
-      - name: Download TorrServer
-        run: |
-          TORR_URL="https://github.com/$TORRSERVER_REPO/releases/latest/download"
-          mkdir -p assets/bin/macos
-          curl -fSL "$TORR_URL/TorrServer-darwin-arm64" -o assets/bin/macos/TorrServer
-          chmod +x assets/bin/macos/TorrServer
-          # Strip quarantine & ad-hoc sign so Gatekeeper doesn't block it at runtime
-          xattr -cr assets/bin/macos/TorrServer
-          codesign --sign - --force assets/bin/macos/TorrServer
-
-      - name: Enable macOS TorrServer asset
-        run: |
-          sed -i '' 's|#- assets/bin/macos/TorrServer|- assets/bin/macos/TorrServer|' pubspec.yaml
 
       - run: flutter pub get
       - run: flutter build macos --release
@@ -277,35 +232,16 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.app-sandbox bool false" "$f"
             /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-jit" "$f" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-jit bool true" "$f"
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.disable-library-validation" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$f"
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-unsigned-executable-memory" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-unsigned-executable-memory bool true" "$f"
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.allow-dyld-environment-variables" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-dyld-environment-variables bool true" "$f"
-            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.server" "$f" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.server bool true" "$f"
             /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.client" "$f" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$f"
+            /usr/libexec/PlistBuddy -c "Delete :com.apple.security.network.server" "$f" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.server bool true" "$f"
           done
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleName PlayTorrio" \
             macos/Runner/Info.plist || \
           /usr/libexec/PlistBuddy -c "Add :CFBundleName string PlayTorrio" \
             macos/Runner/Info.plist
-
-      - name: Download TorrServer (Intel)
-        run: |
-          TORR_URL="https://github.com/$TORRSERVER_REPO/releases/latest/download"
-          mkdir -p assets/bin/macos
-          curl -fSL "$TORR_URL/TorrServer-darwin-amd64" -o assets/bin/macos/TorrServer
-          chmod +x assets/bin/macos/TorrServer
-          xattr -cr assets/bin/macos/TorrServer
-          codesign --sign - --force assets/bin/macos/TorrServer
-
-      - name: Enable macOS TorrServer asset
-        run: |
-          sed -i '' 's|#- assets/bin/macos/TorrServer|- assets/bin/macos/TorrServer|' pubspec.yaml
 
       - run: arch -x86_64 flutter pub get
       - run: arch -x86_64 flutter build macos --release
@@ -335,10 +271,78 @@ jobs:
             PlayTorrio-macOS-intel.dmg
             PlayTorrio-macOS-intel.zip
 
+  # ─── iOS (Sideloadable IPA — no signing) ─────────────────────────────────
+  ios:
+    name:  iOS (IPA)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+
+      - name: Generate iOS platform files
+        run: |
+          if [ ! -d "ios" ]; then
+            flutter create --platforms=ios .
+          fi
+
+          # ── Set bundle ID & display name ──
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.playtorrio.app" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.playtorrio.app" \
+            ios/Runner/Info.plist
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName PlayTorrio" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string PlayTorrio" \
+            ios/Runner/Info.plist
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName PlayTorrio" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleName string PlayTorrio" \
+            ios/Runner/Info.plist
+
+          # ── Allow localhost networking (libtorrent local HTTP server) ──
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" \
+            ios/Runner/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSAllowsLocalNetworking true" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" \
+            ios/Runner/Info.plist
+
+          # ── Network entitlements for libtorrent_flutter ──
+          cat > ios/Runner/Runner.entitlements << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>com.apple.security.network.client</key>
+          	<true/>
+          </dict>
+          </plist>
+          EOF
+
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+
+      - name: Package as IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -R Runner.app Payload/
+          zip -ry ../../../PlayTorrio-iOS.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PlayTorrio-iOS
+          path: PlayTorrio-iOS.ipa
+
   # ─── Create GitHub Release ───────────────────────────────────────────────
   release:
     name:  Create Release
-    needs: [windows, macos-arm64, macos-intel]
+    needs: [windows, macos-arm64, macos-intel, ios]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -356,3 +360,4 @@ jobs:
             PlayTorrio-macOS-arm64/*.zip
             PlayTorrio-macOS-intel/*.dmg
             PlayTorrio-macOS-intel/*.zip
+            PlayTorrio-iOS/*.ipa
