@@ -51,6 +51,9 @@ class AppUpdaterService {
               orElse: () => null,
             );
             downloadUrl = asset?['browser_download_url'];
+          } else if (Platform.isIOS) {
+            // iOS can't auto-install — link to releases page
+            downloadUrl = data['html_url'];
           }
           
           return UpdateInfo(
@@ -60,6 +63,7 @@ class AppUpdaterService {
             releaseNotes: releaseNotes,
             publishedAt: publishedAt,
             isMacOS: Platform.isMacOS,
+            isIOS: Platform.isIOS,
           );
         }
       }
@@ -99,6 +103,7 @@ class UpdateInfo {
   final String releaseNotes;
   final DateTime publishedAt;
   final bool isMacOS;
+  final bool isIOS;
   
   UpdateInfo({
     required this.currentVersion,
@@ -107,5 +112,6 @@ class UpdateInfo {
     required this.releaseNotes,
     required this.publishedAt,
     required this.isMacOS,
+    this.isIOS = false,
   });
 }

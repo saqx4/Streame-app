@@ -233,7 +233,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                     ),
                   ),
                   
-                  if (widget.updateInfo.isMacOS) ...[
+                  if (widget.updateInfo.isMacOS || widget.updateInfo.isIOS) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -254,7 +254,9 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'macOS: You\'ll be redirected to GitHub to download',
+                              widget.updateInfo.isIOS
+                                  ? 'iOS: You\'ll be redirected to GitHub to download the IPA'
+                                  : 'macOS: You\'ll be redirected to GitHub to download',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.orange.shade200,
@@ -383,7 +385,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     } else if (Platform.isWindows || Platform.isLinux) {
       await _downloadAndInstallDesktop();
     } else {
-      // macOS - open browser
+      // macOS / iOS - open browser
       await AppUpdaterService().openDownloadPage(widget.updateInfo.downloadUrl);
       if (mounted) {
         Navigator.of(context).pop();

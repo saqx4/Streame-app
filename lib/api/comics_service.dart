@@ -205,19 +205,18 @@ class ComicsService {
         url += url.contains('?') ? '&s=s2' : '?s=s2';
       }
 
-      debugPrint('[ComicsService] Extracting page count from: $url');
+      debugPrint('[ComicsService] Loading chapter: $url');
       
-      // Use provided extractor instance
       final pageCount = await extractor.getPageCount(url);
       
       if (pageCount == null || pageCount == 0) {
         debugPrint('[ComicsService] Could not determine page count');
-        return [];
+        throw Exception('Page count is ${pageCount ?? 'null'} — WebView could not parse the chapter page. The site may require JavaScript execution that failed on this platform.');
       }
       
       debugPrint('[ComicsService] Comic has $pageCount pages');
       
-      // Return URLs for each page (they'll be loaded on-demand)
+      // Return URLs for each page (they'll be loaded on-demand via getPageImage)
       final pageUrls = List.generate(
         pageCount,
         (index) => '$url#${index + 1}',
@@ -226,7 +225,7 @@ class ComicsService {
       return pageUrls;
     } catch (e) {
       debugPrint('Error getting chapter pages: $e');
-      return [];
+      rethrow;
     }
   }
 

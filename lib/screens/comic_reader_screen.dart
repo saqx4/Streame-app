@@ -41,6 +41,7 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
   late int _currentChapterIdx;
   double _currentScale = 1.0;
   bool _showZoomControls = true;
+  String? _errorMessage;
 
   static const String _historyKey = 'comic_reading_history';
 
@@ -94,7 +95,10 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
   }
 
   Future<void> _loadPages(String url) async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     
     // Ensure s2 server is used
     var chapterUrl = url;
@@ -102,22 +106,34 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
       chapterUrl += chapterUrl.contains('?') ? '&s=s2' : '?s=s2';
     }
     
-    final pages = await _comicsService.getChapterPages(chapterUrl, _pageExtractor);
-    if (mounted) {
-      setState(() {
-        _pageUrls = pages;
-        _currentPageIndex = 0;
-        _isLoading = false;
-      });
-      
-      // Resume to saved page if provided
-      if (widget.resumePageIndex != null && widget.resumePageIndex! < _pageUrls.length) {
-        setState(() => _currentPageIndex = widget.resumePageIndex!);
+    try {
+      final pages = await _comicsService.getChapterPages(chapterUrl, _pageExtractor);
+      if (mounted) {
+        setState(() {
+          _pageUrls = pages;
+          _currentPageIndex = 0;
+          _isLoading = false;
+          if (pages.isEmpty) {
+            _errorMessage = 'No pages found for this chapter. The page extractor returned 0 pages — the site may be blocking requests or the chapter layout changed.';
+          }
+        });
+        
+        // Resume to saved page if provided
+        if (widget.resumePageIndex != null && widget.resumePageIndex! < _pageUrls.length) {
+          setState(() => _currentPageIndex = widget.resumePageIndex!);
+        }
+        
+        // Load the current page image
+        if (_pageUrls.isNotEmpty) {
+          _loadPageImage(_currentPageIndex);
+        }
       }
-      
-      // Load the current page image
-      if (_pageUrls.isNotEmpty) {
-        _loadPageImage(_currentPageIndex);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString();
+        });
       }
     }
   }
@@ -266,6 +282,64 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
     }
   }
 
+  Widget _buildErrorWidget() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth <= 400;
+    final horizontalPadding = screenWidth <= 600 ? 24.0 : 48.0;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: Colors.redAccent,
+            size: isCompact ? 40 : 56,
+          ),
+          SizedBox(height: isCompact ? 12 : 16),
+          Text(
+            'Failed to load chapter pages',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+            child: SingleChildScrollView(
+              child: Text(
+                _errorMessage ?? 'Unknown error',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: isCompact ? 12 : 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          SizedBox(height: isCompact ? 16 : 24),
+          ElevatedButton.icon(
+            onPressed: () => _loadPages(widget.chapters[_currentChapterIdx].url),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 20 : 28,
+                vertical: isCompact ? 10 : 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -296,8 +370,8 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
           Center(
             child: _isLoading
                 ? const CircularProgressIndicator(color: AppTheme.primaryColor)
-                : _pageUrls.isEmpty
-                    ? const Text('Failed to load pages', style: TextStyle(color: Colors.white70))
+                : _pageUrls.isEmpty || _errorMessage != null
+                    ? _buildErrorWidget()
                     : _isLoadingPage || _currentImageUrl == null
                         ? const CircularProgressIndicator(color: AppTheme.primaryColor)
                         : GestureDetector(
