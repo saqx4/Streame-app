@@ -61,6 +61,10 @@ class TorrentStreamService {
   /// Active stream IDs keyed by info-hash for cleanup.
   final Map<String, int> _activeStreams = {};
 
+  /// Track disposed torrent/stream IDs to prevent double-dispose native crash.
+  final Set<int> _disposedTorrentIds = {};
+  final Set<int> _disposedStreamIds = {};
+
   StreamSubscription? _torrentUpdatesSub;
 
   /// Latest torrent update snapshots keyed by torrent ID.
@@ -130,10 +134,10 @@ class TorrentStreamService {
       try {
         final oldId = _activeTorrents[hash]!;
         if (_activeStreams.containsKey(hash)) {
-          LibtorrentFlutter.instance.stopStream(_activeStreams[hash]!);
+          _safeStopStream(_activeStreams[hash]!);
           _activeStreams.remove(hash);
         }
-        LibtorrentFlutter.instance.disposeTorrent(oldId);
+        _safeDisposeTorrent(oldId);
         _activeTorrents.remove(hash);
       } catch (e) {
         _log('Cleanup old torrent error: $e');
@@ -286,22 +290,16 @@ class TorrentStreamService {
 
     // Stop stream
     if (_activeStreams.containsKey(key)) {
-      try {
-        LibtorrentFlutter.instance.stopStream(_activeStreams[key]!);
-      } catch (e) {
-        _log('Stop stream error: $e');
-      }
+      _safeStopStream(_activeStreams[key]!);
       _activeStreams.remove(key);
     }
 
     // Dispose torrent
     if (_activeTorrents.containsKey(key)) {
-      try {
-        LibtorrentFlutter.instance.disposeTorrent(_activeTorrents[key]!);
-      } catch (e) {
-        _log('Dispose torrent error: $e');
-      }
+      final torrentId = _activeTorrents[key]!;
+      _safeDisposeTorrent(torrentId);
       _activeTorrents.remove(key);
+      _latestUpdates.remove(torrentId);
       _log('Removed torrent $key');
     }
   }
@@ -366,17 +364,13 @@ class TorrentStreamService {
   Future<void> stop() async {
     // Stop all active streams
     for (final streamId in _activeStreams.values) {
-      try {
-        LibtorrentFlutter.instance.stopStream(streamId);
-      } catch (_) {}
+      _safeStopStream(streamId);
     }
     _activeStreams.clear();
 
     // Dispose all active torrents
     for (final torrentId in _activeTorrents.values) {
-      try {
-        LibtorrentFlutter.instance.disposeTorrent(torrentId);
-      } catch (_) {}
+      _safeDisposeTorrent(torrentId);
     }
     _activeTorrents.clear();
     _latestUpdates.clear();
@@ -388,6 +382,8 @@ class TorrentStreamService {
     await stop();
     _torrentUpdatesSub?.cancel();
     _torrentUpdatesSub = null;
+    _disposedTorrentIds.clear();
+    _disposedStreamIds.clear();
     _setState(EngineState.stopped);
     _log('Engine cleaned up.');
   }
@@ -395,6 +391,28 @@ class TorrentStreamService {
   // ─────────────────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────────────────
+
+  /// Safely stop a stream, preventing double-stop native crash.
+  void _safeStopStream(int streamId) {
+    if (_disposedStreamIds.contains(streamId)) return;
+    _disposedStreamIds.add(streamId);
+    try {
+      LibtorrentFlutter.instance.stopStream(streamId);
+    } catch (e) {
+      _log('Stop stream error: $e');
+    }
+  }
+
+  /// Safely dispose a torrent, preventing double-dispose native crash.
+  void _safeDisposeTorrent(int torrentId) {
+    if (_disposedTorrentIds.contains(torrentId)) return;
+    _disposedTorrentIds.add(torrentId);
+    try {
+      LibtorrentFlutter.instance.disposeTorrent(torrentId);
+    } catch (e) {
+      _log('Dispose torrent error: $e');
+    }
+  }
 
   static final _hashRegExp = RegExp(r'[0-9a-fA-F]{40}');
 
