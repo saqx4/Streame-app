@@ -132,7 +132,7 @@ class _ArabicDetailsScreenState extends State<ArabicDetailsScreen> {
               CachedNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(color: AppTheme.bgDark),
+                errorWidget: (_, _, _) => Container(color: AppTheme.bgDark),
               ),
             Container(
               decoration: BoxDecoration(
@@ -171,7 +171,7 @@ class _ArabicDetailsScreenState extends State<ArabicDetailsScreen> {
                 ? CachedNetworkImage(
                     imageUrl: widget.show.poster,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(
+                    errorWidget: (_, _, _) => Container(
                       color: Colors.white.withValues(alpha: 0.05),
                       child: const Icon(Icons.movie_outlined, color: Colors.white24),
                     ),
@@ -312,7 +312,7 @@ class _ArabicDetailsScreenState extends State<ArabicDetailsScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: episodes.length,
-          separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+          separatorBuilder: (_, _) => const Divider(color: Colors.white10, height: 1),
           itemBuilder: (context, index) {
             final episode = episodes[index];
             return _EpisodeTile(
@@ -363,7 +363,7 @@ class _EpisodeTile extends StatelessWidget {
                   child: CachedNetworkImage(
                     imageUrl: episode.poster,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(color: Colors.white10),
+                    errorWidget: (_, _, _) => Container(color: Colors.white10),
                   ),
                 ),
               ),

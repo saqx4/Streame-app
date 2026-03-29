@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
@@ -32,6 +31,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
   // AnimeRealms fallback
   bool _usingAnimeRealms = false;
   List<AnimeEpisode> _animeRealmsEpisodes = [];
+  // ignore: unused_field
   List<String> _animeRealmsProviders = [];
 
   @override
@@ -47,8 +47,11 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
       if (mounted) {
         final providers = episodes.providers.keys.toList();
         String defaultProvider = providers.isNotEmpty ? providers.first : 'kiwi';
-        if (providers.contains('kiwi')) defaultProvider = 'kiwi';
-        else if (providers.contains('zoro')) defaultProvider = 'zoro';
+        if (providers.contains('kiwi')) {
+          defaultProvider = 'kiwi';
+        } else if (providers.contains('zoro')) {
+          defaultProvider = 'zoro';
+        }
 
         final prov = episodes.providers[defaultProvider];
         final hasSub = prov != null && prov.subEpisodes.isNotEmpty;
@@ -216,8 +219,8 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
               imageUrl: bannerUrl,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
-              placeholder: (_, __) => Container(color: AppTheme.bgCard),
-              errorWidget: (_, __, ___) => Container(color: AppTheme.bgCard),
+              placeholder: (_, _) => Container(color: AppTheme.bgCard),
+              errorWidget: (_, _, _) => Container(color: AppTheme.bgCard),
             ),
             // Gradient overlays
             Container(
@@ -262,7 +265,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
                         width: 100,
                         height: 140,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: (_, _, _) => Container(
                           width: 100,
                           height: 140,
                           color: AppTheme.bgCard,
@@ -329,7 +332,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
           if (widget.anime.averageScore != null)
             _infoBadge(
               Icons.star_rounded,
-              '${(widget.anime.averageScore! / 10).toStringAsFixed(1)}',
+              (widget.anime.averageScore! / 10).toStringAsFixed(1),
               Colors.amber,
             ),
           if (widget.anime.episodes != null)
@@ -492,7 +495,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
             height: 36,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemCount: _availableProviders.length,
               itemBuilder: (_, i) {
                 final p = _availableProviders[i];
@@ -614,7 +617,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: episodes.length,
-      separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.04), height: 1),
+      separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.04), height: 1),
       itemBuilder: (_, i) {
         final ep = episodes[i];
         return _EpisodeTile(
@@ -721,7 +724,7 @@ class _EpisodeTile extends StatelessWidget {
                   child: CachedNetworkImage(
                     imageUrl: episode.image!,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(color: AppTheme.bgCard),
+                    errorWidget: (_, _, _) => Container(color: AppTheme.bgCard),
                   ),
                 ),
               ),

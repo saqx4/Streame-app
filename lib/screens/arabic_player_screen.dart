@@ -74,10 +74,10 @@ class _ArabicPlayerScreenState extends State<ArabicPlayerScreen> {
     }
 
     // Prioritize reliable servers (vidmoly) to the front
-    const _priorityHosts = ['vidmoly'];
+    const priorityHosts = ['vidmoly'];
     servers.sort((a, b) {
-      final aPri = _priorityHosts.any((h) => a.embedUrl.contains(h)) ? 0 : 1;
-      final bPri = _priorityHosts.any((h) => b.embedUrl.contains(h)) ? 0 : 1;
+      final aPri = priorityHosts.any((h) => a.embedUrl.contains(h)) ? 0 : 1;
+      final bPri = priorityHosts.any((h) => b.embedUrl.contains(h)) ? 0 : 1;
       return aPri.compareTo(bPri);
     });
 

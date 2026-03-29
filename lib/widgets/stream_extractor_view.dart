@@ -371,14 +371,14 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
               const qualities = qualityItems.map(item => ({
                 item,
                 label: item.innerText.toLowerCase()
-              })).filter(q => /^\d+p|4k|hd/i.test(q.label));
+              })).filter(q => /^\\d+p|4k|hd/i.test(q.label));
               
               if (qualities.length > 0) {
                 // Sort qualities: 4k/2160 > 1080 > 720 > etc.
                 qualities.sort((a, b) => {
                   const getVal = (s) => {
                     if (s.includes('4k') || s.includes('2160')) return 2160;
-                    const m = s.match(/(\d+)p/);
+                    const m = s.match(/(\\d+)p/);
                     return m ? parseInt(m[1]) : 0;
                   };
                   return getVal(b.label) - getVal(a.label);
@@ -406,7 +406,7 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
               const getVal = (el) => {
                 const s = el.innerText.toLowerCase();
                 if (s.includes('4k') || s.includes('2160')) return 2160;
-                const m = s.match(/(\d+)p/);
+                const m = s.match(/(\\d+)p/);
                 return m ? parseInt(m[1]) : 0;
               };
               return getVal(b) - getVal(a);

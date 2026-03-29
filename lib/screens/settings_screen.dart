@@ -11,11 +11,14 @@ import '../api/stremio_service.dart';
 import '../services/external_player_service.dart';
 import '../api/debrid_api.dart';
 import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
+import '../api/mdblist_service.dart';
 import '../services/jackett_service.dart';
 import '../services/prowlarr_service.dart';
 import '../services/app_updater_service.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/app_theme.dart';
+import 'lists_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -66,6 +69,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _traktPollTimer;
   bool _isTraktSyncing = false;
   String? _traktUsername;
+  Map<String, dynamic>? _traktStats;
+
+  // Simkl
+  final SimklService _simkl = SimklService();
+  bool _isSimklLoggedIn = false;
+  String? _simklUserCode;
+  String? _simklVerifyUrl;
+  Timer? _simklPollTimer;
+  bool _isSimklSyncing = false;
+  String? _simklUsername;
+
+  // MDBlist
+  final MdblistService _mdblist = MdblistService();
+  bool _isMdblistConfigured = false;
+  final TextEditingController _mdblistApiKeyController = TextEditingController();
+  String? _mdblistUsername;
 
   bool _isCheckingUpdate = false;
   final AppUpdaterService _updater = AppUpdaterService();
@@ -100,9 +119,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Load Trakt status
     final traktLoggedIn = await _trakt.isLoggedIn();
     String? traktUser;
+    Map<String, dynamic>? traktStats;
     if (traktLoggedIn) {
       final profile = await _trakt.getUserProfile();
       traktUser = profile?['user']?['username']?.toString() ?? profile?['username']?.toString();
+      traktStats = await _trakt.getUserStats();
+    }
+
+    // Load Simkl status
+    final simklLoggedIn = await _simkl.isLoggedIn();
+    String? simklUser;
+    if (simklLoggedIn) {
+      final profile = await _simkl.getUserProfile();
+      simklUser = profile?['name']?.toString();
+    }
+
+    // Load MDBlist status
+    final mdblistConfigured = await _mdblist.isConfigured();
+    String? mdblistUser;
+    final mdblistKey = await _mdblist.getApiKey();
+    if (mdblistConfigured) {
+      final info = await _mdblist.getUserInfo();
+      mdblistUser = info?['name']?.toString();
     }
 
     // Load Jackett settings
@@ -143,6 +181,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isRDLoggedIn = rdToken != null;
         _isTraktLoggedIn = traktLoggedIn;
         _traktUsername = traktUser;
+        _traktStats = traktStats;
+        _isSimklLoggedIn = simklLoggedIn;
+        _simklUsername = simklUser;
+        _isMdblistConfigured = mdblistConfigured;
+        _mdblistUsername = mdblistUser;
+        _mdblistApiKeyController.text = mdblistKey ?? '';
         
         _jackettUrlController.text = jackettUrl ?? '';
         _jackettApiKeyController.text = jackettKey ?? '';
@@ -195,8 +239,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _jackettApiKeyController.dispose();
     _prowlarrUrlController.dispose();
     _prowlarrApiKeyController.dispose();
+    _mdblistApiKeyController.dispose();
     _rdPollTimer?.cancel();
     _traktPollTimer?.cancel();
+    _simklPollTimer?.cancel();
     _jackett.dispose();
     _prowlarr.dispose();
     super.dispose();
@@ -405,6 +451,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildSectionHeader('Trakt'),
                     _buildTraktSection(),
                     const SizedBox(height: 32),
+                    _buildSectionHeader('Simkl'),
+                    _buildSimklSection(),
+                    const SizedBox(height: 32),
+                    _buildSectionHeader('MDBlist'),
+                    _buildMdblistSection(),
+                    const SizedBox(height: 32),
+                    _buildSectionHeader('Lists'),
+                    _buildListsSection(),
+                    const SizedBox(height: 32),
                     _buildSectionHeader('App Updates'),
                     _buildUpdateChecker(),
                     const SizedBox(height: 32),
@@ -413,7 +468,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 64),
                     const Center(
                       child: Text(
-                        'PlayTorrio Native v1.1.1',
+                        'PlayTorrio Native v1.1.2',
                         style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -504,6 +559,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       return;
     }
+
+    if (!mounted) return;
 
     // Confirm before overwriting
     final confirm = await showDialog<bool>(
@@ -1318,15 +1375,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final watchlistCount = await _trakt.importWatchlistToMyList();
       final playbackCount = await _trakt.importPlaybackToWatchHistory();
+      final episodesImported = await _trakt.importWatchedEpisodes();
       final exportedCount = await _trakt.exportMyListToWatchlist();
+      final episodesExported = await _trakt.exportWatchedEpisodes();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Trakt sync done! Imported $watchlistCount to My List, '
-              '$playbackCount to Continue Watching, '
-              'exported $exportedCount to Trakt',
+              'Trakt sync done! Imported $watchlistCount watchlist, '
+              '$playbackCount playback, $episodesImported episodes. '
+              'Exported $exportedCount watchlist, $episodesExported episodes.',
             ),
             duration: const Duration(seconds: 4),
           ),
@@ -1341,6 +1400,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _isTraktSyncing = false);
     }
+  }
+
+  Widget _buildTraktStatsWidget() {
+    final stats = _traktStats!;
+    final movies = stats['movies'] as Map<String, dynamic>? ?? {};
+    final episodes = stats['episodes'] as Map<String, dynamic>? ?? {};
+    final moviesWatched = movies['watched'] as int? ?? 0;
+    final moviesMinutes = movies['minutes'] as int? ?? 0;
+    final epsWatched = episodes['watched'] as int? ?? 0;
+    final epsMinutes = episodes['minutes'] as int? ?? 0;
+    final totalHours = ((moviesMinutes + epsMinutes) / 60).round();
+
+    Widget stat(IconData icon, String label, String value) {
+      return Column(
+        children: [
+          Icon(icon, color: AppTheme.primaryColor, size: 20),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          stat(Icons.movie_rounded, 'Movies', '$moviesWatched'),
+          stat(Icons.tv_rounded, 'Episodes', '$epsWatched'),
+          stat(Icons.schedule_rounded, 'Hours', '$totalHours'),
+        ],
+      ),
+    );
   }
 
   Widget _buildTraktSection() {
@@ -1385,6 +1484,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
+
+            // Stats
+            if (_traktStats != null) ...[
+              _buildTraktStatsWidget(),
+              const SizedBox(height: 12),
+            ],
 
             // Sync button
             SizedBox(
@@ -1478,6 +1583,434 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Simkl
+  // ═══════════════════════════════════════════════════════════════════════
+
+  void _startSimklLogin() async {
+    final data = await _simkl.requestPin();
+    if (data == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to start Simkl login')),
+        );
+      }
+      return;
+    }
+
+    final userCode = data['user_code'] as String;
+    final verifyUrl = data['verification_url']?.toString() ?? 'https://simkl.com/pin/$userCode';
+    final interval = (data['interval'] as int?) ?? 5;
+    final expiresIn = (data['expires_in'] as int?) ?? 900;
+
+    setState(() {
+      _simklUserCode = userCode;
+      _simklVerifyUrl = verifyUrl;
+    });
+
+    await Clipboard.setData(ClipboardData(text: userCode));
+
+    final uri = Uri.parse(verifyUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Code $userCode copied! Opening $verifyUrl...')),
+      );
+    }
+
+    _simklPollTimer?.cancel();
+    _simklPollTimer = Timer.periodic(Duration(seconds: interval), (timer) async {
+      final token = await _simkl.pollForToken(userCode);
+      if (token != null) {
+        timer.cancel();
+        final profile = await _simkl.getUserProfile();
+        final username = profile?['name']?.toString();
+        if (mounted) {
+          setState(() {
+            _simklUserCode = null;
+            _simklVerifyUrl = null;
+            _isSimklLoggedIn = true;
+            _simklUsername = username;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Logged in to Simkl${username != null ? " as $username" : ""}!')),
+          );
+        }
+        _syncSimkl();
+      }
+    });
+
+    Future.delayed(Duration(seconds: expiresIn), () {
+      if (_simklPollTimer?.isActive ?? false) {
+        _simklPollTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _simklUserCode = null;
+            _simklVerifyUrl = null;
+          });
+        }
+      }
+    });
+  }
+
+  void _logoutSimkl() async {
+    await _simkl.logout();
+    if (mounted) {
+      setState(() {
+        _isSimklLoggedIn = false;
+        _simklUsername = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Logged out of Simkl')),
+      );
+    }
+  }
+
+  Future<void> _syncSimkl() async {
+    if (_isSimklSyncing) return;
+    setState(() => _isSimklSyncing = true);
+
+    try {
+      final watchlistCount = await _simkl.importWatchlistToMyList();
+      final episodesImported = await _simkl.importWatchedEpisodes();
+      final exportedCount = await _simkl.exportMyListToWatchlist();
+      final episodesExported = await _simkl.exportWatchedEpisodes();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Simkl sync done! Imported $watchlistCount watchlist, '
+              '$episodesImported episodes. '
+              'Exported $exportedCount watchlist, $episodesExported episodes.',
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Simkl sync error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSimklSyncing = false);
+    }
+  }
+
+  Widget _buildSimklSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sync your watchlist and watch history with Simkl',
+            style: TextStyle(fontSize: 13, color: Colors.white54),
+          ),
+          const SizedBox(height: 16),
+
+          if (_isSimklLoggedIn) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Connected${_simklUsername != null ? " as $_simklUsername" : ""}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const Text('Simkl', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.sync, color: AppTheme.primaryColor, size: 18),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSimklSyncing ? null : _syncSimkl,
+                icon: _isSimklSyncing
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.sync),
+                label: Text(_isSimklSyncing ? 'Syncing...' : 'Sync Now'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _logoutSimkl,
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout from Simkl'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                foregroundColor: Colors.redAccent,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ] else if (_simklUserCode != null) ...[
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Go to the URL below and enter this code:',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _simklUserCode!,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                      letterSpacing: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    _simklVerifyUrl ?? 'https://simkl.com/pin',
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const LinearProgressIndicator(
+                    color: AppTheme.primaryColor,
+                    backgroundColor: Colors.white10,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Waiting for authorization...',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ElevatedButton.icon(
+              onPressed: _startSimklLogin,
+              icon: const Icon(Icons.login),
+              label: const Text('Login with Simkl'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white10,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MDBlist
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Future<void> _saveMdblistApiKey() async {
+    final key = _mdblistApiKeyController.text.trim();
+    if (key.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter an API key')),
+        );
+      }
+      return;
+    }
+
+    await _mdblist.setApiKey(key);
+
+    // Validate by fetching user info
+    final info = await _mdblist.getUserInfo();
+    if (info != null) {
+      if (mounted) {
+        setState(() {
+          _isMdblistConfigured = true;
+          _mdblistUsername = info['name']?.toString();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('MDBlist connected${_mdblistUsername != null ? " as $_mdblistUsername" : ""}!')),
+        );
+      }
+    } else {
+      await _mdblist.logout();
+      if (mounted) {
+        setState(() {
+          _isMdblistConfigured = false;
+          _mdblistUsername = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid MDBlist API key')),
+        );
+      }
+    }
+  }
+
+  void _logoutMdblist() async {
+    await _mdblist.logout();
+    if (mounted) {
+      setState(() {
+        _isMdblistConfigured = false;
+        _mdblistUsername = null;
+        _mdblistApiKeyController.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('MDBlist API key removed')),
+      );
+    }
+  }
+
+  Widget _buildMdblistSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Aggregated ratings from IMDb, TMDB, Trakt, Letterboxd, RT, and more',
+            style: TextStyle(fontSize: 13, color: Colors.white54),
+          ),
+          const SizedBox(height: 16),
+
+          if (_isMdblistConfigured) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Connected${_mdblistUsername != null ? " as $_mdblistUsername" : ""}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const Text('MDBlist', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _logoutMdblist,
+              icon: const Icon(Icons.logout),
+              label: const Text('Remove API Key'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                foregroundColor: Colors.redAccent,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ] else ...[
+            TextField(
+              controller: _mdblistApiKeyController,
+              decoration: InputDecoration(
+                labelText: 'MDBlist API Key',
+                hintText: 'Paste your API key from mdblist.com',
+                labelStyle: const TextStyle(color: Colors.white54),
+                hintStyle: const TextStyle(color: Colors.white24),
+                filled: true,
+                fillColor: Colors.white10,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              style: const TextStyle(color: Colors.white),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _saveMdblistApiKey,
+              icon: const Icon(Icons.save),
+              label: const Text('Save API Key'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListsSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Browse and manage your Trakt and MDBlist custom lists',
+            style: TextStyle(fontSize: 13, color: Colors.white54),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => const ListsScreen(),
+              )),
+              icon: const Icon(Icons.list_alt_rounded),
+              label: const Text('Manage Lists'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
         ],
       ),
     );

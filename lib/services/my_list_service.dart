@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
 
 /// Persisted "My List" service — stores movies & shows the user bookmarks.
 /// Works with both TMDB [Movie] objects and Stremio catalog Map items.
@@ -221,6 +222,16 @@ class MyListService {
         );
       }
     });
+    // Also sync to Simkl
+    SimklService().isLoggedIn().then((loggedIn) {
+      if (loggedIn) {
+        SimklService().addToWatchlist(
+          tmdbId: tmdbId,
+          imdbId: imdbId,
+          mediaType: mediaType,
+        );
+      }
+    });
   }
 
   void _traktRemove(int? tmdbId, String? imdbId, String mediaType) {
@@ -228,6 +239,16 @@ class MyListService {
     TraktService().isLoggedIn().then((loggedIn) {
       if (loggedIn) {
         TraktService().removeFromWatchlist(
+          tmdbId: tmdbId,
+          imdbId: imdbId,
+          mediaType: mediaType,
+        );
+      }
+    });
+    // Also sync removal to Simkl
+    SimklService().isLoggedIn().then((loggedIn) {
+      if (loggedIn) {
+        SimklService().removeFromWatchlist(
           tmdbId: tmdbId,
           imdbId: imdbId,
           mediaType: mediaType,

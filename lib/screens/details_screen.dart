@@ -18,6 +18,9 @@ import '../services/prowlarr_service.dart';
 import '../services/link_resolver.dart';
 import '../services/watch_history_service.dart';
 import '../services/episode_watched_service.dart';
+import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
+import '../api/mdblist_service.dart';
 import '../utils/extensions.dart';
 import '../utils/app_theme.dart';
 import '../widgets/loading_overlay.dart';
@@ -99,6 +102,15 @@ class _DetailsScreenState extends State<DetailsScreen> {
   final ScrollController _seasonScrollController = ScrollController();
   final FocusNode _keyboardFocusNode = FocusNode();
 
+  // MDBlist aggregated ratings
+  Map<String, dynamic>? _mdblistRatings;
+  // User's Trakt rating (1-10, null if not rated)
+  int? _userTraktRating;
+  // User's Simkl rating (1-10, null if not rated)
+  int? _userSimklRating;
+  // Trakt collection status
+  bool _isInTraktCollection = false;
+
   // ─── lifecycle ────────────────────────────────────────────────────────────
 
   @override
@@ -112,6 +124,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _checkIndexerConfiguration();
     _loadWatchedEpisodes();
     _fetchDetails();
+    _fetchExternalRatings();
+    _fetchUserTraktRating();
+    _fetchUserSimklRating();
+    _fetchTraktCollectionStatus();
   }
 
   @override
@@ -303,6 +319,355 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final members = await _api.getCredits(_movie.id, _movie.mediaType);
       if (mounted) setState(() => _castMembers = members);
     } catch (_) {}
+  }
+
+  Future<void> _fetchExternalRatings() async {
+    try {
+      if (!await MdblistService().isConfigured()) return;
+      Map<String, dynamic>? ratings;
+      if (_movie.imdbId != null && _movie.imdbId!.isNotEmpty) {
+        ratings = await MdblistService().getRatingsByImdb(_movie.imdbId!);
+      } else {
+        ratings = await MdblistService().getRatingsByTmdb(
+          _movie.id, _movie.mediaType == 'tv' ? 'show' : 'movie');
+      }
+      if (mounted && ratings != null) setState(() => _mdblistRatings = ratings);
+    } catch (_) {}
+  }
+
+  Future<void> _fetchUserTraktRating() async {
+    try {
+      if (!await TraktService().isLoggedIn()) return;
+      final type = _movie.mediaType == 'tv' ? 'shows' : 'movies';
+      final allRatings = await TraktService().getAllRatings();
+      final ratings = allRatings[type] as List? ?? [];
+      for (final r in ratings) {
+        final show = r['show'] ?? r['movie'];
+        if (show != null) {
+          final ids = show['ids'] as Map<String, dynamic>?;
+          if (ids != null && ids['tmdb'] == _movie.id) {
+            if (mounted) setState(() => _userTraktRating = r['rating'] as int?);
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _rateTraktItem(int rating) async {
+    final success = await TraktService().rateItem(
+      tmdbId: _movie.id,
+      mediaType: _movie.mediaType,
+      rating: rating,
+    );
+    if (success && mounted) setState(() => _userTraktRating = rating);
+  }
+
+  Future<void> _removeTraktRating() async {
+    final success = await TraktService().removeRating(
+      tmdbId: _movie.id,
+      mediaType: _movie.mediaType,
+    );
+    if (success && mounted) setState(() => _userTraktRating = null);
+  }
+
+  // ─── Simkl rating ─────────────────────────────────────────────────────────
+
+  Future<void> _fetchUserSimklRating() async {
+    try {
+      if (!await SimklService().isLoggedIn()) return;
+      final ratings = await SimklService().getRatings();
+      for (final r in ratings) {
+        final ids = r['ids'] as Map<String, dynamic>? ?? {};
+        if (ids['tmdb'] == _movie.id) {
+          if (mounted) setState(() => _userSimklRating = r['rating'] as int?);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _rateSimklItem(int rating) async {
+    final success = await SimklService().addRating(
+      tmdbId: _movie.id,
+      mediaType: _movie.mediaType,
+      rating: rating,
+    );
+    if (success && mounted) setState(() => _userSimklRating = rating);
+  }
+
+  Future<void> _removeSimklRating() async {
+    final success = await SimklService().removeRating(
+      tmdbId: _movie.id,
+      mediaType: _movie.mediaType,
+    );
+    if (success && mounted) setState(() => _userSimklRating = null);
+  }
+
+  void _showSimklRatingDialog() {
+    int selected = _userSimklRating ?? 5;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Rate on Simkl', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(10, (i) {
+                  final val = i + 1;
+                  return GestureDetector(
+                    onTap: () => setDialogState(() => selected = val),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      child: Icon(
+                        val <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: const Color(0xFF0BF5E5),
+                        size: 28,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+              Text('$selected / 10',
+                style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [
+            if (_userSimklRating != null)
+              TextButton(
+                onPressed: () { Navigator.pop(ctx); _removeSimklRating(); },
+                child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () { Navigator.pop(ctx); _rateSimklItem(selected); },
+              child: const Text('Rate', style: TextStyle(color: Color(0xFF0BF5E5))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Trakt collection ─────────────────────────────────────────────────────
+
+  Future<void> _fetchTraktCollectionStatus() async {
+    try {
+      if (!await TraktService().isLoggedIn()) return;
+      final collection = await TraktService().getCollection();
+      final type = _movie.mediaType == 'tv' ? 'shows' : 'movies';
+      final items = collection[type] as List? ?? [];
+      for (final item in items) {
+        final media = item['show'] ?? item['movie'];
+        if (media != null) {
+          final ids = media['ids'] as Map<String, dynamic>? ?? {};
+          if (ids['tmdb'] == _movie.id) {
+            if (mounted) setState(() => _isInTraktCollection = true);
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleTraktCollection() async {
+    if (!await TraktService().isLoggedIn()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login to Trakt first in Settings')));
+      return;
+    }
+    if (_isInTraktCollection) {
+      final success = await TraktService().removeFromCollection(
+        tmdbId: _movie.id,
+        mediaType: _movie.mediaType,
+      );
+      if (success && mounted) setState(() => _isInTraktCollection = false);
+    } else {
+      final success = await TraktService().addToCollection(
+        tmdbId: _movie.id,
+        mediaType: _movie.mediaType,
+      );
+      if (success && mounted) setState(() => _isInTraktCollection = true);
+    }
+  }
+
+  // ─── Trakt check-in ───────────────────────────────────────────────────────
+
+  Future<void> _traktCheckin() async {
+    if (!await TraktService().isLoggedIn()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login to Trakt first in Settings')));
+      return;
+    }
+    final success = await TraktService().checkin(
+      tmdbId: _movie.id,
+      mediaType: _movie.mediaType,
+      season: _movie.mediaType == 'tv' ? _selectedSeason : null,
+      episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
+    );
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Checked in on Trakt!')),
+      );
+    } else {
+      // Offer to cancel existing check-in and retry
+      final shouldCancel = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Check-in Failed', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'You may already have an active check-in.\nCancel existing and retry?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, retry')),
+          ],
+        ),
+      );
+      if (shouldCancel == true && mounted) {
+        final cancelled = await TraktService().cancelCheckin();
+        if (cancelled && mounted) {
+          final retrySuccess = await TraktService().checkin(
+            tmdbId: _movie.id,
+            mediaType: _movie.mediaType,
+            season: _movie.mediaType == 'tv' ? _selectedSeason : null,
+            episode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(retrySuccess ? 'Checked in on Trakt!' : 'Check-in failed')),
+          );
+        }
+      }
+    }
+  }
+
+  // ─── Trakt add to list ────────────────────────────────────────────────────
+
+  Future<void> _addToTraktList() async {
+    if (!await TraktService().isLoggedIn()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login to Trakt first in Settings')));
+      return;
+    }
+    final lists = await TraktService().getUserLists();
+    if (!mounted || lists.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No Trakt lists found. Create one in Lists screen.')));
+      }
+      return;
+    }
+
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Add to Trakt List', style: TextStyle(color: Colors.white)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: lists.length,
+            itemBuilder: (_, i) {
+              final list = lists[i];
+              final name = list['name']?.toString() ?? 'Untitled';
+              final count = list['item_count'] ?? 0;
+              return ListTile(
+                title: Text(name, style: const TextStyle(color: Colors.white)),
+                subtitle: Text('$count items', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, list),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    final slug = selected['ids']?['slug']?.toString() ?? '';
+    if (slug.isEmpty) return;
+
+    final type = _movie.mediaType == 'tv' ? 'shows' : 'movies';
+    final entry = <String, dynamic>{'ids': {'tmdb': _movie.id}};
+    final success = await TraktService().addToList(
+      listId: slug,
+      movies: type == 'movies' ? [entry] : [],
+      shows: type == 'shows' ? [entry] : [],
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(success
+        ? 'Added to "${selected['name']}"'
+        : 'Failed to add to list')),
+    );
+  }
+
+  void _showRatingDialog() {
+    int selected = _userTraktRating ?? 5;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Rate on Trakt', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(10, (i) {
+                  final val = i + 1;
+                  return GestureDetector(
+                    onTap: () => setDialogState(() => selected = val),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      child: Icon(
+                        val <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: const Color(0xFFFFD700),
+                        size: 28,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+              Text('$selected / 10',
+                style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [
+            if (_userTraktRating != null)
+              TextButton(
+                onPressed: () { Navigator.pop(ctx); _removeTraktRating(); },
+                child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () { Navigator.pop(ctx); _rateTraktItem(selected); },
+              child: const Text('Rate', style: TextStyle(color: Color(0xFF00E5FF))),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Fetches recommendations by getting meta from Stremio addons and
@@ -1003,7 +1368,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final magnet = 'magnet:?xt=urn:btih:$infoHash$dn$trackerParams';
 
       // fileIdx tells us exactly which file to play — no metadata poll needed
-      final fileIdx = stream['fileIdx'] as int?;
 
       if (!mounted) return;
       _streamCancelled = false;
@@ -1316,6 +1680,208 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  //  RATINGS ROW + ACTION BUTTONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildRatingsRow() {
+    final r = _mdblistRatings;
+    final chips = <Widget>[];
+
+    Widget ratingChip(String label, dynamic value, {Color color = Colors.white70, String? icon}) {
+      if (value == null || value == 0) return const SizedBox.shrink();
+      final display = value is double ? value.toStringAsFixed(1) : value.toString();
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Text(icon, style: const TextStyle(fontSize: 12)),
+              const SizedBox(width: 4),
+            ],
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Text(display, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+    }
+
+    if (r != null) {
+      final scores = r['scores'] as List<dynamic>? ?? r['ratings'] as List<dynamic>? ?? [];
+      for (final s in scores) {
+        final source = (s['source'] ?? '').toString();
+        final value = s['value'] ?? s['score'];
+        if (value == null || value == 0) continue;
+        String label;
+        Color color;
+        switch (source.toLowerCase()) {
+          case 'imdb':
+            label = 'IMDb';
+            color = const Color(0xFFf5c518);
+          case 'metacritic':
+            label = 'MC';
+            color = const Color(0xFF66CC33);
+          case 'metacriticuser':
+            label = 'MC User';
+            color = const Color(0xFF66CC33);
+          case 'trakt':
+            label = 'Trakt';
+            color = const Color(0xFFED1C24);
+          case 'letterboxd':
+            label = 'LB';
+            color = const Color(0xFF00D735);
+          case 'tomatoes':
+            label = 'RT';
+            color = const Color(0xFFFA320A);
+          case 'tomatoesaudience':
+            label = 'RT Aud';
+            color = const Color(0xFFFA320A);
+          case 'tmdb':
+            label = 'TMDB';
+            color = const Color(0xFF01B4E4);
+          case 'rogerebert':
+            label = 'Ebert';
+            color = const Color(0xFFCCCCCC);
+          default:
+            label = source;
+            color = Colors.white70;
+        }
+        chips.add(ratingChip(label, value, color: color));
+      }
+    }
+
+    if (_userTraktRating != null) {
+      chips.add(Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFED1C24).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFED1C24).withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, color: Color(0xFFED1C24), size: 14),
+            const SizedBox(width: 3),
+            Text('You: $_userTraktRating/10',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ));
+    }
+
+    if (_userSimklRating != null) {
+      chips.add(Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0BF5E5).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF0BF5E5).withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, color: Color(0xFF0BF5E5), size: 14),
+            const SizedBox(width: 3),
+            Text('Simkl: $_userSimklRating/10',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 6, runSpacing: 6, children: chips);
+  }
+
+  Widget _buildActionButtons() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _actionButton(
+          icon: _userTraktRating != null ? Icons.star_rounded : Icons.star_outline_rounded,
+          label: _userTraktRating != null ? 'Trakt $_userTraktRating' : 'Rate Trakt',
+          color: const Color(0xFFED1C24),
+          onTap: () async {
+            if (await TraktService().isLoggedIn()) {
+              _showRatingDialog();
+            } else {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Login to Trakt first in Settings')));
+            }
+          },
+        ),
+        _actionButton(
+          icon: _userSimklRating != null ? Icons.star_rounded : Icons.star_outline_rounded,
+          label: _userSimklRating != null ? 'Simkl $_userSimklRating' : 'Rate Simkl',
+          color: const Color(0xFF0BF5E5),
+          onTap: () async {
+            if (await SimklService().isLoggedIn()) {
+              _showSimklRatingDialog();
+            } else {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Login to Simkl first in Settings')));
+            }
+          },
+        ),
+        _actionButton(
+          icon: _isInTraktCollection ? Icons.library_add_check_rounded : Icons.library_add_rounded,
+          label: _isInTraktCollection ? 'Collected' : 'Collect',
+          color: const Color(0xFFCC7B19),
+          onTap: _toggleTraktCollection,
+        ),
+        _actionButton(
+          icon: Icons.live_tv_rounded,
+          label: 'Check In',
+          color: const Color(0xFF9B59B6),
+          onTap: _traktCheckin,
+        ),
+        _actionButton(
+          icon: Icons.playlist_add_rounded,
+          label: 'Add to List',
+          color: const Color(0xFF3498DB),
+          onTap: _addToTraktList,
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   //  MOBILE LAYOUT
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1333,6 +1899,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
               children: [
                 Wrap(spacing: 6, runSpacing: 6,
                   children: _movie.genres.take(3).map(_genreChip).toList()),
+                if (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) ...[  
+                  const SizedBox(height: 12),
+                  _buildRatingsRow(),
+                ],
+                const SizedBox(height: 8),
+                _buildActionButtons(),
                 const SizedBox(height: 16),
                 _ExpandableSynopsis(text: _movie.overview),
                 const SizedBox(height: 16),
@@ -1537,6 +2109,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   const SizedBox(height: 10),
                   Wrap(spacing: 6, runSpacing: 6,
                     children: _movie.genres.take(3).map(_genreChip).toList()),
+                  if (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) ...[  
+                    const SizedBox(height: 12),
+                    _buildRatingsRow(),
+                  ],
+                  const SizedBox(height: 8),
+                  _buildActionButtons(),
                 ],
               ),
             ),

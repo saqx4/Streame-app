@@ -19,6 +19,7 @@ import '../../api/torrent_stream_service.dart';
 import '../../api/stream_extractor.dart';
 import '../../services/watch_history_service.dart';
 import '../../api/trakt_service.dart';
+import '../../api/simkl_service.dart';
 import '../../api/webstreamr_service.dart';
 import '../../api/arabic_service.dart';
 import '../../api/stremio_service.dart';
@@ -529,6 +530,12 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           episode: widget.selectedEpisode,
           progressPercent: 0,
         );
+        SimklService().scrobbleStart(
+          tmdbId: widget.movie!.id,
+          mediaType: widget.movie!.mediaType,
+          season: widget.selectedSeason,
+          episode: widget.selectedEpisode,
+        );
       }
     });
   }
@@ -639,7 +646,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         mediaType: widget.movie!.mediaType,
       );
 
-      // Trakt scrobble — fire and forget
+      // Trakt + Simkl scrobble — fire and forget
       final progressPercent = dur > 0 ? (pos / dur * 100) : 0.0;
       TraktService().scrobbleStop(
         tmdbId: widget.movie!.id,
@@ -647,6 +654,12 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         season: widget.selectedSeason,
         episode: widget.selectedEpisode,
         progressPercent: progressPercent,
+      );
+      SimklService().scrobbleStop(
+        tmdbId: widget.movie!.id,
+        mediaType: widget.movie!.mediaType,
+        season: widget.selectedSeason,
+        episode: widget.selectedEpisode,
       );
     }
   }
@@ -890,7 +903,48 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     _playingSub = _player.stream.playing.listen((playing) {
       if (_disposed) return;
       _isPlayingNotifier.value = playing;
-      if (playing) _startHideTimer();
+      if (playing) {
+        _startHideTimer();
+        // Scrobble resume
+        if (widget.movie != null) {
+          final pos = _positionNotifier.value.inMilliseconds;
+          final dur = _durationNotifier.value.inMilliseconds;
+          final pct = dur > 0 ? (pos / dur * 100) : 0.0;
+          TraktService().scrobbleStart(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+            progressPercent: pct,
+          );
+          SimklService().scrobbleStart(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+          );
+        }
+      } else {
+        // Scrobble pause
+        if (widget.movie != null) {
+          final pos = _positionNotifier.value.inMilliseconds;
+          final dur = _durationNotifier.value.inMilliseconds;
+          final pct = dur > 0 ? (pos / dur * 100) : 0.0;
+          TraktService().scrobblePause(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+            progressPercent: pct,
+          );
+          SimklService().scrobblePause(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+          );
+        }
+      }
     });
 
     // Buffering spinner
@@ -1709,8 +1763,8 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
               ? await debrid.resolveRealDebrid(magnetLink)
               : await debrid.resolveTorBox(magnetLink);
           if (files.isNotEmpty) {
-            final sStr = 'S${s}';
-            final eStr = 'E${e}';
+            final sStr = 'S$s';
+            final eStr = 'E$e';
             final match = files.where((f) =>
                 f.filename.toUpperCase().contains(sStr) &&
                 f.filename.toUpperCase().contains(eStr)).toList();

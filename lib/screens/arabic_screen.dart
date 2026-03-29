@@ -586,7 +586,7 @@ class _ShowCardState extends State<_ShowCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           transform: _isHovered
-              ? (Matrix4.identity()..scale(1.05))
+              ? Matrix4.diagonal3Values(1.05, 1.05, 1.0)
               : Matrix4.identity(),
           transformAlignment: Alignment.center,
           decoration: BoxDecoration(
@@ -610,13 +610,13 @@ class _ShowCardState extends State<_ShowCard> {
                     ? CachedNetworkImage(
                         imageUrl: widget.show.poster,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
+                        placeholder: (_, _) => Container(
                           color: Colors.white.withValues(alpha: 0.05),
                           child: const Center(
                             child: Icon(Icons.movie_outlined, color: Colors.white24, size: 32),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: (_, _, _) => Container(
                           color: Colors.white.withValues(alpha: 0.05),
                           child: const Center(
                             child: Icon(Icons.broken_image, color: Colors.white24, size: 32),

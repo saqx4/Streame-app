@@ -141,7 +141,7 @@ class SubtitleApi {
           if (entry['url'] != null) {
             final dlUrl = entry['url'].toString();
             if (dlUrl.contains('wyzie.io') || dlUrl.contains('wyzie.ru')) {
-              entry['url'] = dlUrl + (dlUrl.contains('?') ? '&' : '?') + 'key=$wyzieKey';
+              entry['url'] = '$dlUrl${dlUrl.contains('?') ? '&' : '?'}key=$wyzieKey';
             }
           }
           return entry;

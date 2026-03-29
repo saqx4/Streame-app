@@ -8,11 +8,13 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:auto_orientation_v2/auto_orientation_v2.dart';
+import 'package:screen_brightness/screen_brightness.dart';
 
 import '../../api/subtitle_api.dart';
 import '../../services/watch_history_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/trakt_service.dart';
+import '../../api/simkl_service.dart';
 import '../../api/torrent_stream_service.dart';
 import '../../api/stream_extractor.dart';
 import '../../api/webstreamr_service.dart';
@@ -450,7 +452,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
   // ── Gesture State ─────────────────────────────────────────────────────────
   double _volume = 50.0;       // 0–150 (mpv supports >100%)
-  double _brightness = 0.0;    // -100..100 (mpv video brightness)
+  double _brightness = 0.5;    // 0.0..1.0 (screen brightness)
   bool _showVolumeIndicator = false;
   bool _showBrightnessIndicator = false;
   Timer? _indicatorHideTimer;
@@ -505,8 +507,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
     // ── System UI ────────────────────────────────────────────────────────
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
+    // Force landscape on open, then unlock so user can rotate freely
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!_disposed) {
+        AutoOrientation.fullAutoMode(forceSensor: true);
+        SystemChrome.setPreferredOrientations([]);
+      }
+    });
     WakelockPlus.enable();
 
     // ── Player ───────────────────────────────────────────────────────────
@@ -551,6 +562,14 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       _initPlayback();
       _startHideTimer();
       _fetchSubtitles();
+      // Initialize brightness from current screen level
+      ScreenBrightness().application.then((b) {
+        if (mounted) setState(() => _brightness = b);
+      }).catchError((_) {
+        ScreenBrightness().system.then((b) {
+          if (mounted) setState(() => _brightness = b);
+        }).catchError((_) {});
+      });
       // Trakt scrobble start
       if (widget.movie != null) {
         TraktService().scrobbleStart(
@@ -560,6 +579,12 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           episode: widget.selectedEpisode,
           progressPercent: 0,
         );
+        SimklService().scrobbleStart(
+          tmdbId: widget.movie!.id,
+          mediaType: widget.movie!.mediaType,
+          season: widget.selectedSeason,
+          episode: widget.selectedEpisode,
+        );
       }
     });
   }
@@ -567,6 +592,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   @override
   void dispose() {
     _saveWatchHistory();
+
+    // Restore screen brightness to system default
+    try { ScreenBrightness().resetApplicationScreenBrightness(); } catch (_) {}
 
     // Restore free rotation when leaving the player.
     AutoOrientation.fullAutoMode(forceSensor: true);
@@ -682,7 +710,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         mediaType: widget.movie!.mediaType,
       );
 
-      // Trakt scrobble — fire and forget
+      // Trakt + Simkl scrobble — fire and forget
       final progressPercent = dur > 0 ? (pos / dur * 100) : 0.0;
       TraktService().scrobbleStop(
         tmdbId: widget.movie!.id,
@@ -690,6 +718,12 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         season: widget.selectedSeason,
         episode: widget.selectedEpisode,
         progressPercent: progressPercent,
+      );
+      SimklService().scrobbleStop(
+        tmdbId: widget.movie!.id,
+        mediaType: widget.movie!.mediaType,
+        season: widget.selectedSeason,
+        episode: widget.selectedEpisode,
       );
     }
   }
@@ -952,7 +986,48 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     _playingSub = _player.stream.playing.listen((playing) {
       if (_disposed) return;
       _isPlayingNotifier.value = playing;
-      if (playing) _startHideTimer();
+      if (playing) {
+        _startHideTimer();
+        // Scrobble resume
+        if (widget.movie != null) {
+          final pos = _positionNotifier.value.inMilliseconds;
+          final dur = _durationNotifier.value.inMilliseconds;
+          final pct = dur > 0 ? (pos / dur * 100) : 0.0;
+          TraktService().scrobbleStart(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+            progressPercent: pct,
+          );
+          SimklService().scrobbleStart(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+          );
+        }
+      } else {
+        // Scrobble pause
+        if (widget.movie != null) {
+          final pos = _positionNotifier.value.inMilliseconds;
+          final dur = _durationNotifier.value.inMilliseconds;
+          final pct = dur > 0 ? (pos / dur * 100) : 0.0;
+          TraktService().scrobblePause(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+            progressPercent: pct,
+          );
+          SimklService().scrobblePause(
+            tmdbId: widget.movie!.id,
+            mediaType: widget.movie!.mediaType,
+            season: widget.selectedSeason,
+            episode: widget.selectedEpisode,
+          );
+        }
+      }
     });
 
     _bufferingSub = _player.stream.buffering.listen((buffering) {
@@ -1160,11 +1235,10 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         _showBrightnessIndicator = false;
       });
     } else {
-      _brightness = (_brightness + delta).clamp(-100.0, 100.0);
-      if (_player.platform is NativePlayer) {
-        (_player.platform as NativePlayer)
-            .setProperty('brightness', _brightness.toInt().toString());
-      }
+      _brightness = (_brightness + delta / 300).clamp(0.0, 1.0);
+      try {
+        ScreenBrightness().setApplicationScreenBrightness(_brightness);
+      } catch (_) {}
       setState(() {
         _showBrightnessIndicator = true;
         _showVolumeIndicator = false;
@@ -2046,8 +2120,8 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               ? await debrid.resolveRealDebrid(magnetLink)
               : await debrid.resolveTorBox(magnetLink);
           if (files.isNotEmpty) {
-            final sStr = 'S${s}';
-            final eStr = 'E${e}';
+            final sStr = 'S$s';
+            final eStr = 'E$e';
             final match = files.where((f) =>
                 f.filename.toUpperCase().contains(sStr) &&
                 f.filename.toUpperCase().contains(eStr)).toList();

@@ -48,6 +48,10 @@ app.*.map.json
 android/release.keystore
 android/key.properties
 
+# Local environment secrets
+.env
+*.env
+
 # Generated platform folders (CI creates linux/ & macos/ on the fly)
 /linux/
 /macos/

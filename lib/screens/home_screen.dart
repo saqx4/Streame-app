@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../api/tmdb_api.dart';
 import '../api/settings_service.dart';
 import '../api/stremio_service.dart';
@@ -13,6 +12,7 @@ import '../api/amri_extractor.dart';
 import '../api/torrent_stream_service.dart';
 import '../api/debrid_api.dart';
 import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
 import '../api/webstreamr_service.dart';
 import '../services/watch_history_service.dart';
 import '../services/my_list_service.dart';
@@ -51,6 +51,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final Map<String, List<Map<String, dynamic>>> _catalogItems = {};
   bool _catalogsLoaded = false;
 
+  // Trakt personalized sections
+  List<Movie> _traktRecommendations = [];
+  List<Map<String, dynamic>> _traktCalendar = [];
+  List<Map<String, dynamic>> _traktCalendarMovies = [];
+
   @override
   bool get wantKeepAlive => true;
 
@@ -73,6 +78,71 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
     // Trakt auto-sync (runs once per session, no-op if not logged in)
     TraktService().fullSync();
+    // Simkl auto-sync (runs once per session, no-op if not logged in)
+    SimklService().fullSync();
+
+    // Trakt personalized sections
+    _loadTraktRecommendations();
+    _loadTraktCalendar();
+    _loadTraktCalendarMovies();
+  }
+
+  Future<void> _loadTraktRecommendations() async {
+    try {
+      if (!await TraktService().isLoggedIn()) return;
+      // Fetch movie + show recommendations and convert via TMDB
+      final movieRecs = await TraktService().getRecommendations('movies');
+      final showRecs = await TraktService().getRecommendations('shows');
+      final all = [...movieRecs, ...showRecs];
+      final entries = all.take(20).map((rec) {
+        final item = rec['movie'] ?? rec['show'];
+        if (item == null) return null;
+        final ids = item['ids'] as Map<String, dynamic>?;
+        final tmdbId = ids?['tmdb'] as int?;
+        if (tmdbId == null) return null;
+        final type = rec.containsKey('show') ? 'tv' : 'movie';
+        return (tmdbId: tmdbId, type: type);
+      }).whereType<({int tmdbId, String type})>().toList();
+
+      // Parallel TMDB lookups in batches of 5
+      final movies = <Movie>[];
+      for (var i = 0; i < entries.length; i += 5) {
+        final batch = entries.skip(i).take(5);
+        final results = await Future.wait(
+          batch.map((e) async {
+            try {
+              return e.type == 'tv'
+                  ? await _api.getTvDetails(e.tmdbId)
+                  : await _api.getMovieDetails(e.tmdbId);
+            } catch (_) { return null; }
+          }),
+        );
+        movies.addAll(results.whereType<Movie>());
+      }
+      if (mounted && movies.isNotEmpty) {
+        setState(() => _traktRecommendations = movies);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadTraktCalendar() async {
+    try {
+      if (!await TraktService().isLoggedIn()) return;
+      final shows = await TraktService().getCalendarShows(days: 14);
+      if (mounted && shows.isNotEmpty) {
+        setState(() => _traktCalendar = shows.take(20).toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadTraktCalendarMovies() async {
+    try {
+      if (!await TraktService().isLoggedIn()) return;
+      final movies = await TraktService().getCalendarMovies(days: 30);
+      if (mounted && movies.isNotEmpty) {
+        setState(() => _traktCalendarMovies = movies.take(20).toList());
+      }
+    } catch (_) {}
   }
 
   void _startHeroTimer() {
@@ -119,6 +189,241 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _heroTimer?.cancel();
     _heroController.dispose();
     super.dispose();
+  }
+
+  Widget _buildTraktCalendarSection() {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.calendar_month_rounded, color: AppTheme.primaryColor, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Upcoming Schedule', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 2.5,
+                      width: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 140,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: _traktCalendar.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final entry = _traktCalendar[index];
+              final show = entry['show'] as Map<String, dynamic>? ?? {};
+              final episode = entry['episode'] as Map<String, dynamic>? ?? {};
+              final showTitle = show['title'] as String? ?? 'Unknown';
+              final epTitle = episode['title'] as String? ?? '';
+              final season = episode['season'] as int? ?? 0;
+              final number = episode['number'] as int? ?? 0;
+              final aired = entry['first_aired'] as String? ?? '';
+              String dateLabel = '';
+              if (aired.isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(aired).toLocal();
+                  final wd = weekdays[dt.weekday - 1];
+                  final mo = months[dt.month - 1];
+                  dateLabel = '$wd, $mo ${dt.day}';
+                } catch (_) {}
+              }
+              final showIds = show['ids'] as Map<String, dynamic>? ?? {};
+              final tmdbId = showIds['tmdb'] as int?;
+
+              return GestureDetector(
+                onTap: () async {
+                  if (tmdbId == null) return;
+                  try {
+                    final movie = await _api.getTvDetails(tmdbId);
+                    if (mounted) _openDetails(movie);
+                  } catch (_) {}
+                },
+                child: Container(
+                  width: 220,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                    boxShadow: AppTheme.isLightMode ? null : [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(showTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text('S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}',
+                        style: TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                      if (epTitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(epTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                      ],
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                          const SizedBox(width: 4),
+                          Text(dateLabel, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTraktCalendarMoviesSection() {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.movie_filter_rounded, color: AppTheme.primaryColor, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Upcoming Movies', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 2.5,
+                      width: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 140,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: _traktCalendarMovies.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final entry = _traktCalendarMovies[index];
+              final movie = entry['movie'] as Map<String, dynamic>? ?? {};
+              final title = movie['title'] as String? ?? 'Unknown';
+              final year = movie['year'] as int?;
+              final released = entry['released'] as String? ?? '';
+              String dateLabel = '';
+              if (released.isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(released);
+                  final wd = weekdays[dt.weekday - 1];
+                  final mo = months[dt.month - 1];
+                  dateLabel = '$wd, $mo ${dt.day}';
+                } catch (_) {}
+              }
+              final movieIds = movie['ids'] as Map<String, dynamic>? ?? {};
+              final tmdbId = movieIds['tmdb'] as int?;
+
+              return GestureDetector(
+                onTap: () async {
+                  if (tmdbId == null) return;
+                  try {
+                    final m = await _api.getMovieDetails(tmdbId);
+                    if (mounted) _openDetails(m);
+                  } catch (_) {}
+                },
+                child: Container(
+                  width: 220,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                    boxShadow: AppTheme.isLightMode ? null : [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      if (year != null) ...[
+                        const SizedBox(height: 4),
+                        Text('$year', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                      ],
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                          const SizedBox(width: 4),
+                          Text(dateLabel, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _openDetails(Movie movie) async {
@@ -349,6 +654,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             }),
           // Top Rated
           SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'Top Rated', icon: Icons.star_rounded, future: _topRatedFuture, onMovieTap: _openDetails))),
+          // Trakt Recommendations
+          if (_traktRecommendations.isNotEmpty)
+            SliverToBoxAdapter(child: RepaintBoundary(child: _StaticMovieSection(title: 'Recommended for You', icon: Icons.recommend_rounded, movies: _traktRecommendations, onMovieTap: _openDetails))),
+          // Trakt Calendar
+          if (_traktCalendar.isNotEmpty)
+            SliverToBoxAdapter(child: RepaintBoundary(child: _buildTraktCalendarSection())),
+          // Trakt Calendar Movies
+          if (_traktCalendarMovies.isNotEmpty)
+            SliverToBoxAdapter(child: RepaintBoundary(child: _buildTraktCalendarMoviesSection())),
           // New Releases
           SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'New Releases', icon: Icons.new_releases_rounded, future: _nowPlayingFuture, onMovieTap: _openDetails, isPortrait: true))),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -965,6 +1279,144 @@ class _MovieSectionState extends State<_MovieSection> {
           ],
         );
       },
+    );
+  }
+}
+
+class _StaticMovieSection extends StatefulWidget {
+  final String title;
+  final IconData? icon;
+  final List<Movie> movies;
+  final Function(Movie) onMovieTap;
+
+  const _StaticMovieSection({
+    required this.title,
+    this.icon,
+    required this.movies,
+    required this.onMovieTap,
+  });
+
+  @override
+  State<_StaticMovieSection> createState() => _StaticMovieSectionState();
+}
+
+class _StaticMovieSectionState extends State<_StaticMovieSection> {
+  final ScrollController _scrollController = ScrollController();
+
+  void _scrollLeft() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.offset - 600,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _scrollRight() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.offset + 600,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildSmallFrostedArrow(IconData icon) {
+    final inner = Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: AppTheme.isLightMode ? 0.12 : 0.08),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
+    );
+    if (AppTheme.isLightMode) return inner;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: inner,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.movies.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          child: Row(
+            children: [
+              if (widget.icon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(widget.icon, color: AppTheme.primaryColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 2.5,
+                      width: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _scrollLeft,
+                child: _buildSmallFrostedArrow(Icons.arrow_back_ios_new_rounded),
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: _scrollRight,
+                child: _buildSmallFrostedArrow(Icons.arrow_forward_ios_rounded),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 190,
+          child: ListView.separated(
+            clipBehavior: Clip.none,
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: widget.movies.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemBuilder: (context, index) => _MovieCard(
+              movie: widget.movies[index],
+              onTap: () => widget.onMovieTap(widget.movies[index]),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1655,7 +2107,16 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
       initialData: WatchHistoryService().current,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-        final history = snapshot.data!;
+        // Deduplicate by tmdbId for shows — keep only the latest episode per show
+        final raw = snapshot.data!;
+        final seen = <dynamic>{};
+        final history = <Map<String, dynamic>>[];
+        for (final item in raw) {
+          final key = (item['mediaType'] == 'tv' || item['season'] != null)
+              ? item['tmdbId']
+              : item['uniqueId'];
+          if (seen.add(key)) history.add(item);
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
