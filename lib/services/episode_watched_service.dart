@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
 
 /// Lightweight service to track which episodes the user has manually
 /// marked as "done watching". Persisted via SharedPreferences so the
 /// state is shared across *all* detail screens (torrent & streaming).
+///
+/// Syncs to Trakt and Simkl when toggling watched state.
 class EpisodeWatchedService {
   static final EpisodeWatchedService _instance = EpisodeWatchedService._();
   factory EpisodeWatchedService() => _instance;
@@ -53,6 +57,8 @@ class EpisodeWatchedService {
     map[id] = !current;
     await _save();
     debugPrint('[EpisodeWatched] ${!current ? "Marked" : "Unmarked"} $id');
+    // Sync to tracking services in background
+    _syncEpisodeState(tmdbId, season, episode, !current);
   }
 
   Future<void> setWatched(int tmdbId, int season, int episode, bool watched) async {
@@ -60,5 +66,72 @@ class EpisodeWatchedService {
     final id = _id(tmdbId, season, episode);
     map[id] = watched;
     await _save();
+    // Sync to tracking services in background
+    _syncEpisodeState(tmdbId, season, episode, watched);
+  }
+
+  /// Set watched without triggering external sync (used during import).
+  Future<void> setWatchedLocal(int tmdbId, int season, int episode, bool watched) async {
+    final map = await _load();
+    final id = _id(tmdbId, season, episode);
+    map[id] = watched;
+    await _save();
+  }
+
+  // ── Sync to Trakt & Simkl ──────────────────────────────────────────────
+  void _syncEpisodeState(int tmdbId, int season, int episode, bool watched) {
+    // Trakt
+    TraktService().isLoggedIn().then((loggedIn) {
+      if (!loggedIn) return;
+      if (watched) {
+        TraktService().addToHistory(
+          tmdbId: tmdbId,
+          mediaType: 'tv',
+          season: season,
+          episode: episode,
+        );
+      } else {
+        TraktService().removeFromHistory(
+          tmdbId: tmdbId,
+          mediaType: 'tv',
+          season: season,
+          episode: episode,
+        );
+      }
+    });
+
+    // Simkl
+    SimklService().isLoggedIn().then((loggedIn) {
+      if (!loggedIn) return;
+      if (watched) {
+        SimklService().addToHistory(shows: [
+          {
+            'ids': {'tmdb': tmdbId},
+            'seasons': [
+              {
+                'number': season,
+                'episodes': [
+                  {'number': episode}
+                ]
+              }
+            ]
+          }
+        ]);
+      } else {
+        SimklService().removeFromHistory(shows: [
+          {
+            'ids': {'tmdb': tmdbId},
+            'seasons': [
+              {
+                'number': season,
+                'episodes': [
+                  {'number': episode}
+                ]
+              }
+            ]
+          }
+        ]);
+      }
+    });
   }
 }

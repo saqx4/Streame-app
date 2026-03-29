@@ -440,12 +440,14 @@ class _IptvLoginScreenState extends State<IptvLoginScreen> with SingleTickerProv
                                 setState(() => _loading = true);
                                 try {
                                   await _iptvService.switchToCredential(cred);
-                                  if (mounted) _navigateToHome();
+                                  if (mounted) { _navigateToHome(); }
                                 } catch (e) {
-                                  if (mounted) setState(() {
-                                    _error = 'Failed to connect: ${e.toString().replaceFirst("Exception: ", "")}';
-                                    _loading = false;
-                                  });
+                                  if (mounted) {
+                                    setState(() {
+                                      _error = 'Failed to connect: ${e.toString().replaceFirst("Exception: ", "")}';
+                                      _loading = false;
+                                    });
+                                  }
                                 }
                               },
                               child: Container(

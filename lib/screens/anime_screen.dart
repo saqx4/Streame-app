@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -504,7 +503,7 @@ class _AnimeScreenState extends State<AnimeScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemCount: _watchHistory.length,
             itemBuilder: (_, i) {
               final entry = _watchHistory[i];
@@ -530,7 +529,7 @@ class _AnimeScreenState extends State<AnimeScreen> {
                             child: CachedNetworkImage(
                               imageUrl: anime.coverUrl,
                               width: 55, height: 80, fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Container(width: 55, height: 80, color: AppTheme.bgCard),
+                              errorWidget: (_, _, _) => Container(width: 55, height: 80, color: AppTheme.bgCard),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -620,8 +619,8 @@ class _AnimeScreenState extends State<AnimeScreen> {
                     imageUrl: img,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    placeholder: (_, __) => Container(color: AppTheme.bgCard),
-                    errorWidget: (_, __, ___) => Container(color: AppTheme.bgCard),
+                    placeholder: (_, _) => Container(color: AppTheme.bgCard),
+                    errorWidget: (_, _, _) => Container(color: AppTheme.bgCard),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -678,7 +677,7 @@ class _AnimeScreenState extends State<AnimeScreen> {
                           Row(
                             children: [
                               if (anime.averageScore != null)
-                                _buildHeroBadge('${(anime.averageScore! / 10).toStringAsFixed(1)}', Colors.amber, Icons.star_rounded),
+                                _buildHeroBadge((anime.averageScore! / 10).toStringAsFixed(1), Colors.amber, Icons.star_rounded),
                               if (anime.episodes != null) ...[
                                 const SizedBox(width: 8),
                                 _buildHeroBadge('${anime.episodes} eps', Colors.white70, Icons.video_library_outlined),
@@ -782,7 +781,7 @@ class _AnimeScreenState extends State<AnimeScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemCount: items.length,
             itemBuilder: (_, i) => SizedBox(
               width: 150,
@@ -901,9 +900,9 @@ class _AnimeScreenState extends State<AnimeScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemCount: 5,
-            itemBuilder: (_, __) => Shimmer.fromColors(
+            itemBuilder: (_, _) => Shimmer.fromColors(
               baseColor: Colors.white.withValues(alpha: 0.05),
               highlightColor: Colors.white.withValues(alpha: 0.1),
               child: Container(width: 150, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14))),
@@ -963,7 +962,7 @@ class _AnimeCardWidgetState extends State<AnimeCardWidget> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          transform: _isHovered ? (Matrix4.identity()..scale(1.04)) : Matrix4.identity(),
+          transform: _isHovered ? Matrix4.diagonal3Values(1.04, 1.04, 1.0) : Matrix4.identity(),
           transformAlignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -981,8 +980,8 @@ class _AnimeCardWidgetState extends State<AnimeCardWidget> {
                     ? CachedNetworkImage(
                         imageUrl: widget.anime.coverUrl,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: AppTheme.bgCard, child: const Center(child: Icon(Icons.movie_outlined, color: Colors.white12, size: 28))),
-                        errorWidget: (_, __, ___) => Container(color: AppTheme.bgCard, child: const Center(child: Icon(Icons.broken_image, color: Colors.white12, size: 28))),
+                        placeholder: (_, _) => Container(color: AppTheme.bgCard, child: const Center(child: Icon(Icons.movie_outlined, color: Colors.white12, size: 28))),
+                        errorWidget: (_, _, _) => Container(color: AppTheme.bgCard, child: const Center(child: Icon(Icons.broken_image, color: Colors.white12, size: 28))),
                       )
                     : Container(color: AppTheme.bgCard, child: const Center(child: Icon(Icons.movie_outlined, color: Colors.white12, size: 28))),
 

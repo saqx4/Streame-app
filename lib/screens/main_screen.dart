@@ -118,8 +118,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final visible = await SettingsService().getNavbarConfig();
     if (!mounted) return;
     setState(() {
+      // Remember which screen we're currently on
+      final currentId = _selectedIndex < _visibleIds.length
+          ? _visibleIds[_selectedIndex]
+          : null;
       _visibleIds = [...visible, 'settings'];
-      if (_selectedIndex >= _visibleIds.length) _selectedIndex = 0;
+      // Try to stay on the same screen after reorder/hide
+      if (currentId != null) {
+        final newIndex = _visibleIds.indexOf(currentId);
+        if (newIndex >= 0) {
+          _selectedIndex = newIndex;
+        } else if (_selectedIndex >= _visibleIds.length) {
+          _selectedIndex = _visibleIds.length - 1;
+        }
+      } else if (_selectedIndex >= _visibleIds.length) {
+        _selectedIndex = 0;
+      }
     });
   }
 

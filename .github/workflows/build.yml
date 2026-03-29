@@ -31,7 +31,12 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
 
       - run: flutter pub get
-      - run: flutter build windows --release
+      - run: >
+          flutter build windows --release
+          --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
+          --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
+          --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
+          --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
 
       - name: Install Inno Setup
         shell: pwsh
@@ -170,7 +175,12 @@ jobs:
             macos/Runner/Info.plist
 
       - run: flutter pub get
-      - run: flutter build macos --release
+      - run: >
+          flutter build macos --release
+          --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
+          --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
+          --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
+          --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
 
       - name: Package as DMG
         run: |
@@ -244,7 +254,12 @@ jobs:
             macos/Runner/Info.plist
 
       - run: arch -x86_64 flutter pub get
-      - run: arch -x86_64 flutter build macos --release
+      - run: >
+          arch -x86_64 flutter build macos --release
+          --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
+          --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
+          --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
+          --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
 
       - name: Package as DMG
         run: |
@@ -327,7 +342,12 @@ jobs:
       - run: flutter pub get
 
       # ── Release build ────────────────────────────────────────────────────
-      - run: flutter build ios --release --no-codesign
+      - run: >
+          flutter build ios --release --no-codesign
+          --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
+          --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
+          --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
+          --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
 
       - name: Package as IPA
         run: |

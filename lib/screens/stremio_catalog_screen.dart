@@ -614,7 +614,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemCount: catalogs.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
             final cat = catalogs[index];
             final isSelected = _selectedCatalog != null &&
@@ -647,7 +647,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                             borderRadius: BorderRadius.circular(4),
                             child: CachedNetworkImage(
                               imageUrl: addonIcon, width: 16, height: 16,
-                              errorWidget: (_, __, ___) => Icon(
+                              errorWidget: (_, _, _) => Icon(
                                 cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
                                 size: 16, color: Colors.white38,
                               ),
@@ -757,7 +757,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                             child: CachedNetworkImage(
                               imageUrl: entry.value.first['addonIcon'],
                               width: 20, height: 20,
-                              errorWidget: (_, __, ___) => const Icon(Icons.extension, size: 20, color: Colors.white38),
+                              errorWidget: (_, _, _) => const Icon(Icons.extension, size: 20, color: Colors.white38),
                             ),
                           ),
                           const SizedBox(width: 8),
