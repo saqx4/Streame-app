@@ -96,6 +96,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Light mode
   bool _isLightMode = false;
 
+  // Theme preset
+  String _selectedThemeId = 'cinematic';
+
   // Navbar config
   List<String> _navbarVisible = [];
   List<String> _navbarOrder = [];
@@ -158,6 +161,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Load light mode
     final lightMode = await _settings.isLightModeEnabled();
 
+    // Load theme preset
+    final themePreset = await _settings.getThemePreset();
+
     // Load navbar config
     final navVisible = await _settings.getNavbarConfig();
     // Full order: visible items first, then hidden items
@@ -196,6 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _torrentCacheType = cacheType;
         _torrentRamCacheMb = ramCacheMb;
         _isLightMode = lightMode;
+        _selectedThemeId = themePreset;
         _navbarVisible = navVisible;
         _navbarOrder = navOrder;
       });
@@ -297,6 +304,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // Track which sections are expanded
+  final Set<String> _expandedSections = {'backup'};
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -313,162 +323,254 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 centerTitle: false,
               ),
               SliverPadding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _buildSectionHeader('Backup & Restore'),
-                    _buildBackupRestore(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Performance'),
-                    _buildFocusableToggle(
-                      'Light Mode',
-                      'Disables blur effects, glows, shadows, and animations for better FPS on low-end devices.',
-                      _isLightMode,
-                      (val) async {
-                        await _settings.setLightMode(val);
-                        setState(() => _isLightMode = val);
-                      },
+
+                    // ── Backup & Restore ──
+                    _buildExpandableSection(
+                      id: 'backup',
+                      icon: Icons.backup_rounded,
+                      title: 'Backup & Restore',
+                      children: [_buildBackupRestore()],
                     ),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Playback'),
-                    _buildFocusableToggle(
-                      'Direct Streaming Mode',
-                      'Use direct stream links instead of torrents by default.',
-                      _isStreamingMode,
-                      (val) async {
-                        await _settings.setStreamingMode(val);
-                        setState(() => _isStreamingMode = val);
-                      },
-                    ),
-                    _buildFocusableDropdown(
-                      'Video Player',
-                      'Choose which player opens videos. External players must be installed.',
-                      _externalPlayer,
-                      ExternalPlayerService.playerNames,
-                      (val) async {
-                        if (val != null) {
-                          await _settings.setExternalPlayer(val);
-                          setState(() => _externalPlayer = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Search & Sorting'),
-                    _buildFocusableDropdown(
-                      'Default Sort Order',
-                      'Choose how torrent results are sorted automatically.',
-                      _sortPreference,
-                      [
-                        'Seeders (High to Low)', 'Seeders (Low to High)',
-                        'Quality (High to Low)', 'Quality (Low to High)',
-                        'Size (High to Low)', 'Size (Low to High)',
+
+                    // ── Appearance ──
+                    _buildExpandableSection(
+                      id: 'appearance',
+                      icon: Icons.palette_rounded,
+                      title: 'Appearance',
+                      children: [
+                        _buildFocusableToggle(
+                          'Light Mode',
+                          'Disables blur, glows, shadows, and animations for better FPS.',
+                          _isLightMode,
+                          (val) async {
+                            await _settings.setLightMode(val);
+                            setState(() => _isLightMode = val);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('THEME', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildThemePicker(),
                       ],
-                      (val) {
-                        if (val != null) {
-                          _settings.setSortPreference(val);
-                          setState(() => _sortPreference = val);
-                        }
-                      },
                     ),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Stremio Addons'),
-                    _buildAddonInput(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Jackett'),
-                    _buildJackettConfig(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Prowlarr'),
-                    _buildProwlarrConfig(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Torrent Engine'),
-                    _buildFocusableDropdown(
-                      'Cache Type',
-                      'Choose where torrent data is cached during streaming.',
-                      _torrentCacheType == 'ram' ? 'RAM' : 'Disk',
-                      ['RAM', 'Disk'],
-                      (val) async {
-                        if (val != null) {
-                          final type = val == 'RAM' ? 'ram' : 'disk';
-                          await _settings.setTorrentCacheType(type);
-                          setState(() => _torrentCacheType = type);
-                        }
-                      },
+
+                    // ── Playback ──
+                    _buildExpandableSection(
+                      id: 'playback',
+                      icon: Icons.play_circle_outline_rounded,
+                      title: 'Playback',
+                      children: [
+                        _buildFocusableToggle(
+                          'Direct Streaming Mode',
+                          'Use direct stream links instead of torrents by default.',
+                          _isStreamingMode,
+                          (val) async {
+                            await _settings.setStreamingMode(val);
+                            setState(() => _isStreamingMode = val);
+                          },
+                        ),
+                        _buildFocusableDropdown(
+                          'Video Player',
+                          'Choose which player opens videos.',
+                          _externalPlayer,
+                          ExternalPlayerService.playerNames,
+                          (val) async {
+                            if (val != null) {
+                              await _settings.setExternalPlayer(val);
+                              setState(() => _externalPlayer = val);
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    if (_torrentCacheType == 'ram')
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
-                            child: Text(
-                              'RAM Cache Size: $_torrentRamCacheMb MB',
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
-                            ),
+
+                    // ── Search & Torrents ──
+                    _buildExpandableSection(
+                      id: 'search',
+                      icon: Icons.search_rounded,
+                      title: 'Search & Torrents',
+                      children: [
+                        _buildFocusableDropdown(
+                          'Default Sort Order',
+                          'How torrent results are sorted automatically.',
+                          _sortPreference,
+                          [
+                            'Seeders (High to Low)', 'Seeders (Low to High)',
+                            'Quality (High to Low)', 'Quality (Low to High)',
+                            'Size (High to Low)', 'Size (Low to High)',
+                          ],
+                          (val) {
+                            if (val != null) {
+                              _settings.setSortPreference(val);
+                              setState(() => _sortPreference = val);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('TORRENT ENGINE', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildFocusableDropdown(
+                          'Cache Type',
+                          'Where torrent data is cached during streaming.',
+                          _torrentCacheType == 'ram' ? 'RAM' : 'Disk',
+                          ['RAM', 'Disk'],
+                          (val) async {
+                            if (val != null) {
+                              final type = val == 'RAM' ? 'ram' : 'disk';
+                              await _settings.setTorrentCacheType(type);
+                              setState(() => _torrentCacheType = type);
+                            }
+                          },
+                        ),
+                        if (_torrentCacheType == 'ram')
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
+                                child: Text('RAM Cache Size: $_torrentRamCacheMb MB', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                              ),
+                              Slider(
+                                value: _torrentRamCacheMb.toDouble(),
+                                min: 50, max: 2048, divisions: 39,
+                                activeColor: Colors.deepPurpleAccent,
+                                inactiveColor: Colors.white12,
+                                label: '$_torrentRamCacheMb MB',
+                                onChanged: (val) => setState(() => _torrentRamCacheMb = val.round()),
+                                onChangeEnd: (val) async => await _settings.setTorrentRamCacheMb(val.round()),
+                              ),
+                            ],
                           ),
-                          Slider(
-                            value: _torrentRamCacheMb.toDouble(),
-                            min: 50,
-                            max: 2048,
-                            divisions: 39,
-                            activeColor: Colors.deepPurpleAccent,
-                            inactiveColor: Colors.white12,
-                            label: '$_torrentRamCacheMb MB',
-                            onChanged: (val) {
-                              setState(() => _torrentRamCacheMb = val.round());
-                            },
-                            onChangeEnd: (val) async {
-                              await _settings.setTorrentRamCacheMb(val.round());
-                            },
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Debrid Support'),
-                    _buildFocusableToggle(
-                      'Use Debrid for Streams',
-                      'Resolve torrents using your debrid account for faster playback.',
-                      _useDebrid,
-                      (val) async {
-                        await _settings.setUseDebridForStreams(val);
-                        setState(() => _useDebrid = val);
-                      },
+                      ],
                     ),
-                    _buildFocusableDropdown(
-                      'Debrid Service',
-                      'Select your preferred provider.',
-                      _debridService,
-                      ['None', 'Real-Debrid', 'TorBox'],
-                      (val) async {
-                        if (val != null) {
-                          await _settings.setDebridService(val);
-                          setState(() => _debridService = val);
-                        }
-                      },
+
+                    // ── Providers & Addons ──
+                    _buildExpandableSection(
+                      id: 'providers',
+                      icon: Icons.extension_rounded,
+                      title: 'Providers & Addons',
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('STREMIO ADDONS', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildAddonInput(),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('JACKETT', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildJackettConfig(),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('PROWLARR', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildProwlarrConfig(),
+                      ],
                     ),
-                    if (_debridService == 'Real-Debrid') _buildRDLogin(),
-                    if (_debridService == 'TorBox') _buildTorBoxConfig(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Trakt'),
-                    _buildTraktSection(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Simkl'),
-                    _buildSimklSection(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('MDBlist'),
-                    _buildMdblistSection(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Lists'),
-                    _buildListsSection(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('App Updates'),
-                    _buildUpdateChecker(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Navigation Bar'),
-                    _buildNavbarConfig(),
-                    const SizedBox(height: 64),
+
+                    // ── Debrid ──
+                    _buildExpandableSection(
+                      id: 'debrid',
+                      icon: Icons.cloud_download_rounded,
+                      title: 'Debrid',
+                      children: [
+                        _buildFocusableToggle(
+                          'Use Debrid for Streams',
+                          'Resolve torrents using your debrid account.',
+                          _useDebrid,
+                          (val) async {
+                            await _settings.setUseDebridForStreams(val);
+                            setState(() => _useDebrid = val);
+                          },
+                        ),
+                        _buildFocusableDropdown(
+                          'Debrid Service',
+                          'Select your preferred provider.',
+                          _debridService,
+                          ['None', 'Real-Debrid', 'TorBox'],
+                          (val) async {
+                            if (val != null) {
+                              await _settings.setDebridService(val);
+                              setState(() => _debridService = val);
+                            }
+                          },
+                        ),
+                        if (_debridService == 'Real-Debrid') _buildRDLogin(),
+                        if (_debridService == 'TorBox') _buildTorBoxConfig(),
+                      ],
+                    ),
+
+                    // ── Accounts & Sync ──
+                    _buildExpandableSection(
+                      id: 'accounts',
+                      icon: Icons.sync_rounded,
+                      title: 'Accounts & Sync',
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('TRAKT', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildTraktSection(),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('SIMKL', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildSimklSection(),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text('MDBLIST', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildMdblistSection(),
+                      ],
+                    ),
+
+                    // ── Lists ──
+                    _buildExpandableSection(
+                      id: 'lists',
+                      icon: Icons.list_alt_rounded,
+                      title: 'Lists',
+                      children: [_buildListsSection()],
+                    ),
+
+                    // ── Navigation Bar ──
+                    _buildExpandableSection(
+                      id: 'navbar',
+                      icon: Icons.tab_rounded,
+                      title: 'Navigation Bar',
+                      children: [_buildNavbarConfig()],
+                    ),
+
+                    // ── App Updates ──
+                    _buildExpandableSection(
+                      id: 'updates',
+                      icon: Icons.system_update_rounded,
+                      title: 'App Updates',
+                      children: [_buildUpdateChecker()],
+                    ),
+
+                    const SizedBox(height: 40),
                     const Center(
                       child: Text(
-                        'PlayTorrio Native v1.1.2',
+                        'PlayTorrio Native v1.1.3',
                         style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -478,6 +580,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Expandable Section Tile
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildExpandableSection({
+    required String id,
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    final isExpanded = _expandedSections.contains(id);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: isExpanded ? 0.04 : 0.02),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isExpanded
+                ? AppTheme.current.primaryColor.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.06),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Header (always visible, tappable)
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedSections.remove(id);
+                  } else {
+                    _expandedSections.add(id);
+                  }
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 20, color: isExpanded ? AppTheme.current.primaryColor : Colors.white54),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: isExpanded ? Colors.white : Colors.white70,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: isExpanded ? AppTheme.current.primaryColor : Colors.white30,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Content (animated)
+            AnimatedCrossFade(
+              firstChild: Padding(
+                padding: const EdgeInsets.only(left: 12, right: 12, bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: children,
+                ),
+              ),
+              secondChild: const SizedBox.shrink(),
+              crossFadeState: isExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 200),
+              sizeCurve: Curves.easeInOut,
+            ),
+          ],
         ),
       ),
     );
@@ -590,6 +779,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final data = json.decode(jsonStr) as Map<String, dynamic>;
       await _settings.importAllSettings(data);
+      await AppTheme.initTheme(); // Hydrate theme notifier from imported preset
       await _loadSettings(); // Refresh all UI state
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -668,8 +858,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(bottom: 16, left: 4),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          color: AppTheme.primaryColor,
+        style: TextStyle(
+          color: AppTheme.current.primaryColor,
           fontWeight: FontWeight.bold,
           fontSize: 13,
           letterSpacing: 2,
@@ -2110,6 +2300,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Widget _buildThemePicker() {
+    final width = MediaQuery.of(context).size.width;
+    // Responsive: 2 cols on narrow, 3 on medium, 4 on wide
+    final cols = width > 900 ? 4 : (width > 550 ? 3 : 2);
+    final aspect = width > 550 ? 2.8 : 2.6;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Choose a vibe for your app.',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: aspect,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: AppTheme.presets.length,
+          itemBuilder: (context, index) {
+            final preset = AppTheme.presets[index];
+            final isSelected = preset.id == _selectedThemeId;
+            return GestureDetector(
+              onTap: () async {
+                await AppTheme.setPreset(preset.id);
+                setState(() => _selectedThemeId = preset.id);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: preset.bgCard,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? preset.primaryColor : Colors.white12,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [BoxShadow(color: preset.primaryColor.withValues(alpha: 0.25), blurRadius: 8, spreadRadius: 0)]
+                      : [],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [preset.primaryColor, preset.accentColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(preset.icon, size: 13, color: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        preset.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Icon(Icons.check_circle, size: 14, color: preset.primaryColor),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildFocusableToggle(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
     return FocusableControl(
       onTap: () => onChanged(!value),
@@ -2131,7 +2409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Switch(
               value: value,
               onChanged: onChanged,
-              activeTrackColor: AppTheme.primaryColor,
+              activeTrackColor: AppTheme.current.primaryColor,
             ),
           ],
         ),
@@ -2165,9 +2443,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: DropdownButton<String>(
                 value: value,
-                dropdownColor: const Color(0xFF1A0B2E),
+                dropdownColor: Color.lerp(AppTheme.current.bgDark, AppTheme.current.primaryColor, 0.08),
                 underline: const SizedBox.shrink(),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
+                icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.current.primaryColor),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 selectedItemBuilder: (BuildContext context) {
                   return options.map<Widget>((String item) {
