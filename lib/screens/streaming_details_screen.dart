@@ -10,6 +10,7 @@ import '../api/stream_providers.dart';
 import '../api/webstreamr_service.dart';
 import '../widgets/loading_overlay.dart';
 import '../services/episode_watched_service.dart';
+import '../widgets/movie_atmosphere.dart';
 import 'player_screen.dart';
 
 class StreamingDetailsScreen extends StatefulWidget {
@@ -30,7 +31,7 @@ class StreamingDetailsScreen extends StatefulWidget {
   State<StreamingDetailsScreen> createState() => _StreamingDetailsScreenState();
 }
 
-class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
+class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with AtmosphereMixin {
   bool _isExtracting = false;
   bool _extractionCancelled = false;
   String? _statusMessage;
@@ -69,6 +70,9 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     _movie = widget.movie;
     if (widget.initialSeason != null) _selectedSeason = widget.initialSeason!;
     if (widget.initialEpisode != null) _selectedEpisode = widget.initialEpisode!;
+    // Start atmosphere color extraction
+    final url = (_movie.posterPath.isNotEmpty ? _movie.posterPath : _movie.backdropPath);
+    loadAtmosphere(url.startsWith('http') ? url : TmdbApi.getImageUrl(url));
     _loadWatchedEpisodes();
     _fetchDetails();
   }
@@ -396,29 +400,23 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildFixedBackground() {
+    final url = _movie.backdropPath.isNotEmpty
+        ? TmdbApi.getBackdropUrl(_movie.backdropPath)
+        : (_movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(_movie.posterPath) : '');
+    if (url.isEmpty) return Container(color: const Color(0xFF0A0A0A));
+    // Strip the Positioned.fill from buildAtmosphereBackdrop — we're already inside one
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_movie.backdropPath.isNotEmpty)
-          CachedNetworkImage(
-            imageUrl: TmdbApi.getBackdropUrl(_movie.backdropPath),
-            fit: BoxFit.cover,
-          ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.7),
-                  Colors.black.withValues(alpha: 0.85),
-                  Colors.black,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
-            ),
+        KenBurnsBackdrop(
+          imageUrl: url,
+          colors: atmosphereColors,
+          blurSigma: 4,
+        ),
+        IgnorePointer(
+          child: GenreParticles(
+            genres: _movie.genres,
+            colors: atmosphereColors,
           ),
         ),
       ],
@@ -464,26 +462,25 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     final posterWidth = isMobile ? screenWidth * 0.5 : 180.0;
     final posterHeight = posterWidth * 1.5;
     
-    return Hero(
-      tag: 'movie-poster-${_movie.id}',
-      child: Container(
-        width: posterWidth,
-        height: posterHeight,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 20,
-              spreadRadius: 5,
+    return wrapPosterGlow(
+      width: posterWidth,
+      height: posterHeight,
+      borderRadius: 12,
+      genres: _movie.genres,
+      child: Hero(
+        tag: 'movie-poster-${_movie.id}',
+        child: Container(
+          width: posterWidth,
+          height: posterHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CachedNetworkImage(
+              imageUrl: TmdbApi.getImageUrl(_movie.posterPath),
+              fit: BoxFit.cover,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: TmdbApi.getImageUrl(_movie.posterPath),
-            fit: BoxFit.cover,
           ),
         ),
       ),

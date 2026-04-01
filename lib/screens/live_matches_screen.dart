@@ -1341,20 +1341,17 @@ class _PpvPlayerScreenState extends State<_PpvPlayerScreen> {
     setState(() => _isFullscreen = true);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.landscapeAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   }
 
   void _exitFullscreen() {
     setState(() => _isFullscreen = false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
   }
 
   @override
   void dispose() {
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }
@@ -1530,20 +1527,17 @@ class _LivePlayerScreenState extends State<_LivePlayerScreen> {
     setState(() => _isFullscreen = true);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.landscapeAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   }
 
   void _exitFullscreen() {
     setState(() => _isFullscreen = false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
   }
 
   @override
   void dispose() {
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }
@@ -1933,20 +1927,17 @@ class _CdnPlayerScreenState extends State<_CdnPlayerScreen> {
     setState(() => _isFullscreen = true);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.landscapeAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   }
 
   void _exitFullscreen() {
     setState(() => _isFullscreen = false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
   }
 
   @override
   void dispose() {
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }

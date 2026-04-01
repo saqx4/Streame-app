@@ -1778,7 +1778,13 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
               };
             }
             Navigator.push(context, MaterialPageRoute(
-              builder: (_) => DetailsScreen(movie: movie, stremioItem: stremioItem),
+              builder: (_) => DetailsScreen(
+                movie: movie,
+                stremioItem: stremioItem,
+                initialSeason: season,
+                initialEpisode: episode,
+                startPosition: startPos,
+              ),
             ));
           }
           return; // Skip the player launch below
@@ -1946,6 +1952,7 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
                     movie: movie,
                     initialSeason: season,
                     initialEpisode: episode,
+                    startPosition: startPos,
                   ),
           ));
         }

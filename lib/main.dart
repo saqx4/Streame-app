@@ -52,7 +52,6 @@ void main() async {
   if (Platform.isAndroid) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     AutoOrientation.fullAutoMode(forceSensor: true);
-    SystemChrome.setPreferredOrientations([]);
   }
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -94,6 +93,9 @@ void main() async {
   
   // Hydrate light mode setting before first frame
   await SettingsService().initLightMode();
+  
+  // Hydrate theme preset before first frame
+  await AppTheme.initTheme();
   
   PlayerPoolService().warmUp();
   debugPrint('[Boot] All init complete — launching app');
@@ -152,11 +154,16 @@ class _PlayTorrioAppState extends State<PlayTorrioApp> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PlayTorrio Native',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.themeData,
-      home: const SplashScreen(),
+    return ValueListenableBuilder<AppThemePreset>(
+      valueListenable: AppTheme.themeNotifier,
+      builder: (context, preset, _) {
+        return MaterialApp(
+          title: 'PlayTorrio Native',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.themeData,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }
