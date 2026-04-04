@@ -811,9 +811,9 @@ class JellyfinService {
         similarFuture,
       ]);
       // Last result is similar items, rest are episode lists
-      final similarItems = episodeResults.last as List<JellyfinItem>;
+      final similarItems = episodeResults.last;
       final episodeLists = episodeResults.sublist(0, episodeResults.length - 1);
-      allEpisodes = episodeLists.expand((e) => e as List<JellyfinItem>).toList();
+      allEpisodes = episodeLists.expand((e) => e).toList();
 
       // If no episodes found, try fallback methods
       if (allEpisodes.isEmpty) {
@@ -836,8 +836,8 @@ class JellyfinService {
       getEpisodes(seriesId).catchError((_) => <JellyfinItem>[]),
       similarFuture,
     ]);
-    allEpisodes = fallbackResults[0] as List<JellyfinItem>;
-    final similarItems = fallbackResults[1] as List<JellyfinItem>;
+    allEpisodes = fallbackResults[0];
+    final similarItems = fallbackResults[1];
 
     if (allEpisodes.isEmpty) {
       allEpisodes = await getEpisodesByItems(seriesId).catchError((_) => <JellyfinItem>[]);

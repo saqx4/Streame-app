@@ -227,7 +227,7 @@ class MusicService {
     }
 
     try {
-      final searchQuery = '$title - $artist (Official Audio)';
+      final searchQuery = '$title - $artist lyrics';
       final searchList = await _yt.search.search(searchQuery);
       if (searchList.isNotEmpty) {
         for (final video in searchList) {

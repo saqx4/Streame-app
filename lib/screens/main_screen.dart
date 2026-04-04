@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  Timer? _metricsDebounce;
 
   /// All screens keyed by nav ID — created once, never recreated.
   late final Map<String, Widget> _allScreens;
@@ -141,17 +143,50 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _loadNavbarConfig();
   }
 
-  /// Re-apply immersive mode after metrics changes settle (rotation, etc.).
-  /// Some Android devices (especially Samsung) reset system-bar visibility on
-  /// configuration changes. This callback debounces to let the rotation
-  /// animation finish first, then re-hides the bars.  No `setState` needed —
-  /// Flutter already rebuilds widgets that depend on `MediaQuery`.
+  /// Force a rebuild after rotation / metrics changes settle so the
+  /// navigation mode (rail vs. bottom-nav) updates to match the new
+  /// orientation.
+  ///
+  /// Also uses a debounced re-application of immersive mode to force the
+  /// Flutter engine to re-send viewport metrics.  This works around a
+  /// Flutter engine race condition where FlutterView may suppress the
+  /// correct metrics during rapid resize events on rotation (the engine
+  /// logs "Resize was in response to the engine resizing the view. Not
+  /// sending viewport metrics.").
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
     if (Platform.isAndroid) {
-      Future.delayed(const Duration(milliseconds: 200), () {
+      final view = PlatformDispatcher.instance.views.first;
+      final physSize = view.physicalSize;
+      final dpr = view.devicePixelRatio;
+      final logicalSize = physSize / dpr;
+      debugPrint('[ROTATION] didChangeMetrics fired — '
+          'physical=${physSize.width.toInt()}x${physSize.height.toInt()} '
+          'logical=${logicalSize.width.toInt()}x${logicalSize.height.toInt()} '
+          'dpr=${dpr.toStringAsFixed(2)} '
+          'physLandscape=${physSize.width > physSize.height}');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          final mq = MediaQuery.of(context);
+          debugPrint('[ROTATION] postFrameCallback — '
+              'MediaQuery.orientation=${mq.orientation} '
+              'MediaQuery.size=${mq.size.width.toInt()}x${mq.size.height.toInt()} '
+              'calling setState');
+          setState(() {});
+        } else {
+          debugPrint('[ROTATION] postFrameCallback — NOT mounted, skipping setState');
+        }
+      });
+
+      // Debounced: after all rapid metrics events settle, re-apply immersive
+      // mode.  This triggers onApplyWindowInsets in the native FlutterView,
+      // which forces it to re-send viewport metrics with the *current*
+      // (correct) dimensions — even if it suppressed them earlier.
+      _metricsDebounce?.cancel();
+      _metricsDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          debugPrint('[ROTATION] debounce timer — re-applying immersive mode to force viewport refresh');
           SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
         }
       });
@@ -190,6 +225,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _metricsDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     MainScreen.stremioSearchNotifier.removeListener(_onStremioSearch);
     SettingsService.navbarChangeNotifier.removeListener(_onNavbarConfigChanged);
@@ -203,7 +239,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final isLandscape = orientation == Orientation.landscape;
     
     final bool useNavRail = isDesktop || isLandscape;
-
 
     return Scaffold(
       body: Stack(
@@ -223,8 +258,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.primaryColor.withValues(alpha: 0.18),
-                    AppTheme.primaryColor.withValues(alpha: 0.0),
+                    AppTheme.current.primaryColor.withValues(alpha: 0.18),
+                    AppTheme.current.primaryColor.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -241,8 +276,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.accentColor.withValues(alpha: 0.08),
-                    AppTheme.accentColor.withValues(alpha: 0.0),
+                    AppTheme.current.accentColor.withValues(alpha: 0.08),
+                    AppTheme.current.accentColor.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -259,8 +294,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF6200EA).withValues(alpha: 0.10),
-                    const Color(0xFF6200EA).withValues(alpha: 0.0),
+                    AppTheme.current.primaryColor.withValues(alpha: 0.10),
+                    AppTheme.current.primaryColor.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -280,7 +315,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           selectedIndex: _selectedIndex,
                           onDestinationSelected: _onItemTapped,
                           labelType: NavigationRailLabelType.all,
-                          indicatorColor: AppTheme.primaryColor,
+                          indicatorColor: AppTheme.current.primaryColor,
                           selectedLabelTextStyle: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -288,11 +323,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           unselectedLabelTextStyle: const TextStyle(
                             color: Colors.white54,
                           ),
-                          leading: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                          leading: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24.0),
                             child: Icon(
                               Icons.play_circle_fill,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.current.primaryColor,
                               size: 48,
                             ),
                           ),
@@ -331,7 +366,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Widget navContent = Container(
           height: 80,
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0418).withValues(alpha: lightMode ? 1.0 : 0.75),
+            color: AppTheme.current.bgDark.withValues(alpha: lightMode ? 1.0 : 0.75),
             border: const Border(top: BorderSide(color: Colors.white10, width: 0.5)),
           ),
           child: Stack(
@@ -358,7 +393,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                            color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Icon(
@@ -392,7 +427,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   gradient: LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
-                    colors: [Colors.transparent, const Color(0xFF0F0418).withValues(alpha: 0.7)],
+                    colors: [Colors.transparent, AppTheme.current.bgDark.withValues(alpha: 0.7)],
                   ),
                 ),
                 child: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white24),

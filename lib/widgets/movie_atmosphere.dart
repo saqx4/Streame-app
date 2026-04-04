@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
-import '../api/tmdb_api.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MOVIE ATMOSPHERE SYSTEM
