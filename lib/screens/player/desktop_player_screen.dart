@@ -33,6 +33,7 @@ import '../../api/debrid_api.dart';
 import '../../api/torrent_api.dart';
 import '../../api/torrent_filter.dart';
 import '../../api/tmdb_service.dart';
+import '../../api/introdb_service.dart';
 import '../player_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -488,6 +489,12 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   bool _isLoadingNextEp = false;
   bool _nearEndOfEpisode = false;
 
+  // ── Skip Segments (IntroDB) ───────────────────────────────────────────────
+  IntroDbResponse? _introDbData;
+  String? _activeSkipLabel;   // e.g. 'Skip Intro', 'Skip Recap', etc.
+  Duration? _activeSkipTarget; // where to seek when the user taps
+  bool _skipDismissed = false; // user dismissed the current segment button
+
   // ─────────────────────────────────────────────────────────────────────────
   //  LIFECYCLE
   // ─────────────────────────────────────────────────────────────────────────
@@ -546,7 +553,21 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           episode: widget.selectedEpisode,
         );
       }
+      // Fetch skip segments from IntroDB
+      _fetchIntroDbTimestamps();
     });
+  }
+
+  Future<void> _fetchIntroDbTimestamps() async {
+    if (widget.movie == null) return;
+    final data = await IntroDbService().getTimestamps(
+      tmdbId: widget.movie!.id,
+      season: widget.selectedSeason,
+      episode: widget.selectedEpisode,
+    );
+    if (mounted && data != null && data.hasAnySegments) {
+      setState(() => _introDbData = data);
+    }
   }
 
   @override
@@ -921,6 +942,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           }
         }
       }
+
+      // Skip segment detection (IntroDB)
+      _updateActiveSkipSegment(pos);
     });
 
     // Duration – triggers auto-resume on first valid duration
@@ -1459,12 +1483,12 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
               _subLabel('Text Color'),
               const SizedBox(height: 4),
               Wrap(spacing: 8, runSpacing: 8, children: colorOptions.entries.map((e) {
-                final selected = _subtitleColor.value == e.value.value;
+                final selected = _subtitleColor.toARGB32() == e.value.toARGB32();
                 return GestureDetector(
                   onTap: () {
                     setDialog(() => _subtitleColor = e.value);
                     setState(() {});
-                    SettingsService().setSubColor(e.value.value);
+                    SettingsService().setSubColor(e.value.toARGB32());
                   },
                   child: Container(
                     width: 32, height: 32,
@@ -1501,7 +1525,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 const Spacer(),
                 Switch(
                   value: _subtitleBold,
-                  activeColor: const Color(0xFF7C3AED),
+                  activeThumbColor: const Color(0xFF7C3AED),
                   onChanged: (v) { setDialog(() => _subtitleBold = v); setState(() {}); SettingsService().setSubBold(v); },
                 ),
               ]),
@@ -1800,6 +1824,86 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Loop: ${_loopEnabled ? "ON" : "OFF"}'),
         duration: const Duration(seconds: 1)));
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  SKIP SEGMENTS (IntroDB)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  void _updateActiveSkipSegment(Duration pos) {
+    if (_introDbData == null) return;
+
+    final posMs = pos.inMilliseconds;
+    String? label;
+    Duration? target;
+
+    // Check each segment type – first match wins
+    for (final seg in _introDbData!.recap) {
+      final s = seg.startMs ?? 0;
+      final e = seg.endMs;
+      if (e != null && posMs >= s && posMs < e) {
+        label = 'Skip Recap';
+        target = Duration(milliseconds: e);
+        break;
+      }
+    }
+    if (label == null) {
+      for (final seg in _introDbData!.intro) {
+        final s = seg.startMs ?? 0;
+        final e = seg.endMs;
+        if (e != null && posMs >= s && posMs < e) {
+          label = 'Skip Intro';
+          target = Duration(milliseconds: e);
+          break;
+        }
+      }
+    }
+    if (label == null) {
+      for (final seg in _introDbData!.credits) {
+        final s = seg.startMs;
+        final e = seg.endMs;
+        if (s != null && posMs >= s) {
+          final end = e ?? _durationNotifier.value.inMilliseconds;
+          if (posMs < end) {
+            label = 'Skip Credits';
+            target = Duration(milliseconds: end);
+            break;
+          }
+        }
+      }
+    }
+    if (label == null) {
+      for (final seg in _introDbData!.preview) {
+        final s = seg.startMs;
+        final e = seg.endMs;
+        if (s != null && posMs >= s) {
+          final end = e ?? _durationNotifier.value.inMilliseconds;
+          if (posMs < end) {
+            label = 'Skip Preview';
+            target = Duration(milliseconds: end);
+            break;
+          }
+        }
+      }
+    }
+
+    // Only setState when needed – avoid per-frame rebuilds
+    if (label != _activeSkipLabel) {
+      setState(() {
+        _activeSkipLabel = label;
+        _activeSkipTarget = target;
+        _skipDismissed = false; // reset dismiss when segment changes
+      });
+    }
+  }
+
+  void _performSkip() {
+    if (_activeSkipTarget == null) return;
+    _player.seek(_activeSkipTarget!);
+    setState(() {
+      _activeSkipLabel = null;
+      _activeSkipTarget = null;
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -2567,6 +2671,43 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           ),
         ),
       ),
+
+      // ── SKIP SEGMENT OVERLAY (IntroDB) ─────────────────────────────────
+      if (_activeSkipLabel != null && !_skipDismissed)
+        Positioned(
+          bottom: _showNextEpButton ? 155 : 100,
+          right: 24,
+          child: Material(
+            color: Colors.transparent,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              InkWell(
+                onTap: _performSkip,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(
+                      _activeSkipLabel!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.skip_next_rounded,
+                        color: Colors.white, size: 20),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ),
 
       // ── NEXT EPISODE OVERLAY ──────────────────────────────────────────
       if (_showNextEpButton)

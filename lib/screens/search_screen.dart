@@ -126,7 +126,7 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
 
     int pendingCount = 1 + _addonProviders.length; // TMDB + each addon
 
-    void _decPending() {
+    void decPending() {
       pendingCount--;
       if (pendingCount <= 0 && gen == _searchGeneration && mounted) {
         setState(() => _isSearching = false);
@@ -134,11 +134,11 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
     }
 
     // ── TMDB ──
-    _searchTmdb(query, gen).then((_) => _decPending());
+    _searchTmdb(query, gen).then((_) => decPending());
 
     // ── Stremio Addons ──
     for (final provider in _addonProviders) {
-      _searchAddon(query, provider, gen).then((_) => _decPending());
+      _searchAddon(query, provider, gen).then((_) => decPending());
     }
   }
 

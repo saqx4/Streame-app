@@ -570,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 40),
                     const Center(
                       child: Text(
-                        'PlayTorrio Native v1.1.3',
+                        'PlayTorrio Native v1.1.4',
                         style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -849,21 +849,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16, left: 4),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: AppTheme.current.primaryColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          letterSpacing: 2,
-        ),
       ),
     );
   }

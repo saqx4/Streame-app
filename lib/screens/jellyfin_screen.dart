@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
@@ -292,10 +291,12 @@ class _JellyfinScreenState extends State<JellyfinScreen>
       if (viewing()) {
         _allLibraryItems = _libraryCache[key]!;
         _rebuildPage();
-        if (mounted) setState(() {
-          _isLoadingLibrary = false;
-          _isBackgroundLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoadingLibrary = false;
+            _isBackgroundLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (!valid()) return;
@@ -964,7 +965,7 @@ class _JellyfinScreenState extends State<JellyfinScreen>
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: videoLibs.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (_, i) {
             final lib = videoLibs[i];
             final icon = lib.collectionType == 'movies'
