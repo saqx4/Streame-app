@@ -895,7 +895,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Row(
                     children: [
                       // Play button with glow
-                      Container(
+                      Flexible(
+                        child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: AppTheme.isLightMode ? null : [
@@ -922,9 +923,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                       ),
+                      ),
                       const SizedBox(width: 12),
                       // More Info — frosted glass pill (simplified in light mode)
-                      _buildFrostedPill(
+                      Flexible(
+                        child: _buildFrostedPill(
                         onTap: () => _openDetails(heroMovie),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
@@ -937,6 +940,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                             ],
                           ),
                         ),
+                      ),
                       ),
                       const SizedBox(width: 12),
                       // My List — frosted circle (simplified in light mode)
