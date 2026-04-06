@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:auto_orientation_v2/auto_orientation_v2.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
 import '../../api/subtitle_api.dart';
@@ -523,16 +522,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
     // ── System UI ────────────────────────────────────────────────────────
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Force landscape on open, then unlock so user can rotate freely
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!_disposed) {
-        AutoOrientation.fullAutoMode(forceSensor: true);
-      }
-    });
+    // Orientation is set in addPostFrameCallback below — after the
+    // first frame renders — to avoid fighting the portrait lock while
+    // the widget tree is still building.
     WakelockPlus.enable();
 
     // ── Player ───────────────────────────────────────────────────────────
@@ -572,8 +564,21 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      // Lock to landscape and wait for the rotation to physically
+      // complete before starting heavy media work.  Starting codec
+      // initialization while the surface is still rotating causes
+      // BLASTBufferQueue saturation and orientation ping-pong.
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+      ]);
+      // Let Android finish the rotation & surface resize.
+      // MediaTek/Transsion devices need a longer wait — the
+      // fbcNotifyBufferUX storm can last several seconds.
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (!mounted) return;
+
       _loadSubtitlePrefs();
       _initPlayback();
       _startHideTimer();
@@ -613,6 +618,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       tmdbId: widget.movie!.id,
       season: widget.selectedSeason,
       episode: widget.selectedEpisode,
+      imdbId: widget.movie!.imdbId,
     );
     if (mounted && data != null && data.hasAnySegments) {
       setState(() => _introDbData = data);
@@ -626,8 +632,10 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // Restore screen brightness to system default
     try { ScreenBrightness().resetApplicationScreenBrightness(); } catch (_) {}
 
-    // Restore free rotation when leaving the player.
-    AutoOrientation.fullAutoMode(forceSensor: true);
+    // Don't set orientation here — _exitPlayer() already locks portrait
+    // BEFORE popping.  Changing orientation during dispose while
+    // media_kit's surface is being torn down causes BLASTBufferQueue
+    // errors and hundreds of dropped frames.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _disposed = true;
@@ -666,7 +674,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   /// so the details page never sees stale landscape dimensions.
   Future<void> _exitPlayer() async {
     _saveWatchHistory();
-    AutoOrientation.fullAutoMode(forceSensor: true);
+    // Unlock orientation so the rest of the app follows system settings.
+    await SystemChrome.setPreferredOrientations([]);
+    // Let the rotation finish before popping — avoids BLASTBufferQueue
+    // errors from media_kit surface teardown during an active rotation.
+    await Future.delayed(const Duration(milliseconds: 300));
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     if (mounted) Navigator.of(context).pop(_positionNotifier.value);
   }
@@ -1260,6 +1272,24 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       _showControls = !_isLocked;
     });
     if (!_isLocked) _startHideTimer();
+  }
+
+  void _toggleRotation() async {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    if (isLandscape) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    } else {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+      ]);
+    }
+    // Wait for the rotation to settle before triggering a rebuild.
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    // Force a rebuild so controls adjust to the new orientation.
+    setState(() {});
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3001,6 +3031,12 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                           : Icons.lock_open_rounded,
                       onPressed: _toggleLock,
                       active: _isLocked,
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    SizedBox(width: gap),
+                    _GlassIconButton(
+                      icon: Icons.screen_rotation_rounded,
+                      onPressed: _toggleRotation,
                       size: btnSize, iconSize: iconSz,
                     ),
                     SizedBox(width: gap),

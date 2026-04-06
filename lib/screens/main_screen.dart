@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:auto_orientation_v2/auto_orientation_v2.dart';
 import 'home_screen.dart';
 import 'discover_screen.dart';
 import 'search_screen.dart';
@@ -43,6 +42,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   Timer? _metricsDebounce;
+  Timer? _metricsSafety;
 
   /// All screens keyed by nav ID — created once, never recreated.
   late final Map<String, Widget> _allScreens;
@@ -143,61 +143,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _loadNavbarConfig();
   }
 
-  /// Force a rebuild after rotation / metrics changes settle so the
-  /// navigation mode (rail vs. bottom-nav) updates to match the new
-  /// orientation.
-  ///
-  /// Also uses a debounced re-application of immersive mode to force the
-  /// Flutter engine to re-send viewport metrics.  This works around a
-  /// Flutter engine race condition where FlutterView may suppress the
-  /// correct metrics during rapid resize events on rotation (the engine
-  /// logs "Resize was in response to the engine resizing the view. Not
-  /// sending viewport metrics.").
+  /// Rotation on MediaTek/Transsion can cause a multi-second frame storm.
+  /// Two-timer strategy:
+  ///   1. Debounced timer (1.5s): resets on every metrics change, fires
+  ///      after the storm quiets down.
+  ///   2. Safety timer (4s): fires once after the FIRST metrics change—
+  ///      never cancelled—so even if the storm outlasts the debounce,
+  ///      a clean rebuild is guaranteed.
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    if (Platform.isAndroid) {
-      final view = PlatformDispatcher.instance.views.first;
-      final physSize = view.physicalSize;
-      final dpr = view.devicePixelRatio;
-      final logicalSize = physSize / dpr;
-      debugPrint('[ROTATION] didChangeMetrics fired — '
-          'physical=${physSize.width.toInt()}x${physSize.height.toInt()} '
-          'logical=${logicalSize.width.toInt()}x${logicalSize.height.toInt()} '
-          'dpr=${dpr.toStringAsFixed(2)} '
-          'physLandscape=${physSize.width > physSize.height}');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          final mq = MediaQuery.of(context);
-          debugPrint('[ROTATION] postFrameCallback — '
-              'MediaQuery.orientation=${mq.orientation} '
-              'MediaQuery.size=${mq.size.width.toInt()}x${mq.size.height.toInt()} '
-              'calling setState');
-          setState(() {});
-        } else {
-          debugPrint('[ROTATION] postFrameCallback — NOT mounted, skipping setState');
-        }
-      });
-
-      // Debounced: after all rapid metrics events settle, re-apply immersive
-      // mode.  This triggers onApplyWindowInsets in the native FlutterView,
-      // which forces it to re-send viewport metrics with the *current*
-      // (correct) dimensions — even if it suppressed them earlier.
-      _metricsDebounce?.cancel();
-      _metricsDebounce = Timer(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          debugPrint('[ROTATION] debounce timer — re-applying immersive mode to force viewport refresh');
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        }
-      });
-    }
+    // Debounced: fires 1.5s after the LAST metrics change.
+    _metricsDebounce?.cancel();
+    _metricsDebounce = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() {});
+    });
+    // Safety: fires 4s after the FIRST metrics change. Never cancelled.
+    _metricsSafety ??= Timer(const Duration(seconds: 4), () {
+      _metricsSafety = null;
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
-      AutoOrientation.fullAutoMode(forceSensor: true);
+      // Only re-apply immersive mode; do NOT reset preferred orientations
+      // here — it interferes with the player's orientation lock when the
+      // player is pushed on top of this screen.
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
   }
@@ -226,6 +200,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _metricsDebounce?.cancel();
+    _metricsSafety?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     MainScreen.stremioSearchNotifier.removeListener(_onStremioSearch);
     SettingsService.navbarChangeNotifier.removeListener(_onNavbarConfigChanged);
