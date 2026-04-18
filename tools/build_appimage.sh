@@ -21,7 +21,7 @@ cp assets/icon/icon.png "$APP/Streame.png"
 cp installer/linux/Streame.desktop "$APP/"
 
 echo "=== Creating AppRun ==="
-printf '#!/bin/bash\ncd "$(dirname "$0")"\nexec ./Streame "$@"\n' \
+printf '#!/bin/bash\ncd "$(dirname "$0")"\nexec ./streame "$@"\n' \
   > "$APP/AppRun"
 chmod +x "$APP/AppRun"
 
