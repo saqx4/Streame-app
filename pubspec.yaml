@@ -1,5 +1,5 @@
-name: play_torrio_native
-description: "PlayTorrio - Your cinema universe, Stream anything, anywhere."
+name: streame
+description: "Streame - Your cinema universe, Stream anything, anywhere."
 publish_to: 'none'
 
 version: 1.1.5+16
@@ -61,6 +61,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  linux:
+    generate: true
+    image_path: "assets/icon/icon.png"
   windows:
     generate: true
     image_path: "assets/icon/icon.png"
