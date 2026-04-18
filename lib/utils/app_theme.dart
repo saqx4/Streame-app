@@ -48,18 +48,18 @@ class AppTheme {
   static const List<AppThemePreset> presets = [
     AppThemePreset(
       id: 'cinematic',
-      name: 'Cinematic',
-      description: 'Electric violet & cyan — the original vibe',
+      name: 'Midnight Cinematic',
+      description: 'Deep indigo & violet — professional and sleek',
       icon: Icons.movie_filter,
-      bgDark: Color(0xFF0B0B12),
-      bgCard: Color(0xFF15151E),
-      primaryColor: Color(0xFF7C4DFF),
-      accentColor: Color(0xFF00E5FF),
-      gradientTint: Color(0xFF1F1F2E),
+      bgDark: Color(0xFF05050A),
+      bgCard: Color(0xFF11121E),
+      primaryColor: Color(0xFF6366F1),
+      accentColor: Color(0xFF8B5CF6),
+      gradientTint: Color(0xFF0F111A),
     ),
     AppThemePreset(
       id: 'midnight',
-      name: 'Midnight Black',
+      name: 'Obsidian',
       description: 'Pure AMOLED black — sleek and minimal',
       icon: Icons.dark_mode,
       bgDark: Color(0xFF000000),
@@ -76,7 +76,7 @@ class AppTheme {
       bgDark: Color(0xFF0D0518),
       bgCard: Color(0xFF170B28),
       primaryColor: Color(0xFFBB86FC),
-      accentColor: Color(0xFFFF4081),
+      accentColor: Color(0xFFE91E63),
       gradientTint: Color(0xFF1A0B2E),
     ),
     AppThemePreset(
@@ -139,9 +139,9 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Default primary color (const). For dynamic theme color, use `current.primaryColor`.
-  static const Color primaryColor = Color(0xFF7C4DFF); // Electric Violet
+  static const Color primaryColor = Color(0xFF6366F1); // Royal Indigo
   /// Default accent color (const). For dynamic theme color, use `current.accentColor`.
-  static const Color accentColor = Color(0xFF00E5FF); // Cyan Accent
+  static const Color accentColor = Color(0xFF8B5CF6); // Electric Violet
 
   static Color get bgDark => current.bgDark;
   static Color get bgCard => current.bgCard;
@@ -167,14 +167,23 @@ class AppTheme {
         primary: preset.primaryColor,
         secondary: preset.accentColor,
         surface: preset.bgCard,
+        onSurface: Colors.white,
+        surfaceContainerHighest: Colors.white.withValues(alpha: 0.05),
       ),
       textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.bebasNeue(fontSize: 48, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white),
-        displayMedium: GoogleFonts.bebasNeue(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white),
+        displayLarge: GoogleFonts.poppins(fontSize: 42, fontWeight: FontWeight.bold, letterSpacing: -0.5, color: Colors.white),
+        displayMedium: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5, color: Colors.white),
         titleLarge: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
-        bodyMedium: GoogleFonts.roboto(fontSize: 14, color: Colors.white70),
+        bodyLarge: GoogleFonts.poppins(fontSize: 16, color: Colors.white.withValues(alpha: 0.9)),
+        bodyMedium: GoogleFonts.poppins(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
+        labelLarge: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white54),
       ),
-      iconTheme: const IconThemeData(color: Colors.white70),
+      iconTheme: const IconThemeData(color: Colors.white70, size: 24),
+      cardTheme: CardThemeData(
+        color: preset.bgCard,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 
@@ -212,7 +221,7 @@ class FocusableControl extends StatefulWidget {
     this.autoFocus = false,
     this.borderRadius = 12.0,
     this.glowColor,
-    this.scaleOnFocus = 1.0, // Changed default from 1.05 to 1.0 (no zoom)
+    this.scaleOnFocus = 1.0, 
   });
 
   @override
@@ -278,34 +287,29 @@ class _FocusableControlState extends State<FocusableControl> with SingleTickerPr
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: widget.onTap,
-          child: lightMode
-              // Light mode: no scale animation, no glow
-              ? Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(widget.borderRadius),
-                  ),
-                  child: widget.child,
-                )
-              : AnimatedBuilder(
-                  animation: _scale,
-                  builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(widget.borderRadius),
-                      boxShadow: (_isFocused || _isHovered) ? [
-                        BoxShadow(
-                          color: (widget.glowColor ?? AppTheme.primaryColor).withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        )
-                      ] : [],
-                    ),
-                    child: widget.child,
-                  ),
+          child: AnimatedBuilder(
+            animation: _scale,
+            builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(widget.borderRadius),
+                border: Border.all(
+                  color: (_isFocused || _isHovered) 
+                    ? (widget.glowColor ?? AppTheme.primaryColor).withValues(alpha: 0.8)
+                    : Colors.transparent,
+                  width: 2.0,
                 ),
+                color: (_isFocused || _isHovered)
+                  ? (widget.glowColor ?? AppTheme.primaryColor).withValues(alpha: 0.1)
+                  : Colors.transparent,
+              ),
+              child: widget.child,
+            ),
+          ),
         ),
       ),
     );
   }
 }
+

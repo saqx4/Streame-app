@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/movie.dart';
 
 class TmdbApi {
-  static const String _apiKey = 'c3515fdc674ea2bd7b514f4bc3616a4a';
+  static const String _apiKey = '3308647fabe47a844ab269e6eab19132';
   static const String _baseUrl = 'https://api.themoviedb.org/3';
   static const String _imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
 

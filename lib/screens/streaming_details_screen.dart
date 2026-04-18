@@ -44,7 +44,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
   List<Movie> _similarContent = [];
 
   // Source Selection
-  final String _selectedSourceId = 'playtorrio';
+  final String _selectedSourceId = 'streame';
   List<Map<String, dynamic>> _streamAddons = [];
 
   // TV State
@@ -152,8 +152,8 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _startExtraction() async {
-    if (_selectedSourceId == 'playtorrio') {
-      _startPlayTorrioExtraction();
+    if (_selectedSourceId == 'streame') {
+      _startStreameExtraction();
     } else {
       _startStremioExtraction();
     }
@@ -193,7 +193,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
     }
   }
 
-  Future<void> _startPlayTorrioExtraction() async {
+  Future<void> _startStreameExtraction() async {
     _extractionCancelled = false;
     showDialog(
       context: context,

@@ -8,17 +8,8 @@ import 'discover_screen.dart';
 import 'search_screen.dart';
 import 'my_list_screen.dart';
 import 'settings_screen.dart';
-import 'music_screen.dart';
-import 'audiobook_screen.dart';
-import 'books_screen.dart';
-import 'comics_screen.dart';
-import 'manga_screen.dart';
-import 'jellyfin_screen.dart';
 import 'anime_screen.dart';
-import 'arabic_screen.dart';
-import 'live_matches_screen.dart';
 import 'magnet_player_screen.dart';
-import '../features/iptv/screens/iptv_login_screen.dart';
 import '../utils/app_theme.dart';
 import '../api/settings_service.dart';
 import '../services/app_updater_service.dart';
@@ -54,16 +45,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     'search':       {'icon': Icons.search,                      'active': Icons.search,                  'label': 'Search'},
     'mylist':       {'icon': Icons.bookmark_outline,            'active': Icons.bookmark,                'label': 'My List'},
     'magnet':       {'icon': Icons.link_rounded,                'active': Icons.link_rounded,            'label': 'Magnet'},
-    'live_matches': {'icon': Icons.sports_soccer_outlined,      'active': Icons.sports_soccer_rounded,   'label': 'Live Matches'},
-    'iptv':         {'icon': Icons.live_tv_outlined,            'active': Icons.live_tv,                 'label': 'IPTV'},
-    'audiobooks':   {'icon': Icons.menu_book_outlined,          'active': Icons.menu_book,               'label': 'Audiobooks'},
-    'books':        {'icon': Icons.import_contacts_rounded,     'active': Icons.import_contacts_rounded, 'label': 'Books'},
-    'music':        {'icon': Icons.music_note_outlined,         'active': Icons.music_note,              'label': 'Music'},
-    'comics':       {'icon': Icons.auto_stories_outlined,       'active': Icons.auto_stories,            'label': 'Comics'},
-    'manga':        {'icon': Icons.book_outlined,               'active': Icons.book,                    'label': 'Manga'},
-    'jellyfin':     {'icon': Icons.dns_outlined,                'active': Icons.dns_rounded,             'label': 'Jellyfin'},
     'anime':        {'icon': Icons.play_circle_outline,         'active': Icons.play_circle_filled,      'label': 'Anime'},
-    'arabic':       {'icon': Icons.movie_filter_outlined,       'active': Icons.movie_filter,            'label': 'Arabic'},
     'settings':     {'icon': Icons.settings_outlined,           'active': Icons.settings,                'label': 'Settings'},
   };
 
@@ -83,16 +65,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       'search':       const SearchScreen(),
       'mylist':       const MyListScreen(),
       'magnet':       const MagnetPlayerScreen(),
-      'live_matches': const LiveMatchesScreen(),
-      'iptv':         const IptvLoginScreen(),
-      'audiobooks':   const AudiobookScreen(),
-      'books':        const BooksScreen(),
-      'music':        const MusicScreen(),
-      'comics':       ComicsScreen(initialSearch: null),
-      'manga':        MangaScreen(initialSearch: null),
-      'jellyfin':     const JellyfinScreen(),
       'anime':        const AnimeScreen(),
-      'arabic':       const ArabicScreen(),
       'settings':     const SettingsScreen(),
     };
 
@@ -187,15 +160,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() => _selectedIndex = index);
   }
 
-  void searchComics(String query) {
-    final idx = _visibleIds.indexOf('comics');
-    if (idx != -1) setState(() => _selectedIndex = idx);
-  }
-
-  void searchManga(String query) {
-    final idx = _visibleIds.indexOf('manga');
-    if (idx != -1) setState(() => _selectedIndex = idx);
-  }
 
   @override
   void dispose() {
@@ -209,219 +173,90 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    final orientation = MediaQuery.of(context).orientation;
-    final isLandscape = orientation == Orientation.landscape;
-    
-    final bool useNavRail = isDesktop || isLandscape;
-
     return Scaffold(
-      body: Stack(
+      backgroundColor: AppTheme.bgDark,
+      body: Row(
         children: [
-          // Base gradient
-          Container(decoration: AppTheme.effectiveBackground),
-          // Ambient glows (skipped in light mode)
-          if (!AppTheme.isLightMode) ...[
-          // Ambient purple glow – top-right
-          Positioned(
-            top: -80,
-            right: -60,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.current.primaryColor.withValues(alpha: 0.18),
-                    AppTheme.current.primaryColor.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
+          _buildProfessionalSideRail(),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: _visibleIds.map((id) => _allScreens[id]!).toList(),
             ),
           ),
-          // Ambient cyan glow – bottom-left
-          Positioned(
-            bottom: 40,
-            left: -80,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.current.accentColor.withValues(alpha: 0.08),
-                    AppTheme.current.accentColor.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Soft violet glow – center-left
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.35,
-            left: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.current.primaryColor.withValues(alpha: 0.10),
-                    AppTheme.current.primaryColor.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          ], // end light mode glow skip
-          // Content layer
-          Row(
-            children: [
-              if (useNavRail)
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                          backgroundColor: Colors.transparent,
-                          selectedIndex: _selectedIndex,
-                          onDestinationSelected: _onItemTapped,
-                          labelType: NavigationRailLabelType.all,
-                          indicatorColor: AppTheme.current.primaryColor,
-                          selectedLabelTextStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          unselectedLabelTextStyle: const TextStyle(
-                            color: Colors.white54,
-                          ),
-                          leading: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24.0),
-                            child: Icon(
-                              Icons.play_circle_fill,
-                              color: AppTheme.current.primaryColor,
-                              size: 48,
-                            ),
-                          ),
-                          destinations: _visibleIds.map((id) {
-                            final meta = _navMeta[id]!;
-                            return NavigationRailDestination(
-                              icon: Icon(meta['icon'] as IconData, color: Colors.white54),
-                              selectedIcon: Icon(meta['active'] as IconData, color: Colors.white),
-                              label: Text(meta['label'] as String),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: _visibleIds.map((id) => _allScreens[id]!).toList(),
-              ),
-            ),
-          ],
-        ),
         ],
       ),
-      bottomNavigationBar: useNavRail
-          ? null
-          : _buildScrollableBottomNav(),
     );
   }
 
-  Widget _buildScrollableBottomNav() {
-    final lightMode = AppTheme.isLightMode;
-
-    Widget navContent = Container(
-          height: 80,
-          decoration: BoxDecoration(
-            color: AppTheme.current.bgDark.withValues(alpha: lightMode ? 1.0 : 0.75),
-            border: const Border(top: BorderSide(color: Colors.white10, width: 0.5)),
-          ),
-          child: Stack(
+  Widget _buildProfessionalSideRail() {
+    return Container(
+      width: 80,
+      decoration: BoxDecoration(
+        color: AppTheme.bgDark,
+        border: Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 1)),
+      ),
+      child: Column(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: _visibleIds.asMap().entries.map((entry) {
-                final int idx = entry.key;
-                final String id = entry.value;
+          const SizedBox(height: 48),
+          // App Icon / Branding
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.movie_filter_rounded, color: AppTheme.primaryColor, size: 28),
+          ),
+          const SizedBox(height: 48),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _visibleIds.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemBuilder: (context, index) {
+                final id = _visibleIds[index];
                 final meta = _navMeta[id]!;
-                final bool isSelected = _selectedIndex == idx;
+                final isSelected = _selectedIndex == index;
 
-                return InkWell(
-                  onTap: () => _onItemTapped(idx),
-                  child: Container(
-                    width: 100,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                return FocusableControl(
+                  onTap: () => _onItemTapped(index),
+                  borderRadius: 12,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
-                            color: isSelected ? Colors.white : Colors.white54,
-                          ),
+                        Icon(
+                          isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
+                          color: isSelected ? AppTheme.primaryColor : Colors.white38,
+                          size: 24,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           meta['label'] as String,
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white54,
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.white : Colors.white24,
                           ),
                         ),
                       ],
                     ),
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
-          if (!lightMode)
-          Positioned(
-            right: 0, top: 0, bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                width: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Colors.transparent, AppTheme.current.bgDark.withValues(alpha: 0.7)],
-                  ),
-                ),
-                child: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white24),
-              ),
-            ),
-          ),
+          const SizedBox(height: 20),
         ],
-      ),
-    );
-
-    if (lightMode) {
-      return ClipRect(child: navContent);
-    }
-
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: navContent,
       ),
     );
   }
 }
+

@@ -263,10 +263,10 @@ class SettingsService {
     await prefs.setString(_torrentCacheTypeKey, type);
   }
 
-  /// RAM cache size in MB. Defaults to 200.
+  /// RAM cache size in MB. Defaults to 500 for smoother playback.
   Future<int> getTorrentRamCacheMb() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_torrentRamCacheMbKey) ?? 200;
+    return prefs.getInt(_torrentRamCacheMbKey) ?? 500;
   }
 
   Future<void> setTorrentRamCacheMb(int mb) async {
@@ -319,9 +319,7 @@ class SettingsService {
 
   /// All available nav items in default order. 'settings' is always last and locked.
   static const List<String> allNavIds = [
-    'home', 'discover', 'search', 'mylist', 'magnet', 'live_matches',
-    'iptv', 'audiobooks', 'books', 'music', 'comics', 'manga',
-    'jellyfin', 'anime', 'arabic',
+    'home', 'discover', 'search', 'mylist', 'magnet', 'anime',
   ];
 
   /// Returns the ordered list of visible nav item IDs.

@@ -154,7 +154,6 @@ class _AnimeScreenState extends State<AnimeScreen> {
     final provider = entry['provider'] as String? ?? 'allmanga';
     final category = entry['category'] as String? ?? 'sub';
     final episodeId = entry['episodeId'] as String? ?? '';
-    final useAnimeRealms = entry['useAnimeRealms'] as bool? ?? false;
     final posMs = entry['position'] as int? ?? 0;
     final startPos = posMs > 10000 ? Duration(milliseconds: posMs) : null;
 
@@ -170,7 +169,6 @@ class _AnimeScreenState extends State<AnimeScreen> {
           episodeTitle: epTitle,
           animeCard: anime,
           episodeNumber: epNum,
-          useAnimeRealms: useAnimeRealms,
           startPosition: startPos,
         ),
       ),

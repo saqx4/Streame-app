@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../models/stream_source.dart';
-import 'amri_extractor.dart';
 import 'tmdb_service.dart';
 
 class ExtractedMedia {
@@ -35,10 +34,6 @@ class StreamExtractor {
   // Track all detected video URLs to select best quality
   final List<String> _detectedVideoUrls = [];
   
-  // Amri integration
-  AmriExtractor? _amriExtractor;
-  final TmdbService _tmdbService = TmdbService();
-
   static const String _userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -51,73 +46,6 @@ class StreamExtractor {
       'Referer': referer,
       'Origin': origin,
     };
-  }
-
-  Future<ExtractedMedia?> extractWithAmri({
-    required String tmdbId,
-    required bool isMovie,
-    int? season,
-    int? episode,
-  }) async {
-    try {
-      // Initialize Amri extractor if needed
-      _amriExtractor ??= AmriExtractor(onLog: (msg) => debugPrint('[Amri] $msg'));
-      
-      // Fetch title and year from TMDB
-      String title;
-      String year;
-      
-      if (isMovie) {
-        final movieData = await _tmdbService.getMovieDetails(tmdbId);
-        title = _tmdbService.getMovieTitle(movieData);
-        year = _tmdbService.getReleaseYear(movieData);
-      } else {
-        final tvData = await _tmdbService.getTvShowDetails(tmdbId);
-        title = _tmdbService.getTvShowTitle(tvData);
-        year = _tmdbService.getReleaseYear(tvData);
-      }
-      
-      // Extract sources
-      final sourcesData = await _amriExtractor!.extractSources(
-        tmdbId,
-        title,
-        year,
-        season: season,
-        episode: episode,
-      );
-      
-      // Check for rate limit
-      if (sourcesData['error'] == 'rate_limit') {
-        debugPrint('[Amri] Rate limited, will fallback');
-        return null;
-      }
-      
-      // Parse sources
-      final sourcesList = (sourcesData['sources'] as List?)
-          ?.map((s) => StreamSource.fromJson(s as Map<String, dynamic>))
-          .toList() ?? [];
-      
-      debugPrint('[Amri] Parsed ${sourcesList.length} sources');
-      
-      if (sourcesList.isEmpty) {
-        debugPrint('[Amri] No sources found');
-        return null;
-      }
-      
-      debugPrint('[Amri] First source URL: ${sourcesList.first.url}');
-      debugPrint('[Amri] First source title: ${sourcesList.first.title}');
-      
-      // Return first source as primary
-      return ExtractedMedia(
-        url: sourcesList.first.url,
-        headers: {'User-Agent': _userAgent},
-        sources: sourcesList,
-        provider: 'amri',
-      );
-    } catch (e) {
-      debugPrint('[Amri] Error: $e');
-      return null;
-    }
   }
 
   Future<ExtractedMedia?> extract(String url, {Duration timeout = const Duration(seconds: 60)}) async {
@@ -455,9 +383,5 @@ class StreamExtractor {
     if (_completer != null && !_completer!.isCompleted) {
       _completer!.complete(null);
     }
-    
-    // Dispose Amri extractor
-    await _amriExtractor?.dispose();
-    _amriExtractor = null;
   }
 }

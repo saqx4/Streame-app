@@ -3,18 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:logging/logging.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'api/audio_handler.dart';
-import 'api/audiobook_player_service.dart';
 import 'api/settings_service.dart';
 import 'api/torrent_stream_service.dart';
 import 'api/tmdb_api.dart';
 import 'api/local_server_service.dart';
-import 'api/music_player_service.dart';
 import 'models/movie.dart';
 import 'services/player_pool_service.dart';
 import 'utils/webview_cleanup.dart';
@@ -38,15 +33,6 @@ void main() async {
       debugPrint('[Boot] InAppWebView setup failed (non-fatal): $e');
     }
   }
-  
-  Logger.root.level = Level.FINER;
-  Logger.root.onRecord.listen((e) {
-    debugPrint('[YT] ${e.message}');
-    if (e.error != null) {
-      debugPrint('[YT ERROR] ${e.error}');
-      debugPrint('[YT STACK] ${e.stackTrace}');
-    }
-  });
   
   if (Platform.isAndroid) {
     // Follow system rotation setting — no forced lock.
@@ -77,22 +63,6 @@ void main() async {
   MediaKit.ensureInitialized();
   debugPrint('[Boot] MediaKit OK');
   
-  debugPrint('[Boot] Initializing AudioService...');
-  final audioHandler = await AudioService.init(
-    builder: () => PlayTorrioAudioHandler(MusicPlayerService().player),
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.playtorrio.native.channel.audio',
-      androidNotificationChannelName: 'Music Playback',
-      androidNotificationOngoing: false,
-      androidStopForegroundOnPause: false,
-      androidResumeOnClick: true,
-    ),
-  );
-  debugPrint('[Boot] AudioService OK');
-  
-  MusicPlayerService().setHandler(audioHandler);
-  AudiobookPlayerService().init(audioHandler);
-  
   // Hydrate light mode setting before first frame
   await SettingsService().initLightMode();
   
@@ -102,17 +72,17 @@ void main() async {
   PlayerPoolService().warmUp();
   debugPrint('[Boot] All init complete — launching app');
 
-  runApp(const PlayTorrioApp());
+  runApp(const StreameApp());
 }
 
-class PlayTorrioApp extends StatefulWidget {
-  const PlayTorrioApp({super.key});
+class StreameApp extends StatefulWidget {
+  const StreameApp({super.key});
 
   @override
-  State<PlayTorrioApp> createState() => _PlayTorrioAppState();
+  State<StreameApp> createState() => _StreameAppState();
 }
 
-class _PlayTorrioAppState extends State<PlayTorrioApp> with WidgetsBindingObserver, WindowListener {
+class _StreameAppState extends State<StreameApp> with WidgetsBindingObserver, WindowListener {
   @override
   void initState() {
     super.initState();
@@ -160,7 +130,7 @@ class _PlayTorrioAppState extends State<PlayTorrioApp> with WidgetsBindingObserv
       valueListenable: AppTheme.themeNotifier,
       builder: (context, preset, _) {
         return MaterialApp(
-          title: 'PlayTorrio Native',
+          title: 'Streame',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.themeData,
           home: const SplashScreen(),
@@ -208,11 +178,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     if (isOffline) {
       debugPrint('[Boot] Device is offline, initializing local services only');
-      debugPrint('[Boot] Initializing MusicPlayer...');
-      await MusicPlayerService().init().catchError((e) {
-        debugPrint('[Boot] ✗ MusicPlayer error: $e');
-        return null;
-      });
       debugPrint('[Boot] ✓ Local services initialized');
       if (mounted) {
         debugPrint('[Boot] Navigating to MainScreen (offline mode)');
@@ -228,7 +193,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     
     debugPrint('[Boot]   - Starting TorrentStream engine...');
     debugPrint('[Boot]   - Starting LocalServer...');
-    debugPrint('[Boot]   - Initializing MusicPlayer...');
     debugPrint('[Boot]   - Fetching TMDB data (trending, popular, top rated, now playing)...');
     
     final results = await Future.wait([
@@ -245,9 +209,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       }),
       LocalServerService().start().catchError((e) {
         debugPrint('[Boot] ✗ LocalServer error: $e');
-      }),
-      MusicPlayerService().init().catchError((e) {
-        debugPrint('[Boot] ✗ MusicPlayer error: $e');
       }),
       api.getTrending().catchError((e) {
         debugPrint('[Boot] ✗ TMDB trending error: $e');
@@ -269,15 +230,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     debugPrint('[Boot] Step 3: Service initialization results:');
     final torrentEngineReady = (results[0] as bool?) == true;
-    // LocalServer and MusicPlayer return void, just check if they completed without throwing
+    // LocalServer returns void, just check if it completed without throwing
     debugPrint('[Boot]   TorrentStream: ${torrentEngineReady ? "✓ READY" : "✗ FAILED"}');
     debugPrint('[Boot]   LocalServer: ✓ READY');
-    debugPrint('[Boot]   MusicPlayer: ✓ READY');
     
-    final trendingList = results[3] as List;
-    final popularList = results[4] as List;
-    final topRatedList = results[5] as List;
-    final nowPlayingList = results[6] as List;
+    final trendingList = results[2] as List;
+    final popularList = results[3] as List;
+    final topRatedList = results[4] as List;
+    final nowPlayingList = results[5] as List;
     
     debugPrint('[Boot]   TMDB Trending: ${trendingList.isNotEmpty ? "✓ ${trendingList.length} items" : "✗ Empty"}');
     debugPrint('[Boot]   TMDB Popular: ${popularList.isNotEmpty ? "✓ ${popularList.length} items" : "✗ Empty"}');
@@ -357,7 +317,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       end: Alignment.bottomCenter,
                     ).createShader(bounds),
                     child: const Text(
-                      'PLAYTORRIO',
+                      'STREAME',
                       style: TextStyle(
                         fontSize: 64,
                         fontWeight: FontWeight.w900,

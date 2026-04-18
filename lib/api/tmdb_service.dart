@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TmdbService {
-  static const String apiKey = 'c3515fdc674ea2bd7b514f4bc3616a4a';
+  static const String apiKey = '3308647fabe47a844ab269e6eab19132';
   static const String baseUrl = 'https://api.themoviedb.org/3';
 
   Future<Map<String, dynamic>> getMovieDetails(String tmdbId) async {

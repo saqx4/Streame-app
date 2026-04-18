@@ -63,7 +63,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   String? _errorMessage;
   Map<String, dynamic>? _lastProgress;
 
-  String _selectedSourceId = 'playtorrio';
+  String _selectedSourceId = 'streame';
   List<Map<String, dynamic>> _streamAddons = [];
   List<dynamic> _stremioStreams = [];
   List<Map<String, dynamic>> _allCombinedStremioStreams = [];
@@ -805,7 +805,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             _selectedEpisode = 1;
           }
         });
-        if (_selectedSourceId == 'playtorrio') {
+        if (_selectedSourceId == 'streame') {
           _autoSearch();
         } else if (_selectedSourceId == 'jackett') {
           _searchJackett();
@@ -1686,21 +1686,22 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       if (value == null || value == 0) return const SizedBox.shrink();
       final display = value is double ? value.toStringAsFixed(1) : value.toString();
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(8),
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
               Text(icon, style: const TextStyle(fontSize: 12)),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
             ],
-            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            Text(display, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 6),
+            Text(display, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -1717,7 +1718,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         switch (source.toLowerCase()) {
           case 'imdb':
             label = 'IMDb';
-            color = const Color(0xFFf5c518);
+            color = const Color(0xFFF5C518);
           case 'metacritic':
             label = 'MC';
             color = const Color(0xFF66CC33);
@@ -1739,12 +1740,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
           case 'tmdb':
             label = 'TMDB';
             color = const Color(0xFF01B4E4);
-          case 'rogerebert':
-            label = 'Ebert';
-            color = const Color(0xFFCCCCCC);
           default:
-            label = source;
-            color = Colors.white70;
+            label = source.toUpperCase();
+            color = Colors.white60;
         }
         chips.add(ratingChip(label, value, color: color));
       }
@@ -1752,19 +1750,19 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
 
     if (_userTraktRating != null) {
       chips.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFED1C24).withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFED1C24).withValues(alpha: 0.3)),
+          color: const Color(0xFFED1C24).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFED1C24).withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.star_rounded, color: Color(0xFFED1C24), size: 14),
-            const SizedBox(width: 3),
-            Text('You: $_userTraktRating/10',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 4),
+            Text('Trakt: $_userTraktRating/10',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ));
@@ -1772,77 +1770,63 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
 
     if (_userSimklRating != null) {
       chips.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF0BF5E5).withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF0BF5E5).withValues(alpha: 0.3)),
+          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star_rounded, color: Color(0xFF0BF5E5), size: 14),
-            const SizedBox(width: 3),
+            const Icon(Icons.star_rounded, color: AppTheme.primaryColor, size: 14),
+            const SizedBox(width: 4),
             Text('Simkl: $_userSimklRating/10',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 6, runSpacing: 6, children: chips);
+    return Wrap(spacing: 8, runSpacing: 8, children: chips);
   }
 
   Widget _buildActionButtons() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: [
         _actionButton(
           icon: _userTraktRating != null ? Icons.star_rounded : Icons.star_outline_rounded,
-          label: _userTraktRating != null ? 'Trakt $_userTraktRating' : 'Rate Trakt',
-          color: const Color(0xFFED1C24),
+          label: _userTraktRating != null ? 'Rate: $_userTraktRating' : 'Rate',
+          active: _userTraktRating != null,
           onTap: () async {
             if (await TraktService().isLoggedIn()) {
               _showRatingDialog();
             } else {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Login to Trakt first in Settings')));
-            }
-          },
-        ),
-        _actionButton(
-          icon: _userSimklRating != null ? Icons.star_rounded : Icons.star_outline_rounded,
-          label: _userSimklRating != null ? 'Simkl $_userSimklRating' : 'Rate Simkl',
-          color: const Color(0xFF0BF5E5),
-          onTap: () async {
-            if (await SimklService().isLoggedIn()) {
-              _showSimklRatingDialog();
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Login to Simkl first in Settings')));
+                const SnackBar(content: Text('Login to Trakt in Settings')));
             }
           },
         ),
         _actionButton(
           icon: _isInTraktCollection ? Icons.library_add_check_rounded : Icons.library_add_rounded,
           label: _isInTraktCollection ? 'Collected' : 'Collect',
-          color: const Color(0xFFCC7B19),
+          active: _isInTraktCollection,
           onTap: _toggleTraktCollection,
         ),
         _actionButton(
           icon: Icons.live_tv_rounded,
           label: 'Check In',
-          color: const Color(0xFF9B59B6),
+          active: false,
           onTap: _traktCheckin,
         ),
         _actionButton(
           icon: Icons.playlist_add_rounded,
           label: 'Add to List',
-          color: const Color(0xFF3498DB),
+          active: false,
           onTap: _addToTraktList,
         ),
       ],
@@ -1852,24 +1836,36 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   Widget _actionButton({
     required IconData icon,
     required String label,
-    required Color color,
+    required bool active,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return FocusableControl(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      borderRadius: 12,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          color: active ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active ? AppTheme.primaryColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
+            width: 1.2,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+            Icon(icon, color: active ? Colors.white : Colors.white70, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -1888,25 +1884,26 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         children: [
           _buildMobileHero(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(spacing: 6, runSpacing: 6,
+                const SizedBox(height: 20),
+                Wrap(spacing: 8, runSpacing: 8,
                   children: _movie.genres.take(3).map(_genreChip).toList()),
+                const SizedBox(height: 20),
                 if (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) ...[  
-                  const SizedBox(height: 12),
                   _buildRatingsRow(),
+                  const SizedBox(height: 20),
                 ],
-                const SizedBox(height: 8),
                 _buildActionButtons(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 _ExpandableSynopsis(text: _movie.overview),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 // Collection items display
                 if (_isCollection && _collectionItems.isNotEmpty) ...[
                   _buildCollectionItemsSection(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                 ],
                 Builder(builder: (ctx) {
                   final cast = _getCastNames();
@@ -1915,40 +1912,40 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionLabel('Cast'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: cast.take(8).map((n) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.only(right: 12),
                             child: _castChip(n),
                           )).toList(),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                     ],
                   );
                 }),
                 _buildRecommendationsSection(),
                 if (_movie.mediaType == 'tv' && !_isCollection) ...[
                   _buildSeasonSelector(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   _buildEpisodeSelector(),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   const Text('← → Episodes  |  ↑ ↓ Season',
                     style: TextStyle(color: Colors.white24, fontSize: 10)),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                 ],
                 if (!_isCollection) ...[
                   _buildSourceToggle(),
-                  const SizedBox(height: 12),
-                  _buildSourceChips(),
                   const SizedBox(height: 16),
+                  _buildSourceChips(),
+                  const SizedBox(height: 24),
                   _buildResultsHeader(),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   _buildStreamList(),
                 ],
-                const SizedBox(height: 32),
+                const SizedBox(height: 48),
               ],
             ),
           ),
@@ -1958,78 +1955,79 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   }
 
   Widget _buildMobileHero() {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     return SizedBox(
-      height: isLandscape ? 200 : 260,
+      height: 300,
       child: Stack(
         children: [
           Positioned.fill(
-            child: ShaderMask(
-              shaderCallback: (rect) => const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.white, Colors.white, Colors.transparent],
-                stops: [0.0, 0.5, 1.0],
-              ).createShader(rect),
-              blendMode: BlendMode.dstIn,
-              child: CachedNetworkImage(
-                imageUrl: _imageUrl(_movie.backdropPath.isNotEmpty ? _movie.backdropPath : _movie.posterPath),
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                errorWidget: (c, u, e) => Container(color: const Color(0xFF0A0A1A)),
-              ),
+            child: CachedNetworkImage(
+              imageUrl: _imageUrl(_movie.backdropPath.isNotEmpty ? _movie.backdropPath : _movie.posterPath),
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
             ),
           ),
           Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x33000000), Color(0xCC000000), Color(0xFF000000)],
-                stops: [0.0, 0.65, 1.0],
-              )),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.5),
+                    Colors.black,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
             ),
           ),
           Positioned(
-            left: 16, right: 16, bottom: 16,
+            left: 24, right: 24, bottom: 20,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                wrapPosterGlow(
-                  width: 90,
-                  height: 132,
-                  borderRadius: 10,
-                  genres: _movie.genres,
-                  child: Hero(
-                    tag: 'movie-poster-${_movie.id}',
+                Hero(
+                  tag: 'movie-poster-${_movie.id}',
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 20,
+                          spreadRadius: -5,
+                        ),
+                      ],
+                    ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       child: CachedNetworkImage(
                         imageUrl: _imageUrl(_movie.posterPath),
-                        width: 90, height: 132, fit: BoxFit.cover,
+                        width: 100, height: 150, fit: BoxFit.cover,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(_movie.title,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold,
-                          color: Colors.white, height: 1.2),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold,
+                          color: Colors.white, height: 1.1),
                         maxLines: 3, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(children: [
                         Text(_movie.releaseDate.take(4),
-                          style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
-                        const SizedBox(width: 3),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                        const SizedBox(width: 4),
                         Text(_movie.voteAverage.toStringAsFixed(1),
-                          style: const TextStyle(color: Color(0xFFFFD700), fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
                       ]),
                     ],
                   ),
@@ -2051,18 +2049,18 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 520,
+          width: 500,
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 16, 20, 32),
+            padding: const EdgeInsets.fromLTRB(32, 24, 24, 48),
             child: _buildDesktopLeftPanel(),
           ),
         ),
-        Container(width: 1, color: Colors.white.withValues(alpha: 0.07)),
+        Container(width: 1, color: Colors.white.withValues(alpha: 0.05)),
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
             child: _buildRightPanel(),
           ),
         ),
@@ -2077,71 +2075,69 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            wrapPosterGlow(
-              width: 260,
-              height: 380,
-              borderRadius: 12,
-              genres: _movie.genres,
-              child: Hero(
-                tag: 'movie-poster-${_movie.id}',
+            Hero(
+              tag: 'movie-poster-${_movie.id}',
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 30,
+                      spreadRadius: -10,
+                    ),
+                  ],
+                ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: CachedNetworkImage(
                     imageUrl: _imageUrl(_movie.posterPath),
-                    width: 260, height: 380, fit: BoxFit.cover),
+                    width: 240, height: 350, fit: BoxFit.cover),
                 ),
-              ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(_movie.title,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-                      color: Colors.white, height: 1.2)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Text(_movie.releaseDate.take(4),
-                      style: const TextStyle(color: Colors.white54, fontSize: 13)),
-                    const SizedBox(width: 8),
-                    const Text('·', style: TextStyle(color: Colors.white38)),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 15),
-                    const SizedBox(width: 3),
-                    Text(_movie.voteAverage.toStringAsFixed(1),
-                      style: const TextStyle(color: Color(0xFFFFD700), fontSize: 13, fontWeight: FontWeight.w600)),
-                  ]),
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 6, runSpacing: 6,
-                    children: _movie.genres.take(3).map(_genreChip).toList()),
-                  if (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) ...[  
-                    const SizedBox(height: 12),
-                    _buildRatingsRow(),
-                  ],
-                  const SizedBox(height: 8),
-                  _buildActionButtons(),
-                ],
               ),
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        Text(_movie.title,
+          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold,
+            color: Colors.white, height: 1.1, letterSpacing: -0.5)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Text(_movie.releaseDate.take(4),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16)),
+          const SizedBox(width: 12),
+          const Text('·', style: TextStyle(color: Colors.white24)),
+          const SizedBox(width: 12),
+          const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+          const SizedBox(width: 6),
+          Text(_movie.voteAverage.toStringAsFixed(1),
+            style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 16),
+        Wrap(spacing: 8, runSpacing: 8,
+          children: _movie.genres.take(3).map(_genreChip).toList()),
         const SizedBox(height: 20),
+        if (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) ...[  
+          _buildRatingsRow(),
+          const SizedBox(height: 20),
+        ],
+        _buildActionButtons(),
+        const SizedBox(height: 24),
         Text(_movie.overview,
-          style: const TextStyle(color: Color(0xFFB0B0C0), fontSize: 13.5, height: 1.6)),
-        const SizedBox(height: 20),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 15, height: 1.6)),
+        const SizedBox(height: 32),
         // Collection items display
         if (_isCollection && _collectionItems.isNotEmpty) ...[
           _buildCollectionItemsSection(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
         ],
         if (_castMembers.isNotEmpty) _buildDesktopCastRow(),
         _buildRecommendationsSection(),
-        const SizedBox(height: 24),
       ],
     );
   }
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  RIGHT PANEL
@@ -2268,7 +2264,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
 
   Widget _buildEpisodeSelector() {
     if (_isLoadingSeason) {
-      return const SizedBox(height: 140,
+      return const SizedBox(height: 160,
         child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2)));
     }
     
@@ -2293,41 +2289,36 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(children: [
-              const Icon(Icons.video_library_outlined, color: Colors.white54, size: 16),
-              const SizedBox(width: 6),
-              Text('Episodes (${episodes.length})',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-            ]),
+            _sectionLabel('Episodes (${episodes.length})'),
             Row(children: [
               _scrollArrow(Icons.arrow_back_ios_rounded, () => _episodeScrollController.animateTo(
-                _episodeScrollController.offset - 240, duration: const Duration(milliseconds: 280), curve: Curves.easeInOut)),
+                _episodeScrollController.offset - 260, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut)),
               _scrollArrow(Icons.arrow_forward_ios_rounded, () => _episodeScrollController.animateTo(
-                _episodeScrollController.offset + 240, duration: const Duration(milliseconds: 280), curve: Curves.easeInOut)),
+                _episodeScrollController.offset + 260, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut)),
             ]),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         SizedBox(
-          height: 155,
+          height: 160,
           child: ListView.separated(
             controller: _episodeScrollController,
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             itemCount: episodes.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) {
-              final ep = episodes[i];
-              // Handle both TMDB and custom ID formats
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final ep = episodes[index];
               final epNum = (ep['episode_number'] ?? ep['episode']) as int;
-              final sel = _selectedEpisode == epNum;
-              final epName = ep['name'] ?? ep['title'] ?? 'Episode $epNum';
-              final thumbnail = ep['still_path'] ?? ep['thumbnail'];
+              final isSelected = _selectedEpisode == epNum;
+              final name = ep['name'] ?? ep['title'] ?? 'Episode $epNum';
+              final stillPath = ep['still_path'] ?? ep['thumbnail'];
               final isWatched = _watchedEpisodes.contains('${_movie.id}_S${_selectedSeason}_E$epNum');
               
               return FocusableControl(
                 onTap: () {
                   setState(() => _selectedEpisode = epNum);
-                  if (_selectedSourceId == 'playtorrio') {
+                  if (_selectedSourceId == 'streame') {
                     _autoSearch();
                   } else if (_selectedSourceId == 'jackett') {
                     _searchJackett();
@@ -2336,7 +2327,6 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   } else if (_selectedSourceId == 'all_stremio') {
                     _fetchAllStremioStreams();
                   } else {
-                    // For custom IDs, re-fetch streams with the new episode
                     if (widget.stremioItem != null) {
                       _fetchStremioStreamsForCustomId(widget.stremioItem!);
                     } else {
@@ -2344,69 +2334,93 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     }
                   }
                 },
-                borderRadius: 10,
+                borderRadius: 12,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 200,
+                  duration: const Duration(milliseconds: 200),
+                  width: 240,
                   decoration: BoxDecoration(
-                    color: sel ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sel ? AppTheme.primaryColor : Colors.white12, width: sel ? 1.5 : 1),
+                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.05),
+                      width: 1.5,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Stack(fit: StackFit.expand, children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                            child: thumbnail != null
-                                ? CachedNetworkImage(
-                                    imageUrl: thumbnail.startsWith('http') 
-                                        ? thumbnail 
-                                        : TmdbApi.getStillUrl(thumbnail),
-                                    fit: BoxFit.cover,
-                                    errorWidget: (c, u, e) => Container(
-                                      color: Colors.white.withValues(alpha: 0.06),
-                                      child: const Center(child: Icon(Icons.movie_outlined, color: Colors.white24, size: 28))))
-                                : Container(color: Colors.white.withValues(alpha: 0.06),
-                                    child: const Center(child: Icon(Icons.movie_outlined, color: Colors.white24, size: 28))),
-                          ),
-                          Positioned(
-                            top: 6, left: 6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.65), borderRadius: BorderRadius.circular(4)),
-                              child: Text('$epNum', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Stack(
+                      children: [
+                        if (stillPath != null && stillPath.toString().isNotEmpty)
+                          Positioned.fill(
+                            child: CachedNetworkImage(
+                              imageUrl: stillPath.toString().startsWith('http') 
+                                ? stillPath.toString() 
+                                : TmdbApi.getBackdropUrl(stillPath.toString()),
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: AppTheme.bgCard),
+                              errorWidget: (_, __, ___) => Container(color: AppTheme.bgCard),
                             ),
                           ),
-                          Positioned(
-                            top: 4, right: 4,
-                            child: GestureDetector(
-                              onTap: () => _toggleEpisodeWatched(_selectedSeason, epNum),
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: isWatched ? Colors.green : Colors.black.withValues(alpha: 0.55),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isWatched ? Icons.check : Icons.check,
-                                  size: 14,
-                                  color: isWatched ? Colors.white : Colors.white38,
-                                ),
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.8),
+                                ],
                               ),
                             ),
                           ),
-                        ]),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        child: Text(epName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                            color: sel ? Colors.white : Colors.white70)),
-                      ),
-                    ],
+                        ),
+                        if (isWatched)
+                          Positioned(
+                            top: 8, left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('WATCHED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 12, left: 12, right: 12,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'EP $epNum',
+                                style: TextStyle(
+                                  color: isSelected ? AppTheme.primaryColor : Colors.white60,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          const Positioned(
+                            top: 8, right: 8,
+                            child: Icon(Icons.play_circle_fill, color: Colors.white, size: 24),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -2422,7 +2436,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   // ═══════════════════════════════════════════════════════════════════════════
 
   bool get _isTorrentSource =>
-      _selectedSourceId == 'playtorrio' ||
+      _selectedSourceId == 'streame' ||
       _selectedSourceId == 'jackett' ||
       _selectedSourceId == 'prowlarr';
 
@@ -2450,7 +2464,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             }
           }),
           _sourceTab('Torrent Sources', Icons.downloading_rounded, isTorrent, () {
-            setState(() => _selectedSourceId = 'playtorrio');
+            setState(() => _selectedSourceId = 'streame');
             _autoSearch();
           }),
         ],
@@ -2482,7 +2496,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     final isTorrent = _isTorrentSource;
     final chips = <Map<String, dynamic>>[];
     if (isTorrent) {
-      chips.add({'id': 'playtorrio', 'label': 'PlayTorrio'});
+      chips.add({'id': 'streame', 'label': 'Streame'});
       if (_isJackettConfigured) chips.add({'id': 'jackett', 'label': '🔍 Jackett'});
       if (_isProwlarrConfigured) chips.add({'id': 'prowlarr', 'label': '🔍 Prowlarr'});
       for (final a in _streamAddons) {
@@ -2512,7 +2526,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               onTap: () {
                 final id = chip['id'] as String;
                 setState(() => _selectedSourceId = id);
-                if (id == 'playtorrio') {
+                if (id == 'streame') {
                   _autoSearch();
                 } else if (id == 'jackett') {
                   _searchJackett();
@@ -2557,7 +2571,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildResultsHeader() {
-    // Show sort dropdown for ALL torrent sources, not just PlayTorrio
+    // Show sort dropdown for ALL torrent sources, not just Streame
     final showSort = _isTorrentSource;
     String? epLabel;
     if (_movie.mediaType == 'tv') {

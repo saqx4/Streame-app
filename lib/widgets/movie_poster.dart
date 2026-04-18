@@ -49,30 +49,28 @@ class _MoviePosterState extends State<MoviePoster> {
           );
         }
       },
-      focusColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      splashColor: Colors.deepPurpleAccent.withValues(alpha: 0.3),
+      splashColor: AppTheme.primaryColor.withValues(alpha: 0.15),
       highlightColor: Colors.transparent,
       borderRadius: BorderRadius.circular(16.0),
       child: AnimatedScale(
-        scale: isActive && !AppTheme.isLightMode ? 1.05 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOutCubic,
+        scale: isActive ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
         child: Container(
-          margin: const EdgeInsets.all(4.0), // Reduced margin
+          margin: const EdgeInsets.all(4.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16.0),
             border: Border.all(
-              color: isActive ? Colors.deepPurpleAccent : Colors.white10,
-              width: isActive ? 3 : 1,
+              color: isActive ? AppTheme.primaryColor : Colors.white10,
+              width: isActive ? 2.5 : 1,
             ),
-            boxShadow: isActive && !AppTheme.isLightMode
+            boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.deepPurpleAccent.withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 4),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                      blurRadius: 20,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 8),
                     )
                   ]
                 : [],
@@ -86,54 +84,65 @@ class _MoviePosterState extends State<MoviePoster> {
                 CachedNetworkImage(
                   imageUrl: TmdbApi.getImageUrl(widget.movie.posterPath),
                   fit: BoxFit.cover,
-                  memCacheWidth: 340,
+                  memCacheWidth: 320,
                   placeholder: (context, url) => Container(
-                    color: const Color(0xFF2D0C3F),
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    color: AppTheme.bgCard,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor.withValues(alpha: 0.4))),
                   ),
-                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                  errorWidget: (context, url, error) => Container(
+                    color: AppTheme.bgCard,
+                    child: const Icon(Icons.movie_outlined, color: Colors.white12),
+                  ),
                 ),
                 
-                // Content Overlay
-                AnimatedOpacity(
-                  opacity: isActive ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
+                // Fancy Info Footer - Sliding up on Focus
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutQuart,
+                  bottom: isActive ? 0 : -60,
+                  left: 0, right: 0,
                   child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.transparent,
-                          const Color(0xFF0F0418).withValues(alpha: 0.8),
-                          const Color(0xFF0F0418),
+                          const Color(0xFF05050A).withValues(alpha: 0.0),
+                          const Color(0xFF05050A).withValues(alpha: 0.85),
+                          const Color(0xFF05050A),
                         ],
                       ),
                     ),
-                    padding: const EdgeInsets.all(12.0),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           widget.movie.title,
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 12,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 12),
+                            const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               widget.movie.voteAverage.toStringAsFixed(1),
-                              style: const TextStyle(color: Colors.white70, fontSize: 11),
+                              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
+                            const Spacer(),
+                            if (widget.movie.releaseDate.isNotEmpty)
+                              Text(
+                                widget.movie.releaseDate.take(4),
+                                style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+                              ),
                           ],
                         ),
                       ],
@@ -143,7 +152,7 @@ class _MoviePosterState extends State<MoviePoster> {
 
                 // My List add/remove button
                 Positioned(
-                  top: 6, left: 6,
+                  top: 8, right: 8,
                   child: ValueListenableBuilder<int>(
                     valueListenable: MyListService.changeNotifier,
                     builder: (context, _, _) {
@@ -165,19 +174,21 @@ class _MoviePosterState extends State<MoviePoster> {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text(added ? 'Added to My List' : 'Removed from My List'),
                               duration: const Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
                             ));
                           }
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: inList ? AppTheme.primaryColor : Colors.black.withValues(alpha: 0.4),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            inList ? Icons.bookmark : Icons.add,
+                            inList ? Icons.bookmark_rounded : Icons.add_rounded,
                             size: 16,
-                            color: inList ? Colors.deepPurpleAccent : Colors.white70,
+                            color: Colors.white,
                           ),
                         ),
                       );

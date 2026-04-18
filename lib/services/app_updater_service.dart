@@ -6,7 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AppUpdaterService {
-  static const String githubRepo = 'ayman708-UX/PlayTorrioV2';
+  static const String githubRepo = 'saqx4/Streame-app';
   static const String githubApiUrl = 'https://api.github.com/repos/$githubRepo/releases/latest';
   
   Future<UpdateInfo?> checkForUpdates() async {

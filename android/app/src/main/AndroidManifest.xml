@@ -17,7 +17,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <application
-        android:label="PlayTorrio"
+        android:label="Streame"
         android:name="${applicationName}"
         android:banner="@mipmap/ic_launcher"
         android:icon="@mipmap/ic_launcher"

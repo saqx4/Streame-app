@@ -25,7 +25,6 @@ import '../../services/watch_history_service.dart';
 import '../../api/trakt_service.dart';
 import '../../api/simkl_service.dart';
 import '../../api/webstreamr_service.dart';
-import '../../api/arabic_service.dart';
 import '../../api/stremio_service.dart';
 import '../../api/stream_providers.dart';
 import '../../api/settings_service.dart';
@@ -35,13 +34,14 @@ import '../../api/torrent_filter.dart';
 import '../../api/tmdb_service.dart';
 import '../../api/introdb_service.dart';
 import '../player_screen.dart';
+import 'utils.dart' show formatDuration;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLASSY WIDGET PRIMITIVES  (MPVEx-style frosted black glass)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// A rounded glassy container – the visual base for every button / chip.
-/// [hovered] brightens the glass slightly for Windows hover feedback.
+/// A clean frosted container – the visual base for every button / chip.
+/// [hovered] brightens slightly for desktop hover feedback.
 class _Glass extends StatelessWidget {
   final Widget child;
   final double radius;
@@ -59,41 +59,22 @@ class _Glass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Base fill: 0.55 so the glass reads clearly even on pure black.
-    // On hover bump to 0.72 for a crisp lift effect.
-    final fillOpacity = hovered ? 0.72 : 0.55;
-    final borderOpacity = hovered ? 0.30 : 0.16;
+    final fillOpacity = hovered ? 0.65 : 0.45;
+    final borderOpacity = hovered ? 0.22 : 0.10;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            // Layered fill: tint + a constant white shimmer so it's never
-            // invisible even when the video behind it is also black.
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                (tint ?? const Color(0xFF1C1C1E)).withValues(alpha: fillOpacity),
-                (tint ?? Colors.black).withValues(alpha: fillOpacity - 0.08),
-              ],
-            ),
+            color: (tint ?? const Color(0xFF1C1C1E)).withValues(alpha: fillOpacity),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
               color: Colors.white.withValues(alpha: borderOpacity),
-              width: 0.8,
+              width: 0.5,
             ),
-            // Subtle box-shadow so button lifts off the background
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: hovered ? 0.55 : 0.35),
-                blurRadius: hovered ? 12 : 6,
-                spreadRadius: 0,
-              ),
-            ],
           ),
           child: child,
         ),
@@ -130,7 +111,7 @@ class _GlassIconButtonState extends State<GlassIconButton> {
   bool _pressed = false;
 
   Color get _tint {
-    if (widget.active) return const Color(0xFF6A0DAD);
+    if (widget.active) return const Color(0xFF7C3AED);
     if (_pressed)      return const Color(0xFF2A2A2E);
     return const Color(0xFF1C1C1E);
   }
@@ -258,17 +239,17 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
   Widget build(BuildContext context) {
     if (widget.isBuffering) {
       return _Glass(
-        radius: 40,
+        radius: 32,
         hovered: false,
         child: const SizedBox(
-          width: 80,
-          height: 80,
+          width: 64,
+          height: 64,
           child: Center(
             child: SizedBox(
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               child: CircularProgressIndicator(
-                color: Colors.white,
+                color: Color(0xFF7C3AED),
                 strokeWidth: 2.5,
               ),
             ),
@@ -286,19 +267,20 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
         onTapUp:     (_) => setState(() => _pressed = false),
         onTapCancel: ()  => setState(() => _pressed = false),
         child: AnimatedScale(
-          scale: _pressed ? 0.88 : (_hovered ? 1.08 : 1.0),
-          duration: const Duration(milliseconds: 100),
+          scale: _pressed ? 0.90 : (_hovered ? 1.06 : 1.0),
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeInOut,
           child: _Glass(
-            radius: 40,
+            radius: 32,
             hovered: _hovered,
             child: SizedBox(
-              width: 80,
-              height: 80,
+              width: 64,
+              height: 64,
               child: Icon(
                 widget.isPlaying
                     ? Icons.pause_rounded
                     : Icons.play_arrow_rounded,
-                size: 44,
+                size: 36,
                 color: Colors.white,
               ),
             ),
@@ -309,7 +291,7 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
   }
 }
 
-/// Gradient overlay at top or bottom of the video
+/// Gradient overlay at top or bottom of the video — lighter, more subtle
 class _OverlayGradient extends StatelessWidget {
   final bool isTop;
   const _OverlayGradient({required this.isTop});
@@ -317,13 +299,13 @@ class _OverlayGradient extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 140,
+      height: 100,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
           end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
           colors: [
-            Colors.black.withValues(alpha: 0.72),
+            Colors.black.withValues(alpha: 0.55),
             Colors.transparent,
           ],
         ),
@@ -337,8 +319,9 @@ class _OverlayGradient extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _HwDecMode {
-  /// auto-safe: whitelisted GPU decoders, safe fallback chain. Best for most users.
-  autoSafe,
+  /// auto: tries all available GPU decoders, falls back to software.
+  /// Less restrictive than auto-safe — works with VA-API on Linux and 10-bit HEVC.
+  autoHw,
 
   /// auto-copy: GPU decodes → copies back to RAM. Compatible with video filters.
   autoCopy,
@@ -349,31 +332,31 @@ enum _HwDecMode {
 
 extension _HwDecModeX on _HwDecMode {
   String get mpvValue => switch (this) {
-        _HwDecMode.autoSafe => 'auto-safe',
+        _HwDecMode.autoHw => 'auto',
         _HwDecMode.autoCopy => 'auto-copy',
         _HwDecMode.software => 'no',
       };
 
   String get label => switch (this) {
-        _HwDecMode.autoSafe => 'HW+',
+        _HwDecMode.autoHw => 'HW+',
         _HwDecMode.autoCopy => 'COPY',
         _HwDecMode.software => 'SW',
       };
 
   String get description => switch (this) {
-        _HwDecMode.autoSafe => 'Hardware Decoding: ON (GPU, safe)',
+        _HwDecMode.autoHw => 'Hardware Decoding: ON (GPU)',
         _HwDecMode.autoCopy => 'Hardware Decoding: ON (copy-back)',
         _HwDecMode.software => 'Hardware Decoding: OFF (CPU)',
       };
 
   _HwDecMode get next => switch (this) {
-        _HwDecMode.autoSafe => _HwDecMode.autoCopy,
+        _HwDecMode.autoHw => _HwDecMode.autoCopy,
         _HwDecMode.autoCopy => _HwDecMode.software,
-        _HwDecMode.software => _HwDecMode.autoSafe,
+        _HwDecMode.software => _HwDecMode.autoHw,
       };
 
   Color get accent => switch (this) {
-        _HwDecMode.autoSafe => const Color(0xFF7C3AED),
+        _HwDecMode.autoHw => const Color(0xFF7C3AED),
         _HwDecMode.autoCopy => const Color(0xFF0EA5E9),
         _HwDecMode.software => Colors.white24,
       };
@@ -475,7 +458,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   bool _isInitPlaybackRunning = false;
 
   // ── Feature State ────────────────────────────────────────────────────────
-  _HwDecMode _hwDecMode = _HwDecMode.autoSafe;
+  _HwDecMode _hwDecMode = _HwDecMode.autoHw;
   bool _loopEnabled = false;
   double _subtitleDelay = 0.0;
   double _subtitleSize = 44.0;
@@ -494,6 +477,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   String? _activeSkipLabel;   // e.g. 'Skip Intro', 'Skip Recap', etc.
   Duration? _activeSkipTarget; // where to seek when the user taps
   bool _skipDismissed = false; // user dismissed the current segment button
+
+  // ── Inline Toast ──────────────────────────────────────────────────────────
+  String? _toastMessage;
+  Timer? _toastTimer;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  LIFECYCLE
@@ -521,11 +508,27 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       ),
     );
 
-    // ── VideoController: force hardware-accelerated texture output ─────────
+    // ── Force OpenGL BEFORE VideoController is created ─────────────────────
+    // The GPU context is initialized when VideoController is constructed.
+    // Setting gpu-api AFTER that point has no effect — Vulkan is already
+    // chosen and fails on Haswell/older Intel GPUs with "EGL display or
+    // context is invalid" → S/W rendering fallback.
+    if (_player.platform is NativePlayer) {
+      final mpv = _player.platform as NativePlayer;
+      mpv.setProperty('gpu-api', 'opengl');
+      mpv.setProperty('opengl-swapinterval', '1');
+      mpv.setProperty('opengl-pbo', 'yes');
+    }
+
+    // ── VideoController: skip GPU acceleration ────────────────────────────
+    // On Haswell/older Intel GPUs, EGL context creation fails (EGL display or
+    // context is invalid) → S/W rendering fallback. Disabling hardware
+    // acceleration skips the failed GPU attempt entirely and goes directly to
+    // the working CPU upload path, which is faster than try+fail+fallback.
     _controller = VideoController(
       _player,
       configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
+        enableHardwareAcceleration: false,
       ),
     );
 
@@ -581,6 +584,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     windowManager.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
+    _toastTimer?.cancel();
 
     // Cancel all subscriptions
     _positionSub?.cancel();
@@ -760,29 +764,15 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         var source = _currentSources![i];
         debugPrint('[Player] Trying source ${i + 1}/${_currentSources!.length}: ${source.title}');
 
-        // Arabic embed sources need on-demand extraction first
-        if (_currentProvider == 'arabic' && source.type == 'arabic_embed') {
-          debugPrint('[Player] Extracting arabic embed: ${source.title}');
-          final result = await ArabicService.extractStreamUrl(source.url);
-          if (result == null) {
-            debugPrint('[Player] Arabic extract failed for ${source.title}');
-            _currentFallbackSourceIndex++;
-            continue;
-          }
-          // Update the source with the real stream URL
-          source = StreamSource(
-            url: result.url,
-            title: source.title,
-            type: result.url.contains('.m3u8') ? 'hls' : result.url.contains('.mpd') ? 'dash' : 'mp4',
-          );
-          _currentSources![i] = source;
-        }
-        
         try {
           _subscribeToStreams();
           await _configureMpvProperties();
           await _player.open(Media(source.url, httpHeaders: source.headers ?? widget.headers));
           _player.setVolume(_volumeNotifier.value);
+          
+          // Pre-buffer: wait 3 seconds for stream to build buffer before playing
+          await Future.delayed(const Duration(seconds: 3));
+          
           setState(() {
             _currentUrl = source.url;
           });
@@ -806,6 +796,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           await _configureMpvProperties();
           await _player.open(Media(widget.mediaPath, httpHeaders: widget.headers));
           _player.setVolume(_volumeNotifier.value);
+          
+          // Pre-buffer: wait 3 seconds for stream to build buffer before playing
+          await Future.delayed(const Duration(seconds: 3));
+          
           return;
         } catch (e) {
           retryCount++;
@@ -1069,16 +1063,19 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     final mpv = _player.platform as NativePlayer;
 
     // ── Decoding ─────────────────────────────────────────────────────────
-    // auto-safe: tries whitelisted GPU decoders, falls back gracefully.
-    // This is the officially recommended hwdec mode by mpv developers.
+    // auto: tries all available GPU decoders (VA-API, VDPAU, D3D11, etc.),
+    // falls back to software if none work. Less restrictive than auto-safe,
+    // which skips VA-API on Linux and 10-bit HEVC on many GPUs.
     await mpv.setProperty('hwdec', _hwDecMode.mpvValue);
 
-    // Zero-copy direct rendering from decoder to GPU texture when possible.
-    // Reduces RAM usage and improves throughput, especially on 4K/HEVC.
-    await mpv.setProperty('vd-lavc-dr', 'yes');
+    // Direct rendering disabled — with hwdec=auto, the decoder may use
+    // copy-back modes (auto-copy) which are incompatible with vd-lavc-dr.
+    // Disabling avoids conflicts and potential garbled output.
+    await mpv.setProperty('vd-lavc-dr', 'no');
 
-    // Let mpv pick the optimal thread count automatically (0 = auto).
-    await mpv.setProperty('vd-lavc-threads', '0');
+    // Cap decode threads to 4 — on Haswell-era (4 core) CPUs, letting mpv
+    // use all cores (0=auto) starves the UI and demuxer threads.
+    await mpv.setProperty('vd-lavc-threads', '4');
 
     // ── Audio Codec Fallback ──────────────────────────────────────────────
     // Continue playback even if audio codec is unsupported (e.g., TrueHD).
@@ -1090,15 +1087,12 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('sub-visibility', 'no');
     await mpv.setProperty('sub-auto', 'all');
 
-    // ── Video Sync & Smoothness ───────────────────────────────────────────
-    // display-resample: syncs to the monitor's refresh rate, eliminates judder.
-    // This is the best sync mode for desktop displays.
-    await mpv.setProperty('video-sync', 'display-resample');
-
-    // Temporal interpolation to smooth out frame pacing between display frames.
-    // Significantly reduces judder on 24fps content on 60Hz+ monitors.
-    await mpv.setProperty('interpolation', 'yes');
-    await mpv.setProperty('tscale', 'oversample'); // lightweight interpolation
+    // ── Video Sync ────────────────────────────────────────────────────────
+    // audio sync: ties playback to the audio clock. Lighter than
+    // display-resample which requires stable vsync + GPU rendering.
+    // display-resample+interpolation adds heavy CPU overhead when GPU
+    // rendering is unavailable, causing the "heavy" feeling on older GPUs.
+    await mpv.setProperty('video-sync', 'audio');
 
     // ── Adaptive Streaming (HLS/DASH) ─────────────────────────────────────
     // Always pick the highest bitrate variant in multi-quality playlists.
@@ -1117,6 +1111,13 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
     // How far back the demuxer keeps decoded data (for backward seeks).
     await mpv.setProperty('demuxer-max-back-bytes', '50MiB');
+
+    // ── Cache-pause (anti-stutter) ─────────────────────────────────────────
+    // Pause playback on cache underrun instead of stuttering through it.
+    // This is the single most important setting for smooth torrent/stream playback.
+    await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
+    await mpv.setProperty('cache-pause-wait', '5');        // wait up to 5s for buffer to recover
+    await mpv.setProperty('cache-pause-done', '1');        // resume when buffer has 1s ahead
 
     // Prevent yt-dlp from being invoked (we supply our own URL).
     await mpv.setProperty('ytdl', 'no');
@@ -1681,10 +1682,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
   void _showSourcesMenu() {
     if (_currentSources == null || _currentSources!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No sources available'),
-        duration: Duration(seconds: 1),
-      ));
+      _showPlayerToast('No sources available');
       return;
     }
 
@@ -1746,40 +1744,17 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                     if (!isCurrent) {
                       // Save current position
                       final currentPos = _positionNotifier.value;
-                      final messenger = ScaffoldMessenger.of(context);
 
-                      // Arabic provider: extract on-demand from embed URL
-                      if (_currentProvider == 'arabic' && source.type == 'arabic_embed') {
-                        messenger.showSnackBar(SnackBar(
-                          content: Text('Extracting ${source.title}...'),
-                          duration: const Duration(seconds: 30),
-                        ));
-                        final result = await ArabicService.extractStreamUrl(source.url);
-                        if (!mounted) return;
-                        messenger.hideCurrentSnackBar();
-                        if (result == null) {
-                          messenger.showSnackBar(SnackBar(
-                            content: Text('Failed to extract ${source.title}'),
-                            duration: const Duration(seconds: 2),
-                          ));
-                          return;
-                        }
-                        await _player.open(
-                          Media(result.url, httpHeaders: result.headers),
-                        );
-                        // Update the source entry with the extracted stream URL
-                        _currentSources![index] = StreamSource(
-                          url: result.url,
-                          title: source.title,
-                          type: result.url.contains('.m3u8') ? 'hls' : result.url.contains('.mpd') ? 'dash' : 'mp4',
-                        );
-                        setState(() {
-                          _currentUrl = result.url;
-                          _currentFallbackSourceIndex = 0;
-                          _hasError = false;
-                          _errorMessage = '';
-                        });
-                      } else {
+                      await _player.open(
+                        Media(source.url, httpHeaders: source.headers ?? widget.headers),
+                      );
+                      setState(() {
+                        _currentUrl = source.url;
+                        _currentFallbackSourceIndex = 0;
+                        _hasError = false;
+                        _errorMessage = '';
+                      });
+                    } else {
                         // Normal direct switch
                         await _player.open(
                           Media(source.url, httpHeaders: source.headers ?? widget.headers),
@@ -1790,19 +1765,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                           _hasError = false;
                           _errorMessage = '';
                         });
-                      }
-                      
-                      // Seek to saved position
-                      if (currentPos.inSeconds > 0) {
-                        await _player.seek(currentPos);
-                      }
-                      
-                      if (mounted) {
-                        messenger.showSnackBar(SnackBar(
-                          content: Text('Switched to ${source.title}'),
-                          duration: const Duration(seconds: 2),
-                        ));
-                      }
                     }
                   },
                 );
@@ -1822,9 +1784,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     setState(() => _loopEnabled = !_loopEnabled);
     _player.setPlaylistMode(
         _loopEnabled ? PlaylistMode.single : PlaylistMode.none);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Loop: ${_loopEnabled ? "ON" : "OFF"}'),
-        duration: const Duration(seconds: 1)));
+    _showPlayerToast('Loop: ${_loopEnabled ? "ON" : "OFF"}');
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1946,9 +1906,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           nextEpisode = 1;
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No more episodes available')),
-            );
+            _showPlayerToast('No more episodes available');
           }
           setState(() => _isLoadingNextEp = false);
           return;
@@ -2117,18 +2075,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         );
         if (sources.isEmpty) throw Exception('No WebStreamr sources for S${nextSeason}E$nextEpisode');
         streamUrl = sources.first.url;
-      } else if (isAmri) {
-        // ── AMRI: re-extract for next episode ─────────────────────────
-        final extractor = StreamExtractor();
-        final result = await extractor.extractWithAmri(
-          tmdbId: widget.movie!.id.toString(),
-          isMovie: false,
-          season: nextSeason,
-          episode: nextEpisode,
-        );
-        if (result == null) throw Exception('AMRI extraction failed for S${nextSeason}E$nextEpisode');
-        streamUrl = result.url;
-        headers = result.headers.isNotEmpty ? result.headers : null;
       } else if (widget.activeProvider != null) {
         // ── Stream provider (vidlink, vixsrc, etc.) ───────────────────
         final provider = StreamProviders.providers[widget.activeProvider];
@@ -2178,9 +2124,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     } catch (e) {
       debugPrint('[NextEp] Error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Next episode error: $e')),
-        );
+        _showPlayerToast('Next episode error');
         setState(() => _isLoadingNextEp = false);
       }
     }
@@ -2257,15 +2201,11 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     setState(() => _isSwitchingProvider = true);
     
     final currentPos = _positionNotifier.value;
-    final messenger = ScaffoldMessenger.of(context);
     
     try {
       final provider = widget.providers![newProvider];
       
-      messenger.showSnackBar(SnackBar(
-        content: Text('Extracting from ${provider['name']}...'),
-        duration: const Duration(seconds: 2),
-      ));
+      _showPlayerToast('Extracting from ${provider['name']}...');
 
       String? streamUrl;
       Map<String, String>? headers;
@@ -2323,25 +2263,16 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         });
         
         if (mounted) {
-          messenger.showSnackBar(SnackBar(
-            content: Text('Switched to ${provider['name']}'),
-            duration: const Duration(seconds: 2),
-          ));
+          _showPlayerToast('Switched to ${provider['name']}');
         }
       } else {
         if (mounted) {
-          messenger.showSnackBar(SnackBar(
-            content: Text('Failed to extract from ${provider['name']}'),
-            duration: const Duration(seconds: 2),
-          ));
+          _showPlayerToast('Failed to extract from ${provider['name']}');
         }
       }
     } catch (e) {
       if (mounted) {
-        messenger.showSnackBar(SnackBar(
-          content: Text('Error switching provider: $e'),
-          duration: const Duration(seconds: 2),
-        ));
+        _showPlayerToast('Error switching provider');
       }
     } finally {
       if (mounted) {
@@ -2353,6 +2284,15 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   // ─────────────────────────────────────────────────────────────────────────
   //  UI AUTO-HIDE
   // ─────────────────────────────────────────────────────────────────────────
+
+  /// Show a brief inline toast inside the player — replaces jarring SnackBars.
+  void _showPlayerToast(String message) {
+    _toastTimer?.cancel();
+    setState(() => _toastMessage = message);
+    _toastTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _toastMessage = null);
+    });
+  }
 
   void _startHideTimer() {
     _hideTimer?.cancel();
@@ -2449,9 +2389,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         _videoFit = BoxFit.contain;
       }
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Aspect Ratio: $_videoFitLabel'),
-        duration: const Duration(seconds: 1)));
+    _showPlayerToast('Aspect Ratio: $_videoFitLabel');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2508,7 +2446,8 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 // ── Controls Overlay ─────────────────────────────────────
                 AnimatedOpacity(
                   opacity: _showControls ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                   child: IgnorePointer(
                     ignoring: !_showControls,
                     child: _buildControlsOverlay(),
@@ -2592,12 +2531,11 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       Positioned(
         top: 0, left: 0, right: 0,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(children: [
             GlassIconButton(
               icon: Icons.close_rounded,
               onPressed: () async {
-                // Exit fullscreen if currently fullscreen
                 if (_isFullscreen) {
                   await windowManager.setFullScreen(false);
                   setState(() => _isFullscreen = false);
@@ -2605,19 +2543,19 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 _saveWatchHistory();
                 if (mounted) Navigator.of(context).pop(_positionNotifier.value);
               },
-              size: 38, iconSize: 18,
+              size: 36, iconSize: 17,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             // Title pill
             Expanded(
               child: _Glass(
                 radius: 20,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
+                    horizontal: 12, vertical: 7),
                 child: Text(
                   widget.title,
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xE6FFFFFF),
                       fontSize: 13,
                       fontWeight: FontWeight.w500),
                   maxLines: 1,
@@ -2625,24 +2563,23 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             // HW decode mode badge
             GlassPillButton(
               text: _hwDecMode.label,
               onTap: _cycleHwDec,
               accent: _hwDecMode.accent,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             GlassIconButton(
               icon: Icons.music_note_outlined,
               onPressed: _showAudioMenu,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             GlassIconButton(
               icon: Icons.subtitles_outlined,
               onPressed: _showSubtitlesMenu,
             ),
-            // Show sources button for providers with multiple sources
             if ((_currentProvider == 'amri' || _currentProvider == 'webstreamr' || _currentProvider == 'arabic') && _currentSources != null && _currentSources!.isNotEmpty) ...[
               const SizedBox(width: 8),
               GlassIconButton(
@@ -2678,35 +2615,28 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         Positioned(
           bottom: _showNextEpButton ? 155 : 100,
           right: 24,
-          child: Material(
-            color: Colors.transparent,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              InkWell(
-                onTap: _performSkip,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(
-                      _activeSkipLabel!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _performSkip,
+              child: _Glass(
+                radius: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(
+                    _activeSkipLabel!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.skip_next_rounded,
-                        color: Colors.white, size: 20),
-                  ]),
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.skip_next_rounded,
+                      color: Color(0xFF7C3AED), size: 18),
+                ]),
               ),
-            ]),
+            ),
           ),
         ),
 
@@ -2715,38 +2645,58 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         Positioned(
           bottom: 100,
           right: 24,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
+          child: MouseRegion(
+            cursor: _isLoadingNextEp ? SystemMouseCursors.wait : SystemMouseCursors.click,
+            child: GestureDetector(
               onTap: _isLoadingNextEp ? null : _nextEpisode,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
-                ),
+              child: _Glass(
+                radius: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (_isLoadingNextEp)
                     const SizedBox(
-                      width: 18, height: 18,
+                      width: 16, height: 16,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2, color: Color(0xFF7C3AED)),
                     )
                   else
                     const Text(
                       'Next Episode',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   const SizedBox(width: 8),
                   const Icon(Icons.arrow_forward_rounded,
-                      color: Colors.white, size: 20),
+                      color: Color(0xFF7C3AED), size: 18),
                 ]),
+              ),
+            ),
+          ),
+        ),
+
+      // ── INLINE TOAST ───────────────────────────────────────────────────
+      if (_toastMessage != null)
+        Positioned(
+          top: 60,
+          left: 0, right: 0,
+          child: Center(
+            child: AnimatedOpacity(
+              opacity: _toastMessage != null ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: _Glass(
+                radius: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  _toastMessage!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
           ),
@@ -2757,7 +2707,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
         bottom: 0, left: 0, right: 0,
         child: Padding(
           padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             // ── Icon row ───────────────────────────────────────────────
             Row(
@@ -2771,7 +2721,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                         context, _player.state.rate,
                         (s) => _player.setRate(s)),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   GlassIconButton(
                     icon: _loopEnabled
                         ? Icons.repeat_one_rounded
@@ -2795,9 +2745,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                           .setVolume(vol > 0 ? 0.0 : 100.0),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   SizedBox(
-                    width: 90,
+                    width: 100,
                     child: ValueListenableBuilder<double>(
                       valueListenable: _volumeNotifier,
                       builder: (context, vol, _) => SliderTheme(
@@ -2809,9 +2759,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                           overlayShape:
                               const RoundSliderOverlayShape(
                                   overlayRadius: 10),
-                          activeTrackColor: Colors.white,
+                          activeTrackColor: const Color(0xFF7C3AED),
                           inactiveTrackColor: Colors.white24,
-                          thumbColor: Colors.white,
+                          thumbColor: const Color(0xFF7C3AED),
                         ),
                         child: Focus(
                           canRequestFocus: false,
@@ -2827,35 +2777,31 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                   ),
                 ]),
 
-                // Right: provider switcher / copy URL / subtitle settings / aspect / fullscreen
+                // Right: provider switcher / copy URL / aspect / fullscreen
                 Row(children: [
-                  // Show provider switcher only when providers are available and not using torrent/stremio
                   if (widget.providers != null && widget.providers!.isNotEmpty && 
                       widget.magnetLink == null && widget.activeProvider != 'stremio_direct') ...[
                     GlassIconButton(
                       icon: Icons.swap_horiz_rounded,
                       onPressed: _isSwitchingProvider ? () {} : _showProviderMenu,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                   ],
                   GlassIconButton(
                     icon: Icons.link_rounded,
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: widget.mediaPath));
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Stream URL copied to clipboard')),
-                        );
+                        _showPlayerToast('URL copied to clipboard');
                       }
                     },
                   ),
-                  const SizedBox(width: 8),
-                  // Aspect ratio pill – shows current mode so it's obvious
+                  const SizedBox(width: 10),
                   GlassPillButton(
                     text: _videoFitLabel,
                     onTap: _cycleAspectRatio,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   GlassIconButton(
                     icon: _isFullscreen
                         ? Icons.fullscreen_exit_rounded
@@ -2865,11 +2811,10 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 ]),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
             // ── Seekbar row ────────────────────────────────────────────
             Row(children: [
-              // Current time
               ValueListenableBuilder<Duration>(
                 valueListenable: _positionNotifier,
                 builder: (context, pos, _) => SizedBox(
@@ -2877,16 +2822,15 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                   child: Text(
                     formatDuration(pos),
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
+                        color: Color(0xDDFFFFFF),
+                        fontSize: 11,
                         fontFamily: 'monospace'),
                     textAlign: TextAlign.right,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
 
-              // Seekbar
               Expanded(
                 child: ValueListenableBuilder<Duration>(
                   valueListenable: _durationNotifier,
@@ -2913,8 +2857,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                 ),
               ),
 
-              const SizedBox(width: 8),
-              // Total duration
+              const SizedBox(width: 10),
               ValueListenableBuilder<Duration>(
                 valueListenable: _durationNotifier,
                 builder: (context, dur, _) => SizedBox(
@@ -2922,14 +2865,14 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                   child: Text(
                     formatDuration(dur),
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
+                        color: Color(0xDDFFFFFF),
+                        fontSize: 11,
                         fontFamily: 'monospace'),
                   ),
                 ),
               ),
             ]),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
           ]),
         ),
       ),
@@ -3083,14 +3026,14 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                       ),
                     ),
 
-                    // ── Played ───────────────────────────────────────────
+                    // ── Played (purple accent) ───────────────────────────
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 80),
                       curve: Curves.easeOut,
                       height: trackH,
                       width: playPx,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF7C3AED),
                         borderRadius: BorderRadius.circular(trackH),
                       ),
                     ),
@@ -3113,7 +3056,7 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                         ),
                       ),
 
-                    // ── Playhead thumb dot ───────────────────────────────
+                    // ── Playhead thumb dot (purple) ───────────────────────
                     Positioned(
                       left: playPx - thumbR,
                       child: AnimatedContainer(
@@ -3122,12 +3065,12 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                         width:  thumbR * 2,
                         height: thumbR * 2,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: const Color(0xFF7C3AED),
                           shape: BoxShape.circle,
                           boxShadow: active
                               ? [BoxShadow(
-                                  color: Colors.white.withValues(alpha: 0.4),
-                                  blurRadius: 6,
+                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+                                  blurRadius: 8,
                                 )]
                               : [],
                         ),

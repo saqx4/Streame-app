@@ -10,6 +10,10 @@
              A values-v36 override removes it for Android 16+ where the
              opt-out is no longer allowed. -->
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your

@@ -8,7 +8,6 @@ import '../api/settings_service.dart';
 import '../api/stremio_service.dart';
 import '../api/stream_extractor.dart';
 import '../api/stream_providers.dart';
-import '../api/amri_extractor.dart';
 import '../api/torrent_stream_service.dart';
 import '../api/debrid_api.dart';
 import '../api/trakt_service.dart';
@@ -578,41 +577,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppTheme.bgDark,
-      body: Stack(
-        children: [
-          // Atmospheric ambient glow spots (skipped in light mode)
-          if (!AppTheme.isLightMode) ...[
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.6,
-            left: -80,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [AppTheme.primaryColor.withValues(alpha: 0.06), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).size.height * 1.2,
-            right: -60,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [AppTheme.accentColor.withValues(alpha: 0.04), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          ],
-          CustomScrollView(
-        cacheExtent: 500,
+      body: CustomScrollView(
+        cacheExtent: 1000, // Increased for smoother scrolling
         physics: const BouncingScrollPhysics(),
         slivers: [
           // Hero
@@ -668,33 +634,33 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-      ],
-      ),
     );
   }
 
   Widget _buildHeroShimmer() {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final h = isLandscape ? MediaQuery.of(context).size.height * 0.65 : MediaQuery.of(context).size.height * 0.82;
-    final placeholder = Container(height: h, color: AppTheme.bgCard);
-    if (AppTheme.isLightMode) return placeholder;
-    return Shimmer.fromColors(
-      baseColor: AppTheme.bgCard,
-      highlightColor: const Color(0xFF1E1E2F),
-      child: placeholder,
+    final h = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.75;
+    return Container(
+      height: h,
+      color: AppTheme.bgDark,
+      child: Shimmer.fromColors(
+        baseColor: Colors.white.withValues(alpha: 0.05),
+        highlightColor: Colors.white.withValues(alpha: 0.1),
+        child: Container(color: Colors.white),
+      ),
     );
   }
 
   Widget _buildHeroCarousel(List<Movie> movies) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final height = isLandscape ? MediaQuery.of(context).size.height * 0.65 : MediaQuery.of(context).size.height * 0.82;
+    final height = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.75;
     final heroMovie = movies[_heroIndex];
     
     return SizedBox(
       height: height,
       child: Stack(
         children: [
-          // Background image with parallax-like crossfade
+          // Background image with crossfade
           PageView.builder(
             controller: _heroController,
             itemCount: movies.length,
@@ -710,9 +676,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         : TmdbApi.getImageUrl(movie.posterPath),
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    placeholder: (c, u) => Container(color: AppTheme.bgCard),
                   ),
-                  // Multi-layer gradient for depth
+                  // Simple, high-performance gradient overlay
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -720,42 +685,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.transparent,
-                          AppTheme.bgDark.withValues(alpha: 0.3),
-                          AppTheme.bgDark.withValues(alpha: 0.85),
+                          AppTheme.bgDark.withValues(alpha: 0.2),
+                          AppTheme.bgDark.withValues(alpha: 0.8),
                           AppTheme.bgDark,
                         ],
-                        stops: const [0.0, 0.25, 0.55, 0.8, 1.0],
-                      ),
-                    ),
-                  ),
-                  // Side vignette
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          AppTheme.bgDark.withValues(alpha: 0.65),
-                          Colors.transparent,
-                          Colors.transparent,
-                          AppTheme.bgDark.withValues(alpha: 0.4),
-                        ],
-                        stops: const [0.0, 0.25, 0.75, 1.0],
-                      ),
-                    ),
-                  ),
-                  // Subtle color tint overlay (skipped in light mode)
-                  if (!AppTheme.isLightMode)
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment.bottomLeft,
-                        radius: 1.8,
-                        colors: [
-                          AppTheme.primaryColor.withValues(alpha: 0.08),
-                          Colors.transparent,
-                        ],
+                        stops: const [0.0, 0.4, 0.8, 1.0],
                       ),
                     ),
                   ),
@@ -764,205 +698,76 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             },
           ),
           
-          // Top gradient for status bar
-          Positioned(
-            top: 0, left: 0, right: 0,
-            height: MediaQuery.of(context).padding.top + 60,
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
           // Content overlay
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
+              padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Logo or Title — cinematic size
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 600),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                    child: _heroLogos.containsKey(heroMovie.id) && _heroLogos[heroMovie.id]!.isNotEmpty
-                        ? Padding(
-                            key: ValueKey('logo_${heroMovie.id}'),
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: isLandscape ? 420 : MediaQuery.of(context).size.width * 0.75,
-                                maxHeight: isLandscape ? 140 : 110,
-                              ),
-                              child: CachedNetworkImage(
-                                imageUrl: _heroLogos[heroMovie.id]!,
-                                fit: BoxFit.contain,
-                                alignment: Alignment.centerLeft,
-                                placeholder: (_, _) => const SizedBox.shrink(),
-                                errorWidget: (_, _, _) => _buildHeroTitle(heroMovie, isLandscape),
-                              ),
-                            ),
-                          )
-                        : Padding(
-                            key: ValueKey('title_${heroMovie.id}'),
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _buildHeroTitle(heroMovie, isLandscape),
-                          ),
-                  ),
-                  // Meta row — cinematic
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        // Rating pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.amber.withValues(alpha: 0.25), Colors.amber.withValues(alpha: 0.08)],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
-                              const SizedBox(width: 4),
-                              Text(heroMovie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13)),
-                            ],
-                          ),
+                  // Logo or Title
+                  _buildHeroLogoOrTitle(heroMovie, isLandscape),
+                  const SizedBox(height: 16),
+                  
+                  // Meta row
+                  Row(
+                    children: [
+                      _buildRatingBadge(heroMovie.voteAverage),
+                      const SizedBox(width: 12),
+                      if (heroMovie.releaseDate.isNotEmpty)
+                        Text(
+                          heroMovie.releaseDate.split('-').first,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14, fontWeight: FontWeight.w500),
                         ),
-                        if (heroMovie.releaseDate.isNotEmpty)
-                          Text(heroMovie.releaseDate.split('-').first, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 13, fontWeight: FontWeight.w500)),
-                        if (heroMovie.mediaType == 'tv')
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text('SERIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8)),
-                          ),
-                        if (heroMovie.genres.isNotEmpty)
-                          Text(
-                            heroMovie.genres.take(3).join('  ·  '),
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                      ],
-                    ),
+                      const SizedBox(width: 12),
+                      if (heroMovie.mediaType == 'tv')
+                        _buildTypeBadge('SERIES'),
+                    ],
                   ),
-                  // Synopsis
+                  const SizedBox(height: 12),
+                  
+                  // Synopsis - streamlined
                   if (heroMovie.overview.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
                       child: Text(
                         heroMovie.overview,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 13.5,
-                          height: 1.5,
-                          letterSpacing: 0.1,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 14,
+                          height: 1.4,
                         ),
                       ),
                     ),
-                  // Action buttons — cinematic glow
+                  const SizedBox(height: 24),
+                  
+                  // Action buttons
                   Row(
                     children: [
-                      // Play button with glow
-                      Flexible(
-                        child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: AppTheme.isLightMode ? null : [
-                            BoxShadow(color: Colors.white.withValues(alpha: 0.15), blurRadius: 20, spreadRadius: -2),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          child: InkWell(
-                            onTap: () => _openDetails(heroMovie),
-                            borderRadius: BorderRadius.circular(28),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.play_arrow_rounded, color: Colors.black, size: 26),
-                                  SizedBox(width: 6),
-                                  Text('Play', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      ),
+                      _buildPrimaryPlayButton(heroMovie),
                       const SizedBox(width: 12),
-                      // More Info — frosted glass pill (simplified in light mode)
-                      Flexible(
-                        child: _buildFrostedPill(
-                        onTap: () => _openDetails(heroMovie),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.info_outline_rounded, color: Colors.white.withValues(alpha: 0.85), size: 20),
-                              const SizedBox(width: 8),
-                              Text('More Info', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      ),
+                      _buildSecondaryInfoButton(heroMovie),
                       const SizedBox(width: 12),
-                      // My List — frosted circle (simplified in light mode)
-                      _buildFrostedCircle(
-                        child: _MyListButton.movie(movie: heroMovie),
-                      ),
+                      _MyListButton.movie(movie: heroMovie),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  // Page indicator — thin cinematic bar style
+                  const SizedBox(height: 32),
+                  
+                  // Minimal page indicator
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(movies.length, (i) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutCubic,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      height: 3,
-                      width: i == _heroIndex ? 28 : 8,
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      height: 4,
+                      width: i == _heroIndex ? 24 : 8,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
-                        color: i == _heroIndex ? Colors.white : Colors.white.withValues(alpha: 0.2),
-                        boxShadow: (i == _heroIndex && !AppTheme.isLightMode) ? [BoxShadow(color: Colors.white.withValues(alpha: 0.3), blurRadius: 8)] : null,
+                        color: i == _heroIndex ? AppTheme.primaryColor : Colors.white24,
                       ),
                     )),
                   ),
@@ -970,53 +775,157 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
             ),
           ),
-          // Hero navigation arrows — frosted glass
-          Positioned(
-            left: 8,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  if (_heroController.hasClients && _heroIndex > 0) {
-                    _heroController.animateToPage(
-                      _heroIndex - 1,
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeOutCubic,
-                    );
-                  }
-                },
-                child: _buildFrostedArrow(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                ),
-              ),
-            ),
+          
+          // Navigation arrows
+          _buildHeroArrow(
+            isLeft: true,
+            onTap: () {
+              if (_heroController.hasClients && _heroIndex > 0) {
+                _heroController.animateToPage(
+                  _heroIndex - 1,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            },
           ),
-          Positioned(
-            right: 8,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  if (_heroController.hasClients && _heroIndex < movies.length - 1) {
-                    _heroController.animateToPage(
-                      _heroIndex + 1,
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeOutCubic,
-                    );
-                  }
-                },
-                child: _buildFrostedArrow(
-                  icon: Icons.arrow_forward_ios_rounded,
-                ),
-              ),
-            ),
+          _buildHeroArrow(
+            isLeft: false,
+            onTap: () {
+              if (_heroController.hasClients && _heroIndex < movies.length - 1) {
+                _heroController.animateToPage(
+                  _heroIndex + 1,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            },
           ),
         ],
       ),
     );
   }
+
+  Widget _buildHeroArrow({required bool isLeft, required VoidCallback onTap}) {
+    return Positioned(
+      left: isLeft ? 12 : null,
+      right: isLeft ? null : 12,
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: FocusableControl(
+          onTap: onTap,
+          borderRadius: 30,
+          child: _buildFrostedArrow(
+            icon: isLeft ? Icons.arrow_back_ios_new_rounded : Icons.arrow_forward_ios_rounded,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroLogoOrTitle(Movie heroMovie, bool isLandscape) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: _heroLogos.containsKey(heroMovie.id) && _heroLogos[heroMovie.id]!.isNotEmpty
+          ? ConstrainedBox(
+              key: ValueKey('logo_${heroMovie.id}'),
+              constraints: BoxConstraints(
+                maxWidth: isLandscape ? 400 : 300,
+                maxHeight: 100,
+              ),
+              child: CachedNetworkImage(
+                imageUrl: _heroLogos[heroMovie.id]!,
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+                errorWidget: (_, __, ___) => _buildHeroTitle(heroMovie, isLandscape),
+              ),
+            )
+          : _buildHeroTitle(heroMovie, isLandscape),
+    );
+  }
+
+  Widget _buildRatingBadge(double rating) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 16, color: Colors.amber),
+          const SizedBox(width: 4),
+          Text(
+            rating.toStringAsFixed(1),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeBadge(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white24),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 1),
+      ),
+    );
+  }
+
+  Widget _buildPrimaryPlayButton(Movie movie) {
+    return FocusableControl(
+      onTap: () => _openDetails(movie),
+      borderRadius: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.play_arrow_rounded, color: Colors.black, size: 24),
+            SizedBox(width: 8),
+            Text('Play', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecondaryInfoButton(Movie movie) {
+    return FocusableControl(
+      onTap: () => _openDetails(movie),
+      borderRadius: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Text('Details', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildHeroTitle(Movie movie, bool isLandscape) {
     return Text(
@@ -1040,8 +949,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   // ── Light-mode-aware frosted glass helpers ────────────────────────
 
   Widget _buildFrostedPill({required VoidCallback onTap, required Widget child}) {
-    final inner = Material(
-      color: Colors.white.withValues(alpha: 0.12),
+    return Material(
+      color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(28),
       child: InkWell(
         onTap: onTap,
@@ -1049,52 +958,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         child: child,
       ),
     );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: inner,
-      ),
-    );
   }
 
   Widget _buildFrostedCircle({required Widget child}) {
-    final inner = Container(
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
       child: child,
-    );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: inner,
-      ),
     );
   }
 
   Widget _buildFrostedArrow({required IconData icon}) {
-    final inner = Container(
+    return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: AppTheme.isLightMode ? 0.45 : 0.25),
+        color: Colors.black.withValues(alpha: 0.5),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 18),
-    );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: inner,
-      ),
+      child: Icon(icon, color: Colors.white, size: 18),
     );
   }
 }
@@ -1153,20 +1038,13 @@ class _MovieSectionState extends State<_MovieSection> {
     final inner = Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: AppTheme.isLightMode ? 0.12 : 0.08),
+        color: Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
     );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: inner,
-      ),
-    );
+    return inner;
   }
 
   @override
@@ -1337,20 +1215,13 @@ class _StaticMovieSectionState extends State<_StaticMovieSection> {
     final inner = Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: AppTheme.isLightMode ? 0.12 : 0.08),
+        color: Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
     );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: inner,
-      ),
-    );
+    return inner;
   }
 
   @override
@@ -1581,20 +1452,20 @@ class _MovieCard extends StatelessWidget {
   }
 }
 
-/// Rating badge — uses frosted glass when not in light mode.
+/// Rating badge for numeric ratings
 Widget _buildRatingBadge(double voteAverage) {
-  final inner = Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: AppTheme.isLightMode ? 0.55 : 0.35),
+      color: Colors.black.withValues(alpha: 0.5),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-        const SizedBox(width: 3),
+        const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+        const SizedBox(width: 4),
         Text(
           voteAverage.toStringAsFixed(1),
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
@@ -1602,22 +1473,14 @@ Widget _buildRatingBadge(double voteAverage) {
       ],
     ),
   );
-  if (AppTheme.isLightMode) return inner;
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(8),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-      child: inner,
-    ),
-  );
 }
 
-/// Rating badge for string ratings (Stremio) — uses frosted glass when not in light mode.
+/// Rating badge for string ratings (Stremio)
 Widget _buildRatingBadgeText(String rating) {
-  final content = Container(
+  return Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: AppTheme.isLightMode ? 0.5 : 0.3),
+      color: Colors.black.withValues(alpha: 0.5),
       borderRadius: BorderRadius.circular(6),
       border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
     ),
@@ -1628,14 +1491,6 @@ Widget _buildRatingBadgeText(String rating) {
         const SizedBox(width: 2),
         Text(rating, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
       ],
-    ),
-  );
-  if (AppTheme.isLightMode) return content;
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(6),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-      child: content,
     ),
   );
 }
@@ -1677,20 +1532,13 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
     final inner = Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: AppTheme.isLightMode ? 0.12 : 0.08),
+        color: Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
     );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: inner,
-      ),
-    );
+    return inner;
   }
 
   Future<void> _resumePlayback(Map<String, dynamic> item) async {
@@ -1857,28 +1705,6 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
         final extractor = StreamExtractor();
         final result = await extractor.extract(url, timeout: const Duration(seconds: 20));
         streamUrl = result?.url;
-      } else if (method == 'amri') {
-        // Re-extract AMRI using tmdbId + season + episode
-        activeProvider = 'AMRI';
-        debugPrint('[Resume] Re-extracting AMRI for $title (TMDB: $tmdbId, S:$season, E:$episode)');
-        final amriExtractor = AmriExtractor(
-          onLog: (message) => debugPrint('[AMRI Resume] $message'),
-        );
-        
-        final year = item['year']?.toString() ?? '';
-        
-        final sourcesData = await amriExtractor.extractSources(
-          tmdbId.toString(),
-          title,
-          year,
-          season: season,
-          episode: episode,
-        );
-        
-        if (sourcesData['sources'] != null && sourcesData['sources'].isNotEmpty) {
-          final sources = sourcesData['sources'] as List;
-          streamUrl = sources.first['url'] as String?;
-        }
       } else if (method == 'torrent') {
         // Use saved magnet link - NEVER re-search
         magnetLink = savedMagnetLink;
@@ -2208,25 +2034,14 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
 }
 
 Widget _buildCWPlayButton() {
-  final inner = Container(
+  return Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: AppTheme.primaryColor.withValues(alpha: 0.7),
+      color: AppTheme.primaryColor.withValues(alpha: 0.8),
       shape: BoxShape.circle,
       border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      boxShadow: AppTheme.isLightMode
-          ? null
-          : [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.4), blurRadius: 24, spreadRadius: 2)],
     ),
     child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
-  );
-  if (AppTheme.isLightMode) return inner;
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(30),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-      child: inner,
-    ),
   );
 }
 
@@ -2469,13 +2284,12 @@ class _StremioCatalogSectionState extends State<_StremioCatalogSection> {
   }
 
   Widget _wrapFrosted({required double borderRadius, required Widget child}) {
-    if (AppTheme.isLightMode) return child;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: child,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        color: Colors.white.withValues(alpha: 0.08),
       ),
+      child: child,
     );
   }
 
@@ -2483,20 +2297,13 @@ class _StremioCatalogSectionState extends State<_StremioCatalogSection> {
     final inner = Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: AppTheme.isLightMode ? 0.12 : 0.08),
+        color: Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
     );
-    if (AppTheme.isLightMode) return inner;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: inner,
-      ),
-    );
+    return inner;
   }
 
   @override

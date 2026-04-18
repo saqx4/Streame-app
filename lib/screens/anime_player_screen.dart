@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../api/anime_service.dart';
-import '../api/animerealms_extractor.dart';
 import '../models/stream_source.dart';
 import '../utils/app_theme.dart';
 import 'player_screen.dart';
@@ -14,7 +13,6 @@ class AnimePlayerScreen extends StatefulWidget {
   final String? episodeTitle;
   final AnimeCard? animeCard;
   final int? episodeNumber;
-  final bool useAnimeRealms;
   final Duration? startPosition;
 
   const AnimePlayerScreen({
@@ -27,7 +25,6 @@ class AnimePlayerScreen extends StatefulWidget {
     this.episodeTitle,
     this.animeCard,
     this.episodeNumber,
-    this.useAnimeRealms = false,
     this.startPosition,
   });
 
@@ -47,12 +44,6 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
   }
 
   Future<void> _loadAndPlay() async {
-    // If coming from AnimeRealms mode, skip miruro entirely
-    if (widget.useAnimeRealms) {
-      await _tryAnimeRealms();
-      return;
-    }
-
     setState(() {
       _loading = true;
       _status = 'Fetching stream from ${widget.provider}...';
@@ -71,69 +62,6 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
       // Find the best HLS stream
       final hlsStreams = sources.streams.where((s) => s.type == 'hls').toList();
       if (hlsStreams.isEmpty) {
-        // Miruro returned no playable streams, try AnimeRealms fallback
-        await _tryAnimeRealms();
-        return;
-      }
-
-      _navigateToPlayer(hlsStreams, sources.subtitles);
-    } catch (e) {
-      debugPrint('[AnimePlayer] Miruro failed: $e, trying AnimeRealms...');
-      if (!mounted) return;
-      // Miruro failed entirely, try AnimeRealms
-      await _tryAnimeRealms();
-    }
-  }
-
-  Future<void> _tryAnimeRealms() async {
-    if (!mounted) return;
-    final epNum = widget.episodeNumber;
-    if (epNum == null) {
-      setState(() {
-        _loading = false;
-        _status = 'No playable streams found';
-      });
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _status = 'Fetching from ${widget.provider}...';
-    });
-
-    try {
-      final extractor = AnimeRealmsExtractor();
-
-      // Try the selected provider first for speed
-      final data = await extractor.getStreams(
-        provider: widget.provider,
-        anilistId: widget.anilistId,
-        episodeNumber: epNum,
-      );
-
-      if (!mounted) return;
-
-      final streams = (data['streams'] as List?) ?? [];
-      final real = streams.where((s) =>
-          s['url'] != null &&
-          !(s['url'] as String).contains('test-streams.mux.dev')).toList();
-
-      if (real.isNotEmpty) {
-        _playAnimeRealmsStreams(real, data['subtitles'] as List? ?? [], widget.provider);
-        return;
-      }
-
-      // Selected provider had no streams — try all others
-      setState(() => _status = 'Trying other providers...');
-
-      final allSources = await extractor.getAllSources(
-        anilistId: widget.anilistId,
-        episodeNumber: epNum,
-      );
-
-      if (!mounted) return;
-
-      if (allSources.isEmpty) {
         setState(() {
           _loading = false;
           _status = 'No playable streams found';
@@ -141,15 +69,9 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
         return;
       }
 
-      // Use first provider that worked
-      final best = allSources.first;
-      _playAnimeRealmsStreams(
-        best['streams'] as List,
-        best['subtitles'] as List? ?? [],
-        best['provider'] as String,
-      );
+      _navigateToPlayer(hlsStreams, sources.subtitles);
     } catch (e) {
-      debugPrint('[AnimePlayer] AnimeRealms failed: $e');
+      debugPrint('[AnimePlayer] Miruro failed: $e');
       if (mounted) {
         setState(() {
           _loading = false;
@@ -159,35 +81,10 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
     }
   }
 
-  void _playAnimeRealmsStreams(List streams, List rawSubs, String provName) {
-    final animeStreams = streams.map((s) {
-      final url = s['url'] as String? ?? '';
-      final quality = s['quality'] as String? ?? 'Default';
-      final hdrs = s['headers'] as Map<String, dynamic>?;
-      final referer = hdrs?['Referer'] as String?;
-      final isHls = url.contains('.m3u8');
-      return AnimeStream(
-        url: url,
-        type: isHls ? 'hls' : 'mp4',
-        quality: '$quality ($provName)',
-        referer: referer,
-      );
-    }).toList();
-
-    final subtitles = rawSubs.map((s) => AnimeSubtitle(
-      url: s['url'] ?? s['file'] ?? '',
-      label: s['label'] ?? 'Unknown',
-      language: s['language'] ?? '',
-    )).toList();
-
-    _navigateToPlayer(animeStreams, subtitles, source: 'animerealms');
-  }
-
   void _navigateToPlayer(
     List<AnimeStream> streams,
-    List<AnimeSubtitle> subtitles, {
-    String source = 'miruro',
-  }) {
+    List<AnimeSubtitle> subtitles,
+  ) {
     // Prefer HLS, then mp4
     final hlsStreams = streams.where((s) => s.type == 'hls').toList();
     final mp4Streams = streams.where((s) => s.type == 'mp4').toList();
@@ -237,7 +134,7 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
         provider: widget.provider,
         category: widget.category,
         episodeId: widget.episodeId,
-        useAnimeRealms: source == 'animerealms' || widget.useAnimeRealms,
+        useAnimeRealms: false,
       );
     }
 
@@ -249,7 +146,7 @@ class _AnimePlayerScreenState extends State<AnimePlayerScreen> {
           title: widget.title,
           headers: headers.isNotEmpty ? headers : null,
           sources: streamSources,
-          activeProvider: 'anime_${source}_${widget.provider}',
+          activeProvider: 'anime_miruro_${widget.provider}',
           externalSubtitles: externalSubs.isNotEmpty ? externalSubs : null,
           startPosition: widget.startPosition,
         ),

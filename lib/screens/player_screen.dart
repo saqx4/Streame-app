@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:play_torrio_native/models/movie.dart';
-import 'package:play_torrio_native/models/stream_source.dart';
+import 'package:streame/models/movie.dart';
+import 'package:streame/models/stream_source.dart';
 import '../services/external_player_service.dart';
 import '../api/settings_service.dart';
 import 'player/mobile_player_screen.dart';

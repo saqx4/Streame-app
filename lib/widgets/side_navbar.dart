@@ -21,16 +21,8 @@ class _SideNavbarState extends State<SideNavbar> {
     'Discover': true,
     'Library': true,
     'Search': true,
-    'Manga': true,
-    'Comics': true,
-    'AudioBooks': true,
-    'Books': true,
-    'Media Downloader': true,
-    'Games Downloader': true,
-    'IPTV': true,
-    'Live TV': true,
-    'Music': true,
     'Play Magnet': true,
+    'Anime': true,
   };
 
   @override
@@ -127,16 +119,8 @@ class _SideNavbarState extends State<SideNavbar> {
       case 'Discover': return Icons.explore;
       case 'Library': return Icons.video_library;
       case 'Search': return Icons.search;
-      case 'Manga': return Icons.menu_book;
-      case 'Comics': return Icons.auto_stories;
-      case 'AudioBooks': return Icons.headphones;
-      case 'Books': return Icons.book;
-      case 'Media Downloader': return Icons.download;
-      case 'Games Downloader': return Icons.sports_esports;
-      case 'IPTV': return Icons.live_tv;
-      case 'Live TV': return Icons.tv;
-      case 'Music': return Icons.music_note;
       case 'Play Magnet': return Icons.link;
+      case 'Anime': return Icons.play_circle_outline;
       default: return Icons.circle;
     }
   }

@@ -33,7 +33,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   bool _isLoading = true;
 
   // Source Selection
-  String _selectedSourceId = 'playtorrio';
+  String _selectedSourceId = 'streame';
   List<Map<String, dynamic>> _streamAddons = [];
   List<dynamic> _stremioStreams = [];
   bool _isStremioFetching = false;
@@ -106,8 +106,8 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
   }
 
   Future<void> _startExtraction() async {
-    if (_selectedSourceId == 'playtorrio') {
-      _startPlayTorrioExtraction();
+    if (_selectedSourceId == 'streame') {
+      _startStreameExtraction();
     } else {
       _startStremioExtraction();
     }
@@ -253,7 +253,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     }
   }
 
-  Future<void> _startPlayTorrioExtraction() async {
+  Future<void> _startStreameExtraction() async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -550,8 +550,8 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
                           _buildSourceSelector(),
                           const SizedBox(height: 32),
 
-                          if (_selectedSourceId == 'playtorrio')
-                            _buildPlayTorrioButton()
+                          if (_selectedSourceId == 'streame')
+                            _buildStreameButton()
                           else if (_isStremioFetching)
                             const Column(
                               children: [
@@ -575,7 +575,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
     );
   }
 
-  Widget _buildPlayTorrioButton() {
+  Widget _buildStreameButton() {
     if (_isExtracting) {
       return Column(
         children: [
@@ -682,12 +682,12 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> {
             dropdownColor: const Color(0xFF1A0B2E),
             items: [
               const DropdownMenuItem(
-                value: 'playtorrio',
+                value: 'streame',
                 child: Row(
                   children: [
                     Icon(Icons.play_circle_filled, color: AppTheme.primaryColor, size: 20),
                     SizedBox(width: 12),
-                    Text('PlayTorrio (Default)', style: TextStyle(color: Colors.white)),
+                    Text('Streame (Default)', style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),

@@ -1,6 +1,6 @@
-# PlayTorrio
+# Streame
 
-Stream anything, anywhere. Movies, TV shows, music, manga, comics, audiobooks, live sports. All in one app.
+Stream anything, anywhere. Movies, TV shows, anime. All in one app.
 
 Made by me. If you like it, star it or whatever.
 
@@ -13,36 +13,11 @@ Movies & TV Shows:
 - Real-Debrid and TorBox integration
 - Auto-resume from where you left off
 - Watch history tracking
-- Jellyfin server integration
 
-Music:
-- Search and stream music from Deezer
-- Fetches audio from YouTube
-- Synced lyrics
-- Create playlists
-- Download tracks for offline playback
-- Like songs and save albums
-- Full-featured player with shuffle, repeat, queue management
-
-Manga & Comics:
-- Read manga from multiple sources
-- comics support
-- Chapter tracking and history
-- page-by-page or continuous scroll reading
-
-Audiobooks:
-- Stream audiobooks
-- Chapter navigation
-- Playback speed control
-
-Live Sports:
-- Watch live matches and events
-- Multiple stream sources
-
-IPTV:
-- Xtream Codes API support
-- M3U playlist support
-- Live TV and VOD
+Anime:
+- Stream anime from multiple sources
+- Episode tracking and history
+- Subtitle support
 
 Other stuff:
 - Torrent search with Prowlarr/Jackett integration
@@ -71,6 +46,5 @@ flutter build apk
 ```
 
 ## License
-
 
 GPL-2.0 license

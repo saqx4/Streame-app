@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../api/anime_service.dart';
-import '../api/animerealms_extractor.dart';
 import '../utils/app_theme.dart';
 import 'anime_player_screen.dart';
 
@@ -28,12 +27,6 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
   bool _hasSub = false;
   bool _hasDub = false;
 
-  // AnimeRealms fallback
-  bool _usingAnimeRealms = false;
-  List<AnimeEpisode> _animeRealmsEpisodes = [];
-  // ignore: unused_field
-  List<String> _animeRealmsProviders = [];
-
   @override
   void initState() {
     super.initState();
@@ -57,12 +50,6 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
         final hasSub = prov != null && prov.subEpisodes.isNotEmpty;
         final hasDub = prov != null && prov.dubEpisodes.isNotEmpty;
 
-        // If miruro returned no providers/episodes at all, fall back
-        if (providers.isEmpty || (!hasSub && !hasDub)) {
-          await _loadFromAnimeRealms();
-          return;
-        }
-
         setState(() {
           _episodes = episodes;
           _availableProviders = providers;
@@ -74,55 +61,12 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[AnimeDetails] Miruro failed: $e, trying AnimeRealms...');
-      if (mounted) await _loadFromAnimeRealms();
-    }
-  }
-
-  Future<void> _loadFromAnimeRealms() async {
-    try {
-      final extractor = AnimeRealmsExtractor();
-      final mappings = await extractor.getMappings(widget.anime.id);
-      final providers = AnimeRealmsExtractor.getProviderNames(mappings);
-
-      if (!mounted) return;
-
-      // Generate episodes from the anime's known episode count
-      final epCount = widget.anime.episodes ?? 0;
-      final episodes = <AnimeEpisode>[];
-      // If we know the count, generate that many; otherwise generate 1
-      // so the user can at least try episode 1
-      final count = epCount > 0 ? epCount : 1;
-      for (int i = 1; i <= count; i++) {
-        episodes.add(AnimeEpisode(
-          id: 'ar:${widget.anime.id}:$i',
-          number: i,
-          title: 'Episode $i',
-        ));
-      }
-
-      setState(() {
-        _usingAnimeRealms = true;
-        _animeRealmsProviders = providers;
-        _animeRealmsEpisodes = episodes;
-        _availableProviders = providers;
-        _selectedProvider = providers.first;
-        _hasSub = true;
-        _hasDub = false;
-        _selectedCategory = 'sub';
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('[AnimeDetails] AnimeRealms also failed: $e');
+      debugPrint('[AnimeDetails] Miruro failed: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _onProviderChanged(String provider) {
-    if (_usingAnimeRealms) {
-      setState(() => _selectedProvider = provider);
-      return;
-    }
     final prov = _episodes?.providers[provider];
     final hasSub = prov != null && prov.subEpisodes.isNotEmpty;
     final hasDub = prov != null && prov.dubEpisodes.isNotEmpty;
@@ -136,7 +80,6 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
   }
 
   List<AnimeEpisode> get _currentEpisodes {
-    if (_usingAnimeRealms) return _animeRealmsEpisodes;
     final prov = _episodes?.providers[_selectedProvider];
     if (prov == null) return [];
     return _selectedCategory == 'dub' ? prov.dubEpisodes : prov.subEpisodes;
@@ -155,7 +98,6 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
           episodeTitle: episode.title,
           animeCard: widget.anime,
           episodeNumber: episode.number,
-          useAnimeRealms: _usingAnimeRealms,
         ),
       ),
     );
@@ -182,7 +124,7 @@ class _AnimeDetailsScreenState extends State<AnimeDetailsScreen> {
                   const SizedBox(height: 24),
                   if (_isLoading)
                     _buildEpisodesShimmer()
-                  else if (_episodes != null || _usingAnimeRealms) ...[
+                  else if (_episodes != null) ...[
                     _buildControls(),
                     const SizedBox(height: 16),
                     if (_currentEpisodes.isNotEmpty)

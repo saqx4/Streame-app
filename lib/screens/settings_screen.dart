@@ -570,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 40),
                     const Center(
                       child: Text(
-                        'PlayTorrio Native v1.1.5',
+                        'Streame Native v1.1.5',
                         style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -686,7 +686,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
-      final fileName = 'playtorrio_settings_$timestamp.json';
+      final fileName = 'streame_settings_$timestamp.json';
 
       // Write to a temp file first, then let the user pick where to save
       final tempDir = await getTemporaryDirectory();
@@ -863,16 +863,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'search':       {'icon': Icons.search,                     'label': 'Search'},
     'mylist':       {'icon': Icons.bookmark,                   'label': 'My List'},
     'magnet':       {'icon': Icons.link_rounded,               'label': 'Magnet'},
-    'live_matches': {'icon': Icons.sports_soccer_rounded,      'label': 'Live Matches'},
-    'iptv':         {'icon': Icons.live_tv,                    'label': 'IPTV'},
-    'audiobooks':   {'icon': Icons.menu_book,                  'label': 'Audiobooks'},
-    'books':        {'icon': Icons.import_contacts_rounded,    'label': 'Books'},
-    'music':        {'icon': Icons.music_note,                 'label': 'Music'},
-    'comics':       {'icon': Icons.auto_stories,               'label': 'Comics'},
-    'manga':        {'icon': Icons.book,                       'label': 'Manga'},
-    'jellyfin':     {'icon': Icons.dns_rounded,                'label': 'Jellyfin'},
     'anime':        {'icon': Icons.play_circle_filled,         'label': 'Anime'},
-    'arabic':       {'icon': Icons.movie_filter,               'label': 'Arabic'},
   };
 
   void _saveNavbarConfig() {
@@ -2198,7 +2189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Check for new versions of PlayTorrio',
+            'Check for new versions of Streame',
             style: TextStyle(fontSize: 14, color: Colors.white70),
           ),
           const SizedBox(height: 16),

@@ -1,13 +1,13 @@
 ; ──────────────────────────────────────────────────────────────────────────────
-;  PlayTorrio — Windows Installer (Inno Setup 6)
+;  Streame — Windows Installer (Inno Setup 6)
 ;  Built by CI from: build\windows\x64\runner\Release\
 ; ──────────────────────────────────────────────────────────────────────────────
 
-#define MyAppName      "PlayTorrio"
+#define MyAppName      "Streame"
 #define MyAppVersion   "1.0.0"
-#define MyAppPublisher "PlayTorrio"
-#define MyAppExeName   "PlayTorrio.exe"
-#define MyAppURL       "https://github.com/ayman708-UX/PlayTorrioV2"
+#define MyAppPublisher "Streame"
+#define MyAppExeName   "Streame.exe"
+#define MyAppURL       "https://github.com/saqx4/Streame-app"
 
 [Setup]
 AppId={{B8F7E3A1-9C4D-4E5F-A2B1-6D8E9F0C1A3B}
@@ -21,7 +21,7 @@ DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\..\windows\runner\resources\app_icon.ico
 OutputDir=Output
-OutputBaseFilename=PlayTorrio-Windows-Setup
+OutputBaseFilename=Streame-Windows-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible

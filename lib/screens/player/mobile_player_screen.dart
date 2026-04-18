@@ -21,7 +21,6 @@ import '../../api/simkl_service.dart';
 import '../../api/torrent_stream_service.dart';
 import '../../api/stream_extractor.dart';
 import '../../api/webstreamr_service.dart';
-import '../../api/arabic_service.dart';
 import '../../api/stremio_service.dart';
 import '../../api/stream_providers.dart';
 import '../../api/settings_service.dart';
@@ -33,25 +32,24 @@ import '../../api/introdb_service.dart';
 import '../../models/movie.dart';
 import '../../models/stream_source.dart';
 import '../player_screen.dart';
-import 'utils.dart';
+import 'utils.dart' show formatDuration;
 import 'menus.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLASS PRIMITIVES  (mobile — press feedback only, no hover)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── _SolidGlass ──────────────────────────────────────────────────────────────
-// Used for ALL buttons/pills. No BackdropFilter — zero extra GPU layers.
-// Slightly higher base opacity (0.72) so it reads clearly on black without
-// needing blur to give it body.
-class _SolidGlass extends StatelessWidget {
+// ── _CleanContainer ──────────────────────────────────────────────────────────
+// Lightweight semi-transparent container — no gradients, no shadows.
+// Clean, modern, minimal. Used for all buttons/pills.
+class _CleanContainer extends StatelessWidget {
   final Widget child;
   final double radius;
   final EdgeInsetsGeometry? padding;
   final Color? tint;
   final bool pressed;
 
-  const _SolidGlass({
+  const _CleanContainer({
     required this.child,
     this.radius = 12,
     this.padding,
@@ -62,47 +60,33 @@ class _SolidGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = tint ?? const Color(0xFF1C1C1E);
-    final fillOpacity = pressed ? 0.88 : 0.72;
-    final borderOpacity = pressed ? 0.32 : 0.18;
+    final fillOpacity = pressed ? 0.82 : 0.55;
+    final borderOpacity = pressed ? 0.22 : 0.10;
 
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            base.withValues(alpha: fillOpacity),
-            base.withValues(alpha: fillOpacity - 0.10),
-          ],
-        ),
+        color: base.withValues(alpha: fillOpacity),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: Colors.white.withValues(alpha: borderOpacity),
-          width: 0.8,
+          width: 0.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: child,
     );
   }
 }
 
-// ── _BlurGlass ───────────────────────────────────────────────────────────────
-// Used ONLY for large/decorative elements (title pill, play button, tooltip,
-// side indicators) — at most 2-3 on screen at once, so cost is acceptable.
-class _BlurGlass extends StatelessWidget {
+// ── _CleanBlurContainer ──────────────────────────────────────────────────────
+// Lightweight frosted container — used ONLY for title pill, play button,
+// and drag tooltip (at most 2-3 on screen). Minimal blur, clean look.
+class _CleanBlurContainer extends StatelessWidget {
   final Widget child;
   final double radius;
   final EdgeInsetsGeometry? padding;
 
-  const _BlurGlass({
+  const _CleanBlurContainer({
     required this.child,
     this.radius = 12,
     this.padding,
@@ -113,15 +97,15 @@ class _BlurGlass extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E).withValues(alpha: 0.55),
+            color: const Color(0xFF1C1C1E).withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-              width: 0.8,
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 0.5,
             ),
           ),
           child: child,
@@ -131,7 +115,7 @@ class _BlurGlass extends StatelessWidget {
   }
 }
 
-/// Glass icon button — touch-friendly 44px default, press animation.
+/// Clean icon button — touch-friendly 44px default, smooth press animation.
 class _GlassIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
@@ -157,7 +141,7 @@ class _GlassIconButtonState extends State<_GlassIconButton> {
   bool _pressed = false;
 
   Color get _tint {
-    if (widget.active) return const Color(0xFF6A0DAD);
+    if (widget.active) return const Color(0xFF7C3AED);
     if (_pressed) return const Color(0xFF2A2A2E);
     return const Color(0xFF1C1C1E);
   }
@@ -170,9 +154,10 @@ class _GlassIconButtonState extends State<_GlassIconButton> {
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.86 : 1.0,
-        duration: const Duration(milliseconds: 80),
-        child: _SolidGlass(                          // ← no blur
+        scale: _pressed ? 0.90 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+        child: _CleanContainer(                          // ← clean, no blur
           radius: widget.size / 2,
           tint: _tint,
           pressed: _pressed,
@@ -185,7 +170,7 @@ class _GlassIconButtonState extends State<_GlassIconButton> {
               color: widget.iconColor ??
                   (widget.active
                       ? Colors.white
-                      : Colors.white.withValues(alpha: 0.85)),
+                      : Colors.white.withValues(alpha: 0.80)),
             ),
           ),
         ),
@@ -194,7 +179,7 @@ class _GlassIconButtonState extends State<_GlassIconButton> {
   }
 }
 
-/// Glass pill button — used for HW badge and aspect ratio label.
+/// Clean pill button — used for HW badge and aspect ratio label.
 class _GlassPillButton extends StatefulWidget {
   final String text;
   final VoidCallback onTap;
@@ -221,9 +206,10 @@ class _GlassPillButtonState extends State<_GlassPillButton> {
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.88 : 1.0,
-        duration: const Duration(milliseconds: 80),
-        child: _SolidGlass(                          // ← no blur
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+        child: _CleanContainer(                          // ← clean, no blur
           radius: 20,
           tint: widget.accent ?? const Color(0xFF1C1C1E),
           pressed: _pressed,
@@ -231,7 +217,9 @@ class _GlassPillButtonState extends State<_GlassPillButton> {
           child: Text(
             widget.text,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: _pressed ? 1.0 : 0.88),
+              color: widget.accent != null
+              ? Colors.white
+              : Colors.white.withValues(alpha: _pressed ? 1.0 : 0.80),
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
@@ -243,7 +231,7 @@ class _GlassPillButtonState extends State<_GlassPillButton> {
   }
 }
 
-/// Center play/pause button with press animation.
+/// Center play/pause button — clean, refined, with smooth press animation.
 class _GlassPlayPause extends StatefulWidget {
   final bool isPlaying;
   final bool isBuffering;
@@ -265,17 +253,17 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
   @override
   Widget build(BuildContext context) {
     if (widget.isBuffering) {
-      return _BlurGlass(                             // ← blur OK, only 1 on screen
-        radius: 40,
+      return _CleanBlurContainer(                     // ← blur OK, only 1 on screen
+        radius: 32,
         child: const SizedBox(
-          width: 80,
-          height: 80,
+          width: 64,
+          height: 64,
           child: Center(
             child: SizedBox(
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2.5),
+                  color: Color(0xFF7C3AED), strokeWidth: 2.5),
             ),
           ),
         ),
@@ -287,18 +275,19 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.88 : 1.0,
-        duration: const Duration(milliseconds: 90),
-        child: _BlurGlass(                           // ← blur OK, only 1 on screen
-          radius: 40,
+        scale: _pressed ? 0.90 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeInOut,
+        child: _CleanBlurContainer(                    // ← blur OK, only 1 on screen
+          radius: 32,
           child: SizedBox(
-            width: 80,
-            height: 80,
+            width: 64,
+            height: 64,
             child: Icon(
               widget.isPlaying
                   ? Icons.pause_rounded
                   : Icons.play_arrow_rounded,
-              size: 44,
+              size: 36,
               color: Colors.white,
             ),
           ),
@@ -308,7 +297,7 @@ class _GlassPlayPauseState extends State<_GlassPlayPause> {
   }
 }
 
-/// Gradient vignette at top / bottom edges.
+/// Gradient vignette at top / bottom edges — lighter, more subtle.
 class _OverlayGradient extends StatelessWidget {
   final bool isTop;
   const _OverlayGradient({required this.isTop});
@@ -316,13 +305,13 @@ class _OverlayGradient extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
+      height: 120,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
           end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
           colors: [
-            Colors.black.withValues(alpha: 0.75),
+            Colors.black.withValues(alpha: 0.60),
             Colors.transparent,
           ],
         ),
@@ -494,6 +483,10 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   bool _subtitleBold = false;
   String _subtitleFont = 'Default';
 
+  // ── Inline Toast ──────────────────────────────────────────────────────────
+  String? _toastMessage;
+  Timer? _toastTimer;
+
   // ── Next Episode State ────────────────────────────────────────────────────
   bool _isLoadingNextEp = false;
   bool _nearEndOfEpisode = false;
@@ -642,6 +635,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     _indicatorHideTimer?.cancel();
+    _toastTimer?.cancel();
     _rippleController.dispose();
 
     _positionSub?.cancel();
@@ -836,35 +830,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         final i = _currentFallbackSourceIndex;
         var source = _currentSources![i];
         debugPrint('[Player] Trying source ${i + 1}/${_currentSources!.length}: ${source.title}');
-
-        // Arabic embed sources need on-demand extraction first
-        if (_currentProvider == 'arabic' && source.type == 'arabic_embed') {
-          debugPrint('[Player] Extracting arabic embed: ${source.title}');
-          final result = await ArabicService.extractStreamUrl(source.url);
-          if (result == null) {
-            debugPrint('[Player] Arabic extract failed for ${source.title}');
-            _currentFallbackSourceIndex++;
-            continue;
-          }
-          // Update the source with the real stream URL
-          source = StreamSource(
-            url: result.url,
-            title: source.title,
-            type: result.url.contains('.m3u8') ? 'hls' : result.url.contains('.mpd') ? 'dash' : 'mp4',
-          );
-          _currentSources![i] = source;
-        }
         
         try {
           _subscribeToStreams();
           await _configureMpvProperties();
-          final srcHeaders = source.headers ?? widget.headers;
-          await _player.open(Media(source.url, httpHeaders: srcHeaders));
-          // Update mpv referrer for this specific source
-          if (source.headers != null && _player.platform is NativePlayer) {
-            final ref = source.headers!['Referer'] ?? source.headers!['referer'];
-            if (ref != null) await (_player.platform as NativePlayer).setProperty('referrer', ref);
-          }
+          await _player.open(Media(source.url, httpHeaders: source.headers));
           _player.setVolume(_volume);
           setState(() {
             _currentUrl = source.url;
@@ -1050,11 +1020,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Resumed from ${formatDuration(widget.startPosition!)}'),
-            duration: const Duration(seconds: 2),
-          ));
+          _showPlayerToast('Resumed from ${formatDuration(widget.startPosition!)}');
         }
       }
     });
@@ -1199,6 +1165,13 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // 30 MiB back-buffer so backward seeks don't require a full rebuffer.
     await mpv.setProperty('demuxer-max-back-bytes', '30MiB');
 
+    // ── Cache-pause (anti-stutter) ─────────────────────────────────────────
+    // Pause playback on cache underrun instead of stuttering through it.
+    // This is the single most important setting for smooth torrent/stream playback.
+    await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
+    await mpv.setProperty('cache-pause-wait', '3');        // wait up to 3s for buffer to recover
+    await mpv.setProperty('cache-pause-done', '0.5');      // resume when buffer has 0.5s ahead
+
     // We supply our own URL — no yt-dlp needed.
     await mpv.setProperty('ytdl', 'no');
 
@@ -1243,10 +1216,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       (_player.platform as NativePlayer)
           .setProperty('hwdec', next.mpvValue);
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(next.description),
-      duration: const Duration(seconds: 2),
-    ));
+    _showPlayerToast(next.description);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1258,6 +1228,15 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     if (!_isPlayingNotifier.value) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && !_disposed) setState(() => _showControls = false);
+    });
+  }
+
+  /// Show a brief inline toast inside the player — replaces jarring SnackBars.
+  void _showPlayerToast(String message) {
+    _toastTimer?.cancel();
+    setState(() => _toastMessage = message);
+    _toastTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _toastMessage = null);
     });
   }
 
@@ -1379,9 +1358,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         _videoFit = BoxFit.contain;
       }
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Aspect Ratio: $_videoFitLabel'),
-        duration: const Duration(seconds: 1)));
+    _showPlayerToast('Aspect Ratio: $_videoFitLabel');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1939,10 +1916,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
   void _showSourcesMenu() {
     if (_currentSources == null || _currentSources!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No sources available'),
-        duration: Duration(seconds: 1),
-      ));
+      _showPlayerToast('No sources available');
       return;
     }
 
@@ -2004,40 +1978,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     if (!isCurrent) {
                       // Save current position
                       final currentPos = _positionNotifier.value;
-                      final messenger = ScaffoldMessenger.of(context);
 
-                      // Arabic provider: extract on-demand from embed URL
-                      if (_currentProvider == 'arabic' && source.type == 'arabic_embed') {
-                        messenger.showSnackBar(SnackBar(
-                          content: Text('Extracting ${source.title}...'),
-                          duration: const Duration(seconds: 30),
-                        ));
-                        final result = await ArabicService.extractStreamUrl(source.url);
-                        if (!mounted) return;
-                        messenger.hideCurrentSnackBar();
-                        if (result == null) {
-                          messenger.showSnackBar(SnackBar(
-                            content: Text('Failed to extract ${source.title}'),
-                            duration: const Duration(seconds: 2),
-                          ));
-                          return;
-                        }
-                        await _player.open(
-                          Media(result.url, httpHeaders: result.headers),
-                        );
-                        // Update the source entry with the extracted stream URL
-                        _currentSources![index] = StreamSource(
-                          url: result.url,
-                          title: source.title,
-                          type: result.url.contains('.m3u8') ? 'hls' : result.url.contains('.mpd') ? 'dash' : 'mp4',
-                        );
-                        setState(() {
-                          _currentUrl = result.url;
-                          _currentFallbackSourceIndex = 0;
-                          _hasError = false;
-                          _errorMessage = '';
-                        });
-                      } else {
+                      await _player.open(
+                        Media(source.url, httpHeaders: source.headers),
+                      );
+                      setState(() {
+                        _currentUrl = source.url;
+                        _currentFallbackSourceIndex = 0;
+                        _hasError = false;
+                        _errorMessage = '';
+                      });
+                    } else {
                         // Normal direct switch — use per-source headers if available
                         final srcHeaders = source.headers ?? widget.headers;
                         if (source.headers != null && _player.platform is NativePlayer) {
@@ -2054,19 +2005,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                           _errorMessage = '';
                         });
                       }
-                      
-                      // Seek to saved position
-                      if (currentPos.inSeconds > 0) {
-                        await _player.seek(currentPos);
-                      }
-                      
-                      if (mounted) {
-                        messenger.showSnackBar(SnackBar(
-                          content: Text('Switched to ${source.title}'),
-                          duration: const Duration(seconds: 2),
-                        ));
-                      }
-                    }
                   },
                 );
               },
@@ -2148,15 +2086,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     setState(() => _isSwitchingProvider = true);
     
     final currentPos = _positionNotifier.value;
-    final messenger = ScaffoldMessenger.of(context);
     
     try {
       final provider = widget.providers![newProvider];
       
-      messenger.showSnackBar(SnackBar(
-        content: Text('Extracting from ${provider['name']}...'),
-        duration: const Duration(seconds: 2),
-      ));
+      _showPlayerToast('Extracting from ${provider['name']}...');
 
       String? streamUrl;
       Map<String, String>? headers;
@@ -2214,25 +2148,16 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         });
         
         if (mounted) {
-          messenger.showSnackBar(SnackBar(
-            content: Text('Switched to ${provider['name']}'),
-            duration: const Duration(seconds: 2),
-          ));
+          _showPlayerToast('Switched to ${provider['name']}');
         }
       } else {
         if (mounted) {
-          messenger.showSnackBar(SnackBar(
-            content: Text('Failed to extract from ${provider['name']}'),
-            duration: const Duration(seconds: 2),
-          ));
+          _showPlayerToast('Failed to extract from ${provider['name']}');
         }
       }
     } catch (e) {
       if (mounted) {
-        messenger.showSnackBar(SnackBar(
-          content: Text('Error switching provider: $e'),
-          duration: const Duration(seconds: 2),
-        ));
+        _showPlayerToast('Error switching provider');
       }
     } finally {
       if (mounted) {
@@ -2249,9 +2174,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     setState(() => _loopEnabled = !_loopEnabled);
     _player.setPlaylistMode(
         _loopEnabled ? PlaylistMode.single : PlaylistMode.none);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Loop: ${_loopEnabled ? "ON" : "OFF"}'),
-        duration: const Duration(seconds: 1)));
+    _showPlayerToast('Loop: ${_loopEnabled ? "ON" : "OFF"}');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2371,9 +2294,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           nextEpisode = 1;
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No more episodes available')),
-            );
+            _showPlayerToast('No more episodes available');
           }
           setState(() => _isLoadingNextEp = false);
           return;
@@ -2542,18 +2463,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         );
         if (sources.isEmpty) throw Exception('No WebStreamr sources for S${nextSeason}E$nextEpisode');
         streamUrl = sources.first.url;
-      } else if (isAmri) {
-        // ── AMRI: re-extract for next episode ─────────────────────────
-        final extractor = StreamExtractor();
-        final result = await extractor.extractWithAmri(
-          tmdbId: widget.movie!.id.toString(),
-          isMovie: false,
-          season: nextSeason,
-          episode: nextEpisode,
-        );
-        if (result == null) throw Exception('AMRI extraction failed for S${nextSeason}E$nextEpisode');
-        streamUrl = result.url;
-        headers = result.headers.isNotEmpty ? result.headers : null;
       } else if (widget.activeProvider != null) {
         // ── Stream provider (vidlink, vixsrc, etc.) ───────────────────
         final provider = StreamProviders.providers[widget.activeProvider];
@@ -2603,9 +2512,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     } catch (e) {
       debugPrint('[NextEp] Error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Next episode error: $e')),
-        );
+        _showPlayerToast('Next episode error: $e');
         setState(() => _isLoadingNextEp = false);
       }
     }
@@ -2726,7 +2633,8 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               // ── 4. Controls overlay ───────────────────────────────────────
               AnimatedOpacity(
                 opacity: (_showControls && !_isLocked) ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 child: IgnorePointer(
                   ignoring: !(_showControls && !_isLocked),
                   child: _buildControlsOverlay(),
@@ -2741,11 +2649,12 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   left: 12,
                   child: AnimatedOpacity(
                     opacity: _showControls ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
                     child: _GlassIconButton(
                       icon: Icons.lock_rounded,
                       onPressed: _toggleLock,
-                      iconColor: Colors.amber,
+                      iconColor: const Color(0xFF7C3AED),
                     ),
                   ),
                 ),
@@ -2849,6 +2758,31 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   ),
                 ),
 
+              // ── 8.5 Inline Toast ──────────────────────────────────────────
+              if (_toastMessage != null)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 56,
+                  left: 0, right: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _toastMessage != null ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: _CleanContainer(
+                        radius: 20,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text(
+                          _toastMessage!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               // ── 9. Embedded Error Overlay ───────────────────────────────
               if (_hasError) _buildEmbeddedError(),
               ],
@@ -2942,14 +2876,14 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               SizedBox(width: isPortrait ? 6 : 10),
               // Title pill
               Expanded(
-                child: _BlurGlass(               // ← blur OK, only 1
+                child: _CleanBlurContainer(          // ← clean blur, only 1
                   radius: 20,
                   padding: EdgeInsets.symmetric(
                       horizontal: isPortrait ? 10 : 14, vertical: 8),
                   child: Text(
                     widget.title,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.90),
                         fontSize: isPortrait ? 12 : 13,
                         fontWeight: FontWeight.w500),
                     maxLines: 1,
@@ -3084,9 +3018,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: widget.mediaPath));
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Stream URL copied to clipboard')),
-                          );
+                          _showPlayerToast('URL copied to clipboard');
                         }
                       },
                       size: btnSize, iconSize: iconSz,
@@ -3198,6 +3130,8 @@ class _MobileSeekbarState extends State<_MobileSeekbar> {
   double _dragFrac = 0.0;
   double _trackWidth = 0.0;
 
+  static const Color _accentColor = Color(0xFF7C3AED);
+
   double get _playFrac {
     final total = widget.duration.inMilliseconds.toDouble();
     if (total <= 0) return 0;
@@ -3254,8 +3188,8 @@ class _MobileSeekbarState extends State<_MobileSeekbar> {
           child: LayoutBuilder(builder: (context, constraints) {
             _trackWidth = constraints.maxWidth;
 
-            final trackH = _isDragging ? 6.0 : 3.5;
-            final thumbR = _isDragging ? 8.0 : 5.5;
+            final trackH = _isDragging ? 5.0 : 2.5;
+            final thumbR = _isDragging ? 7.0 : 0.0;
             final playPx =
                 (_playFrac * _trackWidth).clamp(0.0, _trackWidth);
 
@@ -3263,60 +3197,59 @@ class _MobileSeekbarState extends State<_MobileSeekbar> {
               clipBehavior: Clip.none,
               alignment: Alignment.centerLeft,
               children: [
-                // Background
+                // Background track
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   height: trackH,
                   width: _trackWidth,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.20),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(trackH),
                   ),
                 ),
                 // Buffered
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: const Duration(milliseconds: 200),
                   height: trackH,
                   width: (_bufFrac * _trackWidth).clamp(0.0, _trackWidth),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.32),
+                    color: Colors.white.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(trackH),
                   ),
                 ),
-                // Played
+                // Played — purple accent
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 80),
+                  duration: const Duration(milliseconds: 100),
                   curve: Curves.easeOut,
                   height: trackH,
                   width: playPx,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _accentColor,
                     borderRadius: BorderRadius.circular(trackH),
                   ),
                 ),
-                // Thumb dot
-                Positioned(
-                  left: playPx - thumbR,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 130),
-                    curve: Curves.easeOut,
-                    width: thumbR * 2,
-                    height: thumbR * 2,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: _isDragging
-                          ? [
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                              )
-                            ]
-                          : [],
+                // Thumb dot — only visible when dragging or hovering
+                if (_isDragging)
+                  Positioned(
+                    left: playPx - thumbR,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      width: thumbR * 2,
+                      height: thumbR * 2,
+                      decoration: BoxDecoration(
+                        color: _accentColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _accentColor.withValues(alpha: 0.50),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 // Drag time label — floats above thumb while dragging
                 if (_isDragging &&
                     widget.duration.inMilliseconds > 0)
@@ -3324,7 +3257,7 @@ class _MobileSeekbarState extends State<_MobileSeekbar> {
                     left: (playPx - 36).clamp(
                         0.0, _trackWidth - 72),
                     top: -34,
-                    child: _BlurGlass(           // ← blur OK, only while dragging
+                    child: _CleanBlurContainer(    // ← clean blur, only while dragging
                       radius: 8,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
@@ -3369,29 +3302,29 @@ class _SideIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _BlurGlass(                               // ← blur OK, shown 1 at a time
+    return _CleanBlurContainer(                       // ← clean blur, shown 1 at a time
       radius: 20,
       child: SizedBox(
-        width: 44,
-        height: 160,
+        width: 40,
+        height: 140,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Icon(icon, color: Colors.white, size: 18),
+            Icon(icon, color: const Color(0xDDFFFFFF), size: 16),
             const SizedBox(height: 6),
             Expanded(
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 child: RotatedBox(
                   quarterTurns: -1,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(2),
                     child: LinearProgressIndicator(
                       value: value.clamp(0.0, 1.0),
                       backgroundColor: Colors.white24,
-                      color: Colors.white,
-                      minHeight: 4,
+                      color: const Color(0xFF7C3AED),
+                      minHeight: 3,
                     ),
                   ),
                 ),
@@ -3402,7 +3335,7 @@ class _SideIndicator extends StatelessWidget {
               child: Text(
                 '${(value * 100).round()}',
                 style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xDDFFFFFF),
                     fontSize: 10,
                     fontWeight: FontWeight.w600),
               ),

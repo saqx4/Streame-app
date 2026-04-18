@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.play_torrio_native"
+    namespace = "com.streame.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.play_torrio_native"
+        applicationId = "com.streame.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -41,7 +41,7 @@ android {
             isShrinkResources = true
             
             // Use release signing config if available, otherwise fall back to debug
-            signingConfig = if (project.hasProperty("PLAYTORRIO_KEYSTORE_PATH")) {
+            signingConfig = if (project.hasProperty("STREAME_KEYSTORE_PATH")) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
@@ -52,10 +52,10 @@ android {
     // Release signing configuration (uses environment variables or gradle.properties)
     signingConfigs {
         create("release") {
-            storeFile = file(project.findProperty("PLAYTORRIO_KEYSTORE_PATH") as String? ?: "release.keystore")
-            storePassword = project.findProperty("PLAYTORRIO_KEYSTORE_PASSWORD") as String? ?: ""
-            keyAlias = project.findProperty("PLAYTORRIO_KEY_ALIAS") as String? ?: "playtorrio"
-            keyPassword = project.findProperty("PLAYTORRIO_KEY_PASSWORD") as String? ?: ""
+            storeFile = file(project.findProperty("STREAME_KEYSTORE_PATH") as String? ?: "release.keystore")
+            storePassword = project.findProperty("STREAME_KEYSTORE_PASSWORD") as String? ?: ""
+            keyAlias = project.findProperty("STREAME_KEY_ALIAS") as String? ?: "streame"
+            keyPassword = project.findProperty("STREAME_KEY_PASSWORD") as String? ?: ""
         }
     }
 }
