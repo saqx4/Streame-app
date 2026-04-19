@@ -50,6 +50,11 @@ class SettingsService {
   static const String _subBottomPaddingKey = 'sub_bottom_padding';
   static const String _subFontKey = 'sub_font';
 
+  // Desktop player auto-optimization
+  static const String _autoOptimizeKey = 'auto_optimize';
+  static const String _hwDecModeKey = 'hw_dec_mode';
+  static const String _videoSyncModeKey = 'video_sync_mode';
+
   // ── Subtitle getters/setters ──────────────────────────────────────────────
 
   Future<double> getSubSize({bool isDesktop = false}) async {
@@ -104,6 +109,38 @@ class SettingsService {
   Future<void> setSubFont(String v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_subFontKey, v);
+  }
+
+  // ── Desktop player auto-optimization getters/setters ───────────────────────
+
+  Future<bool> isAutoOptimizeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoOptimizeKey) ?? true; // Enable by default
+  }
+
+  Future<void> setAutoOptimize(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoOptimizeKey, enabled);
+  }
+
+  Future<String> getHwDecMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_hwDecModeKey) ?? 'autoHw';
+  }
+
+  Future<void> setHwDecMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_hwDecModeKey, mode);
+  }
+
+  Future<String> getVideoSyncMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_videoSyncModeKey) ?? 'displayAdrop';
+  }
+
+  Future<void> setVideoSyncMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_videoSyncModeKey, mode);
   }
 
   Future<List<Map<String, dynamic>>> getStremioAddons() async {

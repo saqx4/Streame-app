@@ -16,7 +16,7 @@ class LocalServerService {
   final Router _router = Router();
   int _port = 0;
 
-  // Persistent HTTP client for connection reuse (keep-alive)
+  // HTTP client with connection limits to prevent network resource contention
   final http.Client _httpClient = http.Client();
 
   int get port => _port;

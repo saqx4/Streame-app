@@ -33,6 +33,7 @@ import '../../api/torrent_api.dart';
 import '../../api/torrent_filter.dart';
 import '../../api/tmdb_service.dart';
 import '../../api/introdb_service.dart';
+import '../../core/utils/device_detector.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
 
@@ -549,6 +550,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
+
+    // ── Load saved player settings ───────────────────────────────────────
+    _loadPlayerSettings();
 
     // ── Create player with minimal overhead config ────────────────────────
     _player = Player(
@@ -1299,6 +1303,68 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  //  PLAYER SETTINGS LOADING & AUTO-OPTIMIZATION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<void> _loadPlayerSettings() async {
+    final settings = SettingsService();
+    final autoOptimize = await settings.isAutoOptimizeEnabled();
+
+    if (autoOptimize) {
+      // Apply auto-optimization based on device detection
+      await _applyAutoOptimization();
+    } else {
+      // Load manually saved settings
+      final hwDecModeStr = await settings.getHwDecMode();
+      final videoSyncModeStr = await settings.getVideoSyncMode();
+
+      setState(() {
+        _hwDecMode = _HwDecMode.values.firstWhere(
+          (m) => m.name == hwDecModeStr,
+          orElse: () => _HwDecMode.autoHw,
+        );
+        _videoSyncMode = _VideoSyncMode.values.firstWhere(
+          (m) => m.name == videoSyncModeStr,
+          orElse: () => _VideoSyncMode.displayAdrop,
+        );
+      });
+    }
+  }
+
+  Future<void> _applyAutoOptimization() async {
+    final detector = DeviceDetector();
+    await detector.detect();
+
+    final recommendedHwDec = detector.getRecommendedHwDecMode();
+    final recommendedVideoSync = detector.getRecommendedVideoSyncMode();
+
+    debugPrint('[Player] Auto-optimization:');
+    debugPrint('[Player]   Recommended HW Dec: $recommendedHwDec');
+    debugPrint('[Player]   Recommended Video Sync: $recommendedVideoSync');
+
+    final settings = SettingsService();
+    await settings.setHwDecMode(recommendedHwDec);
+    await settings.setVideoSyncMode(recommendedVideoSync);
+
+    setState(() {
+      _hwDecMode = _HwDecMode.values.firstWhere(
+        (m) => m.name == recommendedHwDec,
+        orElse: () => _HwDecMode.autoHw,
+      );
+      _videoSyncMode = _VideoSyncMode.values.firstWhere(
+        (m) => m.name == recommendedVideoSync,
+        orElse: () => _VideoSyncMode.displayAdrop,
+      );
+    });
+  }
+
+  Future<void> _savePlayerSettings() async {
+    final settings = SettingsService();
+    await settings.setHwDecMode(_hwDecMode.name);
+    await settings.setVideoSyncMode(_videoSyncMode.name);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   //  HARDWARE DECODE CYCLE
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1310,6 +1376,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       (_player.platform as NativePlayer)
           .setProperty('hwdec', next.mpvValue);
     }
+
+    // Save settings
+    _savePlayerSettings();
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(next.description),
@@ -1325,6 +1394,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       (_player.platform as NativePlayer)
           .setProperty('video-sync', next.mpvValue);
     }
+    
+    // Save settings
+    _savePlayerSettings();
     
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(next.description),

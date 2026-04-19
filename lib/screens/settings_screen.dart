@@ -103,6 +103,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<String> _navbarVisible = [];
   List<String> _navbarOrder = [];
 
+  // Desktop player auto-optimization
+  bool _autoOptimize = true;
+
   @override
   void initState() {
     super.initState();
@@ -171,6 +174,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final hidden = allIds.where((id) => !navVisible.contains(id)).toList();
     final navOrder = [...navVisible, ...hidden];
 
+    // Load auto-optimization setting
+    final autoOptimize = await _settings.isAutoOptimizeEnabled();
+
     if (mounted) {
       setState(() {
         _isStreamingMode = streaming;
@@ -199,12 +205,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         
         _prowlarrUrlController.text = prowlarrUrl ?? '';
         _prowlarrApiKeyController.text = prowlarrKey ?? '';
+
         _torrentCacheType = cacheType;
         _torrentRamCacheMb = ramCacheMb;
         _isLightMode = lightMode;
         _selectedThemeId = themePreset;
         _navbarVisible = navVisible;
         _navbarOrder = navOrder;
+        _autoOptimize = autoOptimize;
       });
     }
   }
@@ -366,6 +374,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.play_circle_outline_rounded,
                       title: 'Playback',
                       children: [
+                        _buildFocusableToggle(
+                          'Auto-Optimize Player',
+                          'Automatically choose best HW decoding and video sync settings based on your device.',
+                          _autoOptimize,
+                          (val) async {
+                            await _settings.setAutoOptimize(val);
+                            setState(() => _autoOptimize = val);
+                          },
+                        ),
                         _buildFocusableToggle(
                           'Direct Streaming Mode',
                           'Use direct stream links instead of torrents by default.',
