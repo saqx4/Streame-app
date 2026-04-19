@@ -330,6 +330,20 @@ enum _HwDecMode {
   software,
 }
 
+enum _VideoSyncMode {
+  /// display-resample: Resamples audio to match display refresh rate (best for hardware)
+  displayResample,
+
+  /// display-adrop: Drops frames to match display (better for software rendering)
+  displayAdrop,
+
+  /// audio: Syncs to audio clock (lightest, no VSync)
+  audio,
+
+  /// audio-drop: Drops frames to sync with audio (middle ground)
+  audioDrop,
+}
+
 extension _HwDecModeX on _HwDecMode {
   String get mpvValue => switch (this) {
         _HwDecMode.autoHw => 'auto',
@@ -359,6 +373,43 @@ extension _HwDecModeX on _HwDecMode {
         _HwDecMode.autoHw => const Color(0xFF7C3AED),
         _HwDecMode.autoCopy => const Color(0xFF0EA5E9),
         _HwDecMode.software => Colors.white24,
+      };
+}
+
+extension _VideoSyncModeX on _VideoSyncMode {
+  String get mpvValue => switch (this) {
+        _VideoSyncMode.displayResample => 'display-resample',
+        _VideoSyncMode.displayAdrop => 'display-adrop',
+        _VideoSyncMode.audio => 'audio',
+        _VideoSyncMode.audioDrop => 'audio-drop',
+      };
+
+  String get label => switch (this) {
+        _VideoSyncMode.displayResample => 'VSync+',
+        _VideoSyncMode.displayAdrop => 'VSync',
+        _VideoSyncMode.audio => 'Audio',
+        _VideoSyncMode.audioDrop => 'Drop',
+      };
+
+  String get description => switch (this) {
+        _VideoSyncMode.displayResample => 'VSync: Resample (Best for GPU)',
+        _VideoSyncMode.displayAdrop => 'VSync: Frame Drop (Best for SW)',
+        _VideoSyncMode.audio => 'VSync: Audio Sync (No VSync)',
+        _VideoSyncMode.audioDrop => 'VSync: Audio Drop (Middle)',
+      };
+
+  _VideoSyncMode get next => switch (this) {
+        _VideoSyncMode.displayResample => _VideoSyncMode.displayAdrop,
+        _VideoSyncMode.displayAdrop => _VideoSyncMode.audio,
+        _VideoSyncMode.audio => _VideoSyncMode.audioDrop,
+        _VideoSyncMode.audioDrop => _VideoSyncMode.displayResample,
+      };
+
+  Color get accent => switch (this) {
+        _VideoSyncMode.displayResample => const Color(0xFF7C3AED),
+        _VideoSyncMode.displayAdrop => const Color(0xFF0EA5E9),
+        _VideoSyncMode.audio => const Color(0xFF10B981),
+        _VideoSyncMode.audioDrop => const Color(0xFFF59E0B),
       };
 }
 
@@ -459,6 +510,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
   // ── Feature State ────────────────────────────────────────────────────────
   _HwDecMode _hwDecMode = _HwDecMode.autoHw;
+  _VideoSyncMode _videoSyncMode = _VideoSyncMode.displayAdrop;
   bool _loopEnabled = false;
   double _subtitleDelay = 0.0;
   double _subtitleSize = 44.0;
@@ -577,12 +629,30 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   @override
   void dispose() {
     // ── Save watch history before anything else ───────────────────────────
-    _saveWatchHistory();
+    try {
+      _saveWatchHistory();
+    } catch (e) {
+      debugPrint('[Player] Error saving watch history during dispose: $e');
+    }
 
     _disposed = true;
-    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
-    windowManager.removeListener(this);
+    
+    // Remove handlers and listeners
+    try {
+      HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    } catch (e) {
+      debugPrint('[Player] Error removing keyboard handler: $e');
+    }
+    
+    try {
+      windowManager.removeListener(this);
+    } catch (e) {
+      debugPrint('[Player] Error removing window listener: $e');
+    }
+    
     WidgetsBinding.instance.removeObserver(this);
+
+    // Cancel timers
     _hideTimer?.cancel();
     _toastTimer?.cancel();
 
@@ -604,12 +674,21 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     _isBufferingNotifier.dispose();
     _volumeNotifier.dispose();
 
-    _player.dispose();
+    // Dispose player
+    try {
+      _player.dispose();
+    } catch (e) {
+      debugPrint('[Player] Error disposing player: $e');
+    }
 
     // Remove torrent from engine on player exit (use magnetLink for hash,
     // fall back to mediaPath which may be a stream URL).
-    final torrentId = widget.magnetLink ?? widget.mediaPath;
-    TorrentStreamService().removeTorrent(torrentId);
+    try {
+      final torrentId = widget.magnetLink ?? widget.mediaPath;
+      TorrentStreamService().removeTorrent(torrentId);
+    } catch (e) {
+      debugPrint('[Player] Error removing torrent: $e');
+    }
 
     super.dispose();
   }
@@ -773,6 +852,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           // Pre-buffer: wait 3 seconds for stream to build buffer before playing
           await Future.delayed(const Duration(seconds: 3));
           
+          // Check hardware acceleration status
+          _checkHardwareAcceleration();
+          
           setState(() {
             _currentUrl = source.url;
           });
@@ -799,6 +881,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           
           // Pre-buffer: wait 3 seconds for stream to build buffer before playing
           await Future.delayed(const Duration(seconds: 3));
+          
+          // Check hardware acceleration status
+          _checkHardwareAcceleration();
           
           return;
         } catch (e) {
@@ -1062,11 +1147,14 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     if (_player.platform is! NativePlayer) return;
     final mpv = _player.platform as NativePlayer;
 
-    // ── Decoding ─────────────────────────────────────────────────────────
-    // auto: tries all available GPU decoders (VA-API, VDPAU, D3D11, etc.),
-    // falls back to software if none work. Less restrictive than auto-safe,
-    // which skips VA-API on Linux and 10-bit HEVC on many GPUs.
+    // ── Intel GPU Specific Configuration ───────────────────────────────────
+    // Prefer VA-API for Intel GPUs on Linux
     await mpv.setProperty('hwdec', _hwDecMode.mpvValue);
+    
+    // Force VA-API for Intel if hardware mode is selected
+    if (_hwDecMode == _HwDecMode.autoHw) {
+      await mpv.setProperty('hwdec', 'vaapi');
+    }
 
     // Direct rendering disabled — with hwdec=auto, the decoder may use
     // copy-back modes (auto-copy) which are incompatible with vd-lavc-dr.
@@ -1076,6 +1164,29 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     // Cap decode threads to 4 — on Haswell-era (4 core) CPUs, letting mpv
     // use all cores (0=auto) starves the UI and demuxer threads.
     await mpv.setProperty('vd-lavc-threads', '4');
+
+    // ── Hardware Acceleration Optimizations ─────────────────────────────────
+    // Enable zero-copy for hardware decoding when possible (reduces CPU usage)
+    await mpv.setProperty('vd-lavc-software-fallback', 'yes');
+    
+    // Allow faster GPU decoding with some quality trade-off
+    await mpv.setProperty('vd-lavc-fast', 'yes');
+    
+    // Enable hardware decoding for all video formats
+    await mpv.setProperty('hwdec-codecs', 'all');
+
+    // ── Intel GPU Specific Settings ────────────────────────────────────────
+    // Prefer Vulkan/OpenGL for Intel GPUs
+    await mpv.setProperty('gpu-api', 'auto');
+    
+    // Use pixel buffer objects for better performance
+    await mpv.setProperty('opengl-pbo', 'yes');
+    
+    // Frame buffer format for better compatibility
+    await mpv.setProperty('fbo-format', 'rgb0');
+    
+    // Disable alpha channel to prevent transparency issues
+    await mpv.setProperty('alpha', 'no');
 
     // ── Audio Codec Fallback ──────────────────────────────────────────────
     // Continue playback even if audio codec is unsupported (e.g., TrueHD).
@@ -1087,12 +1198,46 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('sub-visibility', 'no');
     await mpv.setProperty('sub-auto', 'all');
 
-    // ── Video Sync ────────────────────────────────────────────────────────
-    // audio sync: ties playback to the audio clock. Lighter than
-    // display-resample which requires stable vsync + GPU rendering.
-    // display-resample+interpolation adds heavy CPU overhead when GPU
-    // rendering is unavailable, causing the "heavy" feeling on older GPUs.
-    await mpv.setProperty('video-sync', 'audio');
+    // ── Frame Interpolation (Smooth Motion) ─────────────────────────────────
+    // Interpolate frames to match display refresh rate for smoother motion.
+    // Reduces stutter on low frame rate content (24fps on 60Hz displays).
+    // Uses motion interpolation to generate intermediate frames.
+    await mpv.setProperty('interpolation', 'yes');
+    await mpv.setProperty('video-sync-interpolation-threshold', '0.0001');
+    
+    // ── Debanding (Remove Color Banding) ───────────────────────────────────
+    // Gradual debanding filter to reduce color banding artifacts in
+    // compressed video sources. Improves visual quality in gradients.
+    await mpv.setProperty('deband', 'yes');
+    await mpv.setProperty('deband-iterations', '4');
+
+    // ── Video Sync & VSync (Anti-Tearing) ───────────────────────────────────
+    // User-configurable video sync mode to handle different rendering scenarios
+    // display-adrop: Drops frames to match display (best for software rendering)
+    // display-resample: Resamples audio to match display (best for hardware)
+    // audio: Syncs to audio clock (lightest, no VSync)
+    // audio-drop: Drops frames to sync with audio (middle ground)
+    await mpv.setProperty('video-sync', _videoSyncMode.mpvValue);
+    
+    // Enable VSync to prevent screen tearing
+    await mpv.setProperty('vsync', 'yes');
+    
+    // Maximum frames to drop before giving up (prevents stutter)
+    await mpv.setProperty('video-sync-max-video-change', '0.05');
+    await mpv.setProperty('video-sync-max-audio-change', '0.10');
+    
+    // ── Frame Timing & Scaling ──────────────────────────────────────────────
+    // Use high-quality scaling for better visual quality
+    await mpv.setProperty('scale', 'lanczos');
+    
+    // Temporal interpolation for smoother motion
+    await mpv.setProperty('tscale', 'oversample');
+    
+    // Chroma upsampling quality
+    await mpv.setProperty('cscale', 'lanczos');
+    
+    // Dithering to reduce banding in dark scenes
+    await mpv.setProperty('dither-depth', 'auto');
 
     // ── Adaptive Streaming (HLS/DASH) ─────────────────────────────────────
     // Always pick the highest bitrate variant in multi-quality playlists.
@@ -1102,22 +1247,22 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('network-timeout', '30');
     await mpv.setProperty('tls-verify', 'no'); // for self-signed / CDN certs
 
-    // Cache: 300 MB in memory, read 120 s ahead.
-    // This dramatically reduces rebuffering on variable-bitrate streams.
+    // Cache: Increased to 500 MB in memory, read 180 s ahead.
+    // Larger cache prevents frame drops on variable-bitrate streams.
     await mpv.setProperty('cache', 'yes');
-    await mpv.setProperty('cache-secs', '120');
-    await mpv.setProperty('demuxer-max-bytes', '300MiB');
-    await mpv.setProperty('demuxer-readahead-secs', '120');
+    await mpv.setProperty('cache-secs', '180');
+    await mpv.setProperty('demuxer-max-bytes', '500MiB');
+    await mpv.setProperty('demuxer-readahead-secs', '180');
 
     // How far back the demuxer keeps decoded data (for backward seeks).
-    await mpv.setProperty('demuxer-max-back-bytes', '50MiB');
+    await mpv.setProperty('demuxer-max-back-bytes', '100MiB');
 
-    // ── Cache-pause (anti-stutter) ─────────────────────────────────────────
+    // ── Cache-pause (Anti-Stutter) ─────────────────────────────────────────
     // Pause playback on cache underrun instead of stuttering through it.
     // This is the single most important setting for smooth torrent/stream playback.
     await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
-    await mpv.setProperty('cache-pause-wait', '5');        // wait up to 5s for buffer to recover
-    await mpv.setProperty('cache-pause-done', '1');        // resume when buffer has 1s ahead
+    await mpv.setProperty('cache-pause-wait', '10');       // wait up to 10s for buffer to recover (increased)
+    await mpv.setProperty('cache-pause-done', '3');        // resume when buffer has 3s ahead (increased)
 
     // Prevent yt-dlp from being invoked (we supply our own URL).
     await mpv.setProperty('ytdl', 'no');
@@ -1170,6 +1315,47 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       content: Text(next.description),
       duration: const Duration(seconds: 2),
     ));
+  }
+
+  void _cycleVideoSync() {
+    final next = _videoSyncMode.next;
+    setState(() => _videoSyncMode = next);
+
+    if (_player.platform is NativePlayer) {
+      (_player.platform as NativePlayer)
+          .setProperty('video-sync', next.mpvValue);
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(next.description),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  // ── Hardware Acceleration Detection ─────────────────────────────────────────
+  void _checkHardwareAcceleration() {
+    // Log current configuration
+    debugPrint('[Player] Hardware Acceleration Check:');
+    debugPrint('[Player]   HW Dec Mode: ${_hwDecMode.description}');
+    debugPrint('[Player]   Video Sync Mode: ${_videoSyncMode.description}');
+    
+    // Warn if using software mode
+    if (_hwDecMode == _HwDecMode.software) {
+      debugPrint('[Player] ⚠ WARNING: Software decoding active - high CPU usage expected');
+      debugPrint('[Player] ⚠ Consider switching to HW+ mode for better performance');
+    }
+    
+    // Suggest video sync mode based on hardware mode
+    if (_hwDecMode == _HwDecMode.software && _videoSyncMode == _VideoSyncMode.displayResample) {
+      debugPrint('[Player] ⚠ WARNING: display-resample requires hardware acceleration');
+      debugPrint('[Player] ⚠ Auto-switching to display-adrop for software rendering');
+      setState(() => _videoSyncMode = _VideoSyncMode.displayAdrop);
+      
+      if (_player.platform is NativePlayer) {
+        (_player.platform as NativePlayer)
+            .setProperty('video-sync', _videoSyncMode.mpvValue);
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2569,6 +2755,13 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
               text: _hwDecMode.label,
               onTap: _cycleHwDec,
               accent: _hwDecMode.accent,
+            ),
+            const SizedBox(width: 8),
+            // Video sync mode badge
+            GlassPillButton(
+              text: _videoSyncMode.label,
+              onTap: _cycleVideoSync,
+              accent: _videoSyncMode.accent,
             ),
             const SizedBox(width: 8),
             GlassIconButton(

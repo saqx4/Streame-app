@@ -51,6 +51,8 @@ dependencies:
   libtorrent_flutter: 1.7.8
   file_picker: ^8.0.0+1
   palette_generator: ^0.3.3+4
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.3.5
 
 dev_dependencies:
   flutter_test:

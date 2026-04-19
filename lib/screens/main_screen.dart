@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'home_screen.dart';
 import 'discover_screen.dart';
 import 'search_screen.dart';
@@ -14,23 +15,20 @@ import '../utils/app_theme.dart';
 import '../api/settings_service.dart';
 import '../services/app_updater_service.dart';
 import '../widgets/update_dialog.dart';
+import '../core/providers/service_providers.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   /// Notifier that SearchScreen listens to for incoming Stremio search requests.
   /// Value is {'query': '...', 'addonBaseUrl': '...'} or null.
   static final ValueNotifier<Map<String, String>?> stremioSearchNotifier = ValueNotifier<Map<String, String>?>(null);
 
-  static State<MainScreen>? of(BuildContext context) {
-    return context.findAncestorStateOfType<_MainScreenState>();
-  }
-
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   Timer? _metricsDebounce;
   Timer? _metricsSafety;
@@ -78,6 +76,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final updater = AppUpdaterService();
       final updateInfo = await updater.checkForUpdates();
       if (updateInfo != null && mounted) {
+        if (!context.mounted) return;
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -90,7 +89,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadNavbarConfig() async {
-    final visible = await SettingsService().getNavbarConfig();
+    final settings = ref.read(settingsServiceProvider);
+    final visible = await settings.getNavbarConfig();
     if (!mounted) return;
     setState(() {
       // Remember which screen we're currently on

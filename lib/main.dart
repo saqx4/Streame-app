@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -14,6 +15,8 @@ import 'models/movie.dart';
 import 'services/player_pool_service.dart';
 import 'utils/webview_cleanup.dart';
 import 'utils/app_theme.dart';
+import 'core/error/error_boundary.dart';
+import 'core/providers/service_providers.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/search_screen.dart';
@@ -72,17 +75,33 @@ void main() async {
   PlayerPoolService().warmUp();
   debugPrint('[Boot] All init complete — launching app');
 
-  runApp(const StreameApp());
+  runApp(
+    ProviderScope(
+      observers: [ProviderLogger()],
+      child: const ErrorBoundary(
+        child: StreameApp(),
+      ),
+    ),
+  );
 }
 
-class StreameApp extends StatefulWidget {
+class StreameApp extends ConsumerWidget {
   const StreameApp({super.key});
 
   @override
-  State<StreameApp> createState() => _StreameAppState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const _StreameAppWrapper();
+  }
 }
 
-class _StreameAppState extends State<StreameApp> with WidgetsBindingObserver, WindowListener {
+class _StreameAppWrapper extends StatefulWidget {
+  const _StreameAppWrapper();
+
+  @override
+  State<_StreameAppWrapper> createState() => _StreameAppWrapperState();
+}
+
+class _StreameAppWrapperState extends State<_StreameAppWrapper> with WidgetsBindingObserver, WindowListener {
   @override
   void initState() {
     super.initState();
@@ -126,30 +145,27 @@ class _StreameAppState extends State<StreameApp> with WidgetsBindingObserver, Wi
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AppThemePreset>(
-      valueListenable: AppTheme.themeNotifier,
-      builder: (context, preset, _) {
-        return MaterialApp(
-          title: 'Streame',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.themeData,
-          home: const SplashScreen(),
-        );
-      },
+    return MaterialApp(
+      title: 'Streame',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.themeData,
+      home: const SplashScreen(),
     );
   }
 }
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  double _progress = 0.0;
+  String _statusMessage = 'Initializing...';
 
   @override
   void initState() {
@@ -171,6 +187,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     debugPrint('[Boot] Starting engine initialization...');
     debugPrint('═══════════════════════════════════════════════════════════');
     
+    _updateProgress(0.1, 'Checking connectivity...');
+    
     debugPrint('[Boot] Step 1: Checking network connectivity...');
     final connectivityResult = await Connectivity().checkConnectivity();
     final isOffline = connectivityResult.contains(ConnectivityResult.none);
@@ -188,45 +206,52 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       return;
     }
 
+    _updateProgress(0.3, 'Starting services...');
+
     debugPrint('[Boot] Step 2: Initializing services in parallel...');
-    final api = TmdbApi();
+    final api = ref.read(tmdbApiProvider);
+    final torrentStream = ref.read(torrentStreamServiceProvider);
+    final localServer = ref.read(localServerServiceProvider);
     
     debugPrint('[Boot]   - Starting TorrentStream engine...');
     debugPrint('[Boot]   - Starting LocalServer...');
     debugPrint('[Boot]   - Fetching TMDB data (trending, popular, top rated, now playing)...');
     
     final results = await Future.wait([
-      TorrentStreamService().start().timeout(
+      torrentStream.start().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           debugPrint('[Boot] ⚠ TorrentStream startup timed out after 10s');
-          return false;
+          return Future.value(false);
         },
       ).catchError((e, st) {
         debugPrint('[Boot] ✗ TorrentStream error: $e');
         debugPrint('[Boot] Stack trace: $st');
-        return false;
+        return Future.value(false);
       }),
-      LocalServerService().start().catchError((e) {
+      localServer.start().catchError((e) {
         debugPrint('[Boot] ✗ LocalServer error: $e');
+        return Future.value(null);
       }),
       api.getTrending().catchError((e) {
         debugPrint('[Boot] ✗ TMDB trending error: $e');
-        return <Movie>[];
+        return Future.value(<Movie>[]);
       }),
       api.getPopular().catchError((e) {
         debugPrint('[Boot] ✗ TMDB popular error: $e');
-        return <Movie>[];
+        return Future.value(<Movie>[]);
       }),
       api.getTopRated().catchError((e) {
         debugPrint('[Boot] ✗ TMDB top rated error: $e');
-        return <Movie>[];
+        return Future.value(<Movie>[]);
       }),
       api.getNowPlaying().catchError((e) {
         debugPrint('[Boot] ✗ TMDB now playing error: $e');
-        return <Movie>[];
+        return Future.value(<Movie>[]);
       }),
     ]);
+
+    _updateProgress(0.7, 'Loading content...');
 
     debugPrint('[Boot] Step 3: Service initialization results:');
     final torrentEngineReady = (results[0] as bool?) == true;
@@ -244,12 +269,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     debugPrint('[Boot]   TMDB Top Rated: ${topRatedList.isNotEmpty ? "✓ ${topRatedList.length} items" : "✗ Empty"}');
     debugPrint('[Boot]   TMDB Now Playing: ${nowPlayingList.isNotEmpty ? "✓ ${nowPlayingList.length} items" : "✗ Empty"}');
 
+    _updateProgress(0.9, 'Preparing interface...');
+
     debugPrint('[Boot] Step 4: Pre-warming screens...');
     // ignore: unused_local_variable
     const warmupSearch = SearchScreen();
     // ignore: unused_local_variable
     const warmupDiscover = DiscoverScreen();
     debugPrint('[Boot] ✓ Screens pre-warmed');
+    
+    _updateProgress(1.0, 'Ready!');
     
     if (mounted) {
       debugPrint('[Boot] Step 6: Navigating to MainScreen...');
@@ -265,6 +294,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       debugPrint('═══════════════════════════════════════════════════════════');
       debugPrint('[Boot] ✓✓✓ ENGINE INITIALIZATION COMPLETE ✓✓✓');
       debugPrint('═══════════════════════════════════════════════════════════');
+    }
+  }
+
+  void _updateProgress(double progress, String message) {
+    if (mounted) {
+      setState(() {
+        _progress = progress;
+        _statusMessage = message;
+      });
     }
   }
   
@@ -346,18 +384,36 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 ),
               ),
               const SizedBox(height: 100),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: const Text(
-                  'INITIALIZING ENGINE...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                    color: Colors.white38,
-                    fontFamily: 'Poppins',
+              // Progress indicator
+              Column(
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: _progress,
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                        minHeight: 4,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Text(
+                      _statusMessage.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        color: Colors.white60,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
