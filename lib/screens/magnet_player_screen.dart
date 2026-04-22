@@ -193,7 +193,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                   Text(
                     'Magnet Player',
                     style: GoogleFonts.poppins(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
@@ -211,19 +211,19 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                   Expanded(
                     child: TextField(
                       controller: _magnetController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Paste magnet link here...',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                        hintStyle: TextStyle(color: AppTheme.textDisabled),
                         filled: true,
                         fillColor: AppTheme.bgCard,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                          borderSide: BorderSide(color: AppTheme.border),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                          borderSide: BorderSide(color: AppTheme.border),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -231,7 +231,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.paste_rounded, color: Colors.white38),
+                          icon: Icon(Icons.paste_rounded, color: AppTheme.textDisabled),
                           onPressed: () async {
                             final data = await Clipboard.getData(Clipboard.kTextPlain);
                             if (data?.text != null) {
@@ -250,13 +250,13 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                       icon: _loading
                           ? const SizedBox(
                               width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.search_rounded, size: 20),
                       label: Text(_loading ? 'Loading...' : 'Fetch',
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppTheme.textPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
@@ -291,7 +291,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                     const CircularProgressIndicator(color: AppTheme.primaryColor),
                     const SizedBox(height: 16),
                     Text('Fetching torrent metadata...',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -304,11 +304,11 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                   children: [
                     Text('${_files.length} files',
                         style: GoogleFonts.poppins(
-                            color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                            color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                     const Spacer(),
                     Text(
                       'Total: ${_formatSize(_files.fold<int>(0, (sum, f) => sum + f.size))}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 12),
                     ),
                   ],
                 ),
@@ -339,7 +339,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                               border: Border.all(
                                 color: isStreaming
                                     ? AppTheme.primaryColor.withValues(alpha: 0.4)
-                                    : Colors.white.withValues(alpha: 0.06),
+                                    : AppTheme.border,
                               ),
                             ),
                             child: Row(
@@ -348,7 +348,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                                   _fileIcon(file.name),
                                   color: isVideo
                                       ? AppTheme.accentColor
-                                      : Colors.white24,
+                                      : AppTheme.textDisabled,
                                   size: 24,
                                 ),
                                 const SizedBox(width: 12),
@@ -359,7 +359,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                                       Text(
                                         file.name,
                                         style: TextStyle(
-                                          color: isVideo ? Colors.white : Colors.white38,
+                                          color: isVideo ? AppTheme.textPrimary : AppTheme.textDisabled,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -370,7 +370,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                                       Text(
                                         _formatSize(file.size),
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.35),
+                                          color: AppTheme.textDisabled,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -405,13 +405,13 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.link_rounded,
-                          size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                          size: 64, color: AppTheme.textDisabled.withValues(alpha: 0.2)),
                       const SizedBox(height: 16),
                       Text(
                         'Paste a magnet link and tap Fetch\nto browse and play files',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: AppTheme.textDisabled,
                           fontSize: 14,
                         ),
                       ),

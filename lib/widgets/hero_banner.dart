@@ -6,6 +6,7 @@ import '../api/tmdb_api.dart';
 import '../screens/details_screen.dart';
 import '../screens/streaming_details_screen.dart';
 import '../api/settings_service.dart';
+import '../utils/app_theme.dart';
 import '../utils/extensions.dart';
 
 class HeroBanner extends StatefulWidget {
@@ -28,13 +29,15 @@ class _HeroBannerState extends State<HeroBanner> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
-    
-    final heroHeight = isMobile ? screenHeight * 0.6 : screenHeight * 0.75;
+
+    final heroHeight = isMobile ? screenHeight * 0.55 : screenHeight * 0.72;
     final featuredMovies = widget.movies.take(5).toList();
+    final primary = AppTheme.current.primaryColor;
 
     return Focus(
       child: Stack(
         children: [
+          // Carousel
           CarouselSlider(
             carouselController: _carouselController,
             options: CarouselOptions(
@@ -45,203 +48,155 @@ class _HeroBannerState extends State<HeroBanner> {
               autoPlayAnimationDuration: const Duration(milliseconds: 1000),
               autoPlayCurve: Curves.fastOutSlowIn,
               onPageChanged: (index, reason) {
-                setState(() {
-                  _currentIndex = index;
-                });
+                setState(() => _currentIndex = index);
               },
             ),
             items: featuredMovies.map((movie) {
               final imageUrl = TmdbApi.getBackdropUrl(movie.backdropPath);
               return InkWell(
                 onTap: () => _navigateToDetails(movie),
-                focusColor: Colors.deepPurpleAccent.withValues(alpha: 0.1),
+                focusColor: primary.withValues(alpha: 0.1),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // 1. High-Res Background
                     CachedNetworkImage(
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
-                      placeholder: (context, url) => Container(color: const Color(0xFF0F0418)),
-                      errorWidget: (context, url, error) => Container(color: const Color(0xFF0F0418)),
+                      placeholder: (_, __) => Container(color: AppTheme.bgDark),
+                      errorWidget: (_, __, ___) => Container(color: AppTheme.bgDark),
                     ),
-                    
-                    // 2. Cinematic Gradient Overlay
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            const Color(0xFF0F0418).withValues(alpha: 0.2),
-                            const Color(0xFF0F0418).withValues(alpha: 0.8),
-                            const Color(0xFF0F0418),
-                          ],
-                          stops: const [0.0, 0.4, 0.8, 1.0],
-                        ),
-                      ),
-                    ),
-
-                    // 3. Side Gradient for text readability (Desktop)
+                    // Bottom fade
+                    Container(decoration: BoxDecoration(gradient: AppTheme.bottomFade(0.35))),
+                    // Side fade (desktop)
                     if (!isMobile)
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              const Color(0xFF0F0418).withValues(alpha: 0.8),
-                              Colors.transparent,
-                            ],
-                            stops: const [0.0, 0.5],
-                          ),
-                        ),
-                      ),
+                      Container(decoration: BoxDecoration(gradient: AppTheme.leftFade())),
                   ],
                 ),
               );
             }).toList(),
           ),
 
-        // Content
-        Positioned(
-          bottom: 40,
-          left: isMobile ? 24 : 60,
-          right: isMobile ? 24 : null,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title
-              SizedBox(
-                width: isMobile ? null : screenWidth * 0.5,
-                child: Text(
-                  featuredMovies[_currentIndex].title,
-                  style: TextStyle(
-                    fontSize: isMobile ? 32 : 56,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    height: 1.1,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 20.0,
-                        color: Colors.black.withValues(alpha: 0.5),
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Metadata
-              Row(
-                children: [
-                  _buildBadge(
-                    'TMDB ${featuredMovies[_currentIndex].voteAverage.toStringAsFixed(1)}', 
-                    Colors.amber, 
-                    Icons.star
-                  ),
-                  const SizedBox(width: 12),
-                  _buildBadge(
-                    featuredMovies[_currentIndex].releaseDate.take(4), 
-                    Colors.white70, 
-                    Icons.calendar_today
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Buttons
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _navigateToDetails(featuredMovies[_currentIndex]),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: const Text('Play Now'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurpleAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 8,
-                      shadowColor: Colors.deepPurpleAccent.withValues(alpha: 0.5),
+          // Content overlay
+          Positioned(
+            bottom: AppSpacing.xl,
+            left: isMobile ? AppSpacing.xl : 60,
+            right: isMobile ? AppSpacing.xl : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title
+                SizedBox(
+                  width: isMobile ? null : screenWidth * 0.45,
+                  child: Text(
+                    featuredMovies[_currentIndex].title,
+                    style: TextStyle(
+                      fontSize: isMobile ? 28 : 48,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                      height: 1.1,
+                      letterSpacing: -0.5,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 24.0,
+                          color: Colors.black.withValues(alpha: 0.6),
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () {}, // TODO: Add to list
-                    icon: const Icon(Icons.add_rounded, size: 24),
-                    label: const Text('My List'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white24, width: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      backgroundColor: Colors.black.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        // Indicators
-        Positioned(
-          bottom: 20,
-          right: 40,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: featuredMovies.asMap().entries.map((entry) {
-              return GestureDetector(
-                onTap: () => _carouselController.animateToPage(entry.key),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: _currentIndex == entry.key ? 24.0 : 8.0,
-                  height: 8.0,
-                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: _currentIndex == entry.key 
-                        ? Colors.deepPurpleAccent 
-                        : Colors.white.withValues(alpha: 0.2),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              );
-            }).toList(),
+                const SizedBox(height: AppSpacing.md),
+
+                // Metadata badges
+                Row(
+                  children: [
+                    _buildBadge(
+                      '${featuredMovies[_currentIndex].voteAverage.toStringAsFixed(1)}',
+                      Colors.amber,
+                      Icons.star_rounded,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    _buildBadge(
+                      featuredMovies[_currentIndex].releaseDate.take(4),
+                      AppTheme.textSecondary,
+                      Icons.calendar_today_rounded,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+
+                // Action buttons
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _navigateToDetails(featuredMovies[_currentIndex]),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                      label: const Text('Play Now'),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: const Text('My List'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
+
+          // Page indicators
+          Positioned(
+            bottom: AppSpacing.sm,
+            right: 40,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: featuredMovies.asMap().entries.map((entry) {
+                final isActive = _currentIndex == entry.key;
+                return GestureDetector(
+                  onTap: () => _carouselController.animateToPage(entry.key),
+                  child: AnimatedContainer(
+                    duration: AppDurations.normal,
+                    width: isActive ? 24.0 : 8.0,
+                    height: 4.0,
+                    margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
+                      color: isActive ? primary : AppTheme.textDisabled.withValues(alpha: 0.3),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBadge(String text, Color color, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
+        color: AppTheme.overlay.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             text,
             style: TextStyle(
               color: color,
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

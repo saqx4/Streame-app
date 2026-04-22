@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import '../error/either.dart';
 import '../error/failures.dart';
 import '../error/error_handler.dart';
 
 /// Utility class for retrying failed operations with exponential backoff
 class RetryHelper {
-  static const ErrorHandler _errorHandler = ErrorHandler();
+  static final ErrorHandler _errorHandler = ErrorHandler();
 
   /// Retry a function that returns a Future with exponential backoff
   /// 

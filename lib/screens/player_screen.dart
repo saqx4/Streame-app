@@ -5,7 +5,7 @@ import 'package:streame/models/stream_source.dart';
 import '../services/external_player_service.dart';
 import '../api/settings_service.dart';
 import 'player/mobile_player_screen.dart';
-import 'player/desktop_player_screen.dart';
+import 'player/simple_desktop_player.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String streamUrl;
@@ -163,7 +163,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         providers: widget.providers,
       );
     } else {
-      return DesktopPlayerScreen(
+      return SimpleDesktopPlayerScreen(
         mediaPath: widget.streamUrl,
         title: widget.title,
         audioUrl: widget.audioUrl,

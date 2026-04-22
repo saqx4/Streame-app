@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,6 @@ import 'discover_screen.dart';
 import 'search_screen.dart';
 import 'my_list_screen.dart';
 import 'settings_screen.dart';
-import 'anime_screen.dart';
 import 'magnet_player_screen.dart';
 import '../utils/app_theme.dart';
 import '../api/settings_service.dart';
@@ -43,7 +41,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     'search':       {'icon': Icons.search,                      'active': Icons.search,                  'label': 'Search'},
     'mylist':       {'icon': Icons.bookmark_outline,            'active': Icons.bookmark,                'label': 'My List'},
     'magnet':       {'icon': Icons.link_rounded,                'active': Icons.link_rounded,            'label': 'Magnet'},
-    'anime':        {'icon': Icons.play_circle_outline,         'active': Icons.play_circle_filled,      'label': 'Anime'},
     'settings':     {'icon': Icons.settings_outlined,           'active': Icons.settings,                'label': 'Settings'},
   };
 
@@ -63,7 +60,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       'search':       const SearchScreen(),
       'mylist':       const MyListScreen(),
       'magnet':       const MagnetPlayerScreen(),
-      'anime':        const AnimeScreen(),
       'settings':     const SettingsScreen(),
     };
 
@@ -173,11 +169,19 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
       body: Row(
         children: [
-          _buildProfessionalSideRail(),
+          if (!isMobile) _ModernSideRail(
+            visibleIds: _visibleIds,
+            selectedIndex: _selectedIndex,
+            navMeta: _navMeta,
+            onItemTapped: _onItemTapped,
+          ),
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
@@ -186,75 +190,269 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           ),
         ],
       ),
+      bottomNavigationBar: isMobile ? _ModernBottomNav(
+        visibleIds: _visibleIds,
+        selectedIndex: _selectedIndex,
+        navMeta: _navMeta,
+        onItemTapped: _onItemTapped,
+      ) : null,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MODERN SIDE RAIL — collapsible, hover-to-expand (Netflix/OSN+ style)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ModernSideRail extends StatefulWidget {
+  final List<String> visibleIds;
+  final int selectedIndex;
+  final Map<String, Map<String, dynamic>> navMeta;
+  final ValueChanged<int> onItemTapped;
+
+  const _ModernSideRail({
+    required this.visibleIds,
+    required this.selectedIndex,
+    required this.navMeta,
+    required this.onItemTapped,
+  });
+
+  @override
+  State<_ModernSideRail> createState() => _ModernSideRailState();
+}
+
+class _ModernSideRailState extends State<_ModernSideRail> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final collapsedWidth = 72.0;
+    final expandedWidth = 200.0;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isExpanded = true),
+      onExit: (_) => setState(() => _isExpanded = false),
+      child: AnimatedContainer(
+        duration: AppDurations.normal,
+        curve: Curves.easeOutCubic,
+        clipBehavior: Clip.hardEdge,
+        width: _isExpanded ? expandedWidth : collapsedWidth,
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceDim,
+          border: Border(right: BorderSide(color: AppTheme.border, width: 1)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+            // App branding
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: _buildBranding(),
+            ),
+            const SizedBox(height: 8),
+            // Nav items
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 12 : 10),
+                itemCount: widget.visibleIds.length,
+                itemBuilder: (context, index) {
+                  final id = widget.visibleIds[index];
+                  final meta = widget.navMeta[id]!;
+                  final isSelected = widget.selectedIndex == index;
+                  return _buildNavItem(
+                    id: id,
+                    meta: meta,
+                    isSelected: isSelected,
+                    index: index,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildProfessionalSideRail() {
-    return Container(
-      width: 80,
+  Widget _buildBranding() {
+    return AnimatedContainer(
+      duration: AppDurations.normal,
+      padding: EdgeInsets.all(_isExpanded ? 10 : 10),
       decoration: BoxDecoration(
-        color: AppTheme.bgDark,
-        border: Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 1)),
+        color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 48),
-          // App Icon / Branding
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+          Icon(Icons.play_arrow_rounded, color: AppTheme.current.primaryColor, size: 28),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: AnimatedOpacity(
+                duration: AppDurations.fast,
+                opacity: _isExpanded ? 1.0 : 0.0,
+                child: Text(
+                  'STREAME',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                    color: AppTheme.current.primaryColor,
+                  ),
+                  overflow: TextOverflow.clip,
+                  maxLines: 1,
+                ),
+              ),
             ),
-            child: Icon(Icons.movie_filter_rounded, color: AppTheme.primaryColor, size: 28),
           ),
-          const SizedBox(height: 48),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _visibleIds.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemBuilder: (context, index) {
-                final id = _visibleIds[index];
-                final meta = _navMeta[id]!;
-                final isSelected = _selectedIndex == index;
+        ],
+      ),
+    );
+  }
 
-                return FocusableControl(
-                  onTap: () => _onItemTapped(index),
-                  borderRadius: 12,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
-                          color: isSelected ? AppTheme.primaryColor : Colors.white38,
-                          size: 24,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          meta['label'] as String,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? Colors.white : Colors.white24,
-                          ),
-                        ),
-                      ],
+  Widget _buildNavItem({
+    required String id,
+    required Map<String, dynamic> meta,
+    required bool isSelected,
+    required int index,
+  }) {
+    final activeColor = AppTheme.current.primaryColor;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: FocusableControl(
+        onTap: () => widget.onItemTapped(index),
+        borderRadius: AppRadius.md,
+        glowColor: activeColor,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isSelected ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 4),
+              // Active indicator bar
+              AnimatedContainer(
+                duration: AppDurations.fast,
+                width: 3,
+                height: isSelected ? 24 : 0,
+                decoration: BoxDecoration(
+                  color: isSelected ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
+                color: isSelected ? activeColor : AppTheme.textDisabled,
+                size: 22,
+              ),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: AnimatedOpacity(
+                    duration: AppDurations.fast,
+                    opacity: _isExpanded ? 1.0 : 0.0,
+                    child: Text(
+                      meta['label'] as String,
+                      overflow: TextOverflow.clip,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MODERN BOTTOM NAV — pill indicator, clean icons (mobile)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ModernBottomNav extends StatelessWidget {
+  final List<String> visibleIds;
+  final int selectedIndex;
+  final Map<String, Map<String, dynamic>> navMeta;
+  final ValueChanged<int> onItemTapped;
+
+  const _ModernBottomNav({
+    required this.visibleIds,
+    required this.selectedIndex,
+    required this.navMeta,
+    required this.onItemTapped,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = AppTheme.current.primaryColor;
+
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceDim,
+        border: Border(top: BorderSide(color: AppTheme.border, width: 1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(visibleIds.length, (index) {
+          final id = visibleIds[index];
+          final meta = navMeta[id]!;
+          final isSelected = selectedIndex == index;
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onItemTapped(index),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Active pill indicator
+                  AnimatedContainer(
+                    duration: AppDurations.fast,
+                    width: isSelected ? 24 : 0,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: isSelected ? activeColor : Colors.transparent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Icon(
+                    isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
+                    color: isSelected ? activeColor : AppTheme.textDisabled,
+                    size: 22,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    meta['label'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? AppTheme.textPrimary : AppTheme.textDisabled,
+                      letterSpacing: isSelected ? 0.3 : 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

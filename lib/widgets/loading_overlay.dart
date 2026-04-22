@@ -39,86 +39,80 @@ class _LoadingOverlayState extends State<LoadingOverlay> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+
     return Material(
-      color: Colors.black,
+      color: AppTheme.bgDark,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Blurred Backdrop
+          // Blurred backdrop
           CachedNetworkImage(
             imageUrl: TmdbApi.getBackdropUrl(widget.movie.backdropPath),
             fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.black),
-            errorWidget: (context, url, error) => Container(color: Colors.black),
+            placeholder: (_, __) => Container(color: AppTheme.bgDark),
+            errorWidget: (_, __, ___) => Container(color: AppTheme.bgDark),
           ),
           if (AppTheme.isLightMode)
-            Container(color: Colors.black.withValues(alpha: 0.8))
+            Container(color: AppTheme.bgDark.withValues(alpha: 0.85))
           else
             BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.6)),
+              child: Container(color: AppTheme.bgDark.withValues(alpha: 0.65)),
             ),
-          
-          // Logo/Title (Restored clear logo logic)
+
+          // Logo / Title
           Center(
             child: FadeTransition(
               opacity: _animation,
               child: widget.movie.logoPath.isNotEmpty
                   ? CachedNetworkImage(
                       imageUrl: TmdbApi.getImageUrl(widget.movie.logoPath),
-                      width: MediaQuery.of(context).size.width * 0.6,
+                      width: MediaQuery.of(context).size.width * 0.55,
                       fit: BoxFit.contain,
                     )
                   : Text(
                       widget.movie.title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        fontFamily: 'Poppins',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
             ),
           ),
-          
+
           // Status
           Positioned(
             bottom: 80,
-            left: 0,
-            right: 0,
+            left: 0, right: 0,
             child: Column(
               children: [
-                const CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 3),
-                const SizedBox(height: 32),
+                SizedBox(
+                  width: 36, height: 36,
+                  child: CircularProgressIndicator(color: primary, strokeWidth: 3),
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 Text(
                   widget.message?.toUpperCase() ?? 'STARTING STREAM',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                    fontFamily: 'Poppins',
+                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 3,
                   ),
                 ),
                 if (widget.onCancel != null) ...[
-                  const SizedBox(height: 24),
-                  TextButton(
+                  const SizedBox(height: AppSpacing.xl),
+                  OutlinedButton(
                     onPressed: widget.onCancel,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white.withValues(alpha: 0.7),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                      ),
-                    ),
-                    child: const Text('CANCEL', style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                      fontFamily: 'Poppins',
+                    child: Text('CANCEL', style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
+                      color: AppTheme.textSecondary,
                     )),
                   ),
                 ],

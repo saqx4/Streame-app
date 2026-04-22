@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/settings_service.dart';
 import '../../api/torrent_stream_service.dart';
 import '../../api/tmdb_api.dart';
-import '../../api/tmdb_service.dart';
 import '../../services/player_pool_service.dart';
 import '../../services/watch_history_service.dart';
 import '../../services/my_list_service.dart';

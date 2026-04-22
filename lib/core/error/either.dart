@@ -32,7 +32,7 @@ class Either<L, R> {
   }
 
   /// Chain operations that may fail
-  Either<L, R2> flatMap<L2, R2>(Either<L2, R2> Function(R) f) {
+  Either<L, R2> flatMap<R2>(Either<L, R2> Function(R) f) {
     if (isRight()) {
       return f(_right!);
     }
@@ -50,6 +50,3 @@ class Either<L, R> {
     return onRight(_right!);
   }
 }
-
-/// Type alias for common failure pattern
-typedef Result<T> = Either<Failure, T>;

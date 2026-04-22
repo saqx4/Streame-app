@@ -59,6 +59,46 @@ class TmdbApi {
     }
   }
 
+  Future<List<Movie>> getTrendingTv() async {
+    final response = await http.get(Uri.parse('$_baseUrl/trending/tv/day?api_key=$_apiKey'));
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return (decoded['results'] as List).map((json) => Movie.fromJson(json, mediaType: 'tv')).toList();
+    } else {
+      throw Exception('Failed to load trending TV shows');
+    }
+  }
+
+  Future<List<Movie>> getPopularTv() async {
+    final response = await http.get(Uri.parse('$_baseUrl/tv/popular?api_key=$_apiKey'));
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return (decoded['results'] as List).map((json) => Movie.fromJson(json, mediaType: 'tv')).toList();
+    } else {
+      throw Exception('Failed to load popular TV shows');
+    }
+  }
+
+  Future<List<Movie>> getTopRatedTv() async {
+    final response = await http.get(Uri.parse('$_baseUrl/tv/top_rated?api_key=$_apiKey'));
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return (decoded['results'] as List).map((json) => Movie.fromJson(json, mediaType: 'tv')).toList();
+    } else {
+      throw Exception('Failed to load top rated TV shows');
+    }
+  }
+
+  Future<List<Movie>> getAiringTodayTv() async {
+    final response = await http.get(Uri.parse('$_baseUrl/tv/airing_today?api_key=$_apiKey'));
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return (decoded['results'] as List).map((json) => Movie.fromJson(json, mediaType: 'tv')).toList();
+    } else {
+      throw Exception('Failed to load TV shows airing today');
+    }
+  }
+
   Future<List<String>> getBackdrops(int movieId) async {
     final response = await http.get(Uri.parse('$_baseUrl/movie/$movieId/images?api_key=$_apiKey'));
     if (response.statusCode == 200) {

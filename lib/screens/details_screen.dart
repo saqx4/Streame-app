@@ -77,6 +77,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   Map<String, dynamic>? _seasonData;
   bool _isLoadingSeason = false;
 
+  /// Incremented each time a new stream fetch is triggered; stale async results are discarded.
+  int _fetchGeneration = 0;
+
   // Episode watched tracking
   final EpisodeWatchedService _episodeWatchedService = EpisodeWatchedService();
   Set<String> _watchedEpisodes = {};
@@ -162,11 +165,6 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   Future<void> _loadWatchedEpisodes() async {
     final set = await _episodeWatchedService.getWatchedSet(_movie.id);
     if (mounted) setState(() => _watchedEpisodes = set);
-  }
-
-  Future<void> _toggleEpisodeWatched(int season, int episode) async {
-    await _episodeWatchedService.toggle(_movie.id, season, episode);
-    await _loadWatchedEpisodes();
   }
 
   Future<void> _loadSortPreference() async {
@@ -392,76 +390,6 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     } catch (_) {}
   }
 
-  Future<void> _rateSimklItem(int rating) async {
-    final success = await SimklService().addRating(
-      tmdbId: _movie.id,
-      mediaType: _movie.mediaType,
-      rating: rating,
-    );
-    if (success && mounted) setState(() => _userSimklRating = rating);
-  }
-
-  Future<void> _removeSimklRating() async {
-    final success = await SimklService().removeRating(
-      tmdbId: _movie.id,
-      mediaType: _movie.mediaType,
-    );
-    if (success && mounted) setState(() => _userSimklRating = null);
-  }
-
-  void _showSimklRatingDialog() {
-    int selected = _userSimklRating ?? 5;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2E),
-          title: const Text('Rate on Simkl', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(10, (i) {
-                  final val = i + 1;
-                  return GestureDetector(
-                    onTap: () => setDialogState(() => selected = val),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 1),
-                      child: Icon(
-                        val <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: const Color(0xFF0BF5E5),
-                        size: 28,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 8),
-              Text('$selected / 10',
-                style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          actions: [
-            if (_userSimklRating != null)
-              TextButton(
-                onPressed: () { Navigator.pop(ctx); _removeSimklRating(); },
-                child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-            ),
-            TextButton(
-              onPressed: () { Navigator.pop(ctx); _rateSimklItem(selected); },
-              child: const Text('Rate', style: TextStyle(color: Color(0xFF0BF5E5))),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ─── Trakt collection ─────────────────────────────────────────────────────
 
   Future<void> _fetchTraktCollectionStatus() async {
@@ -531,10 +459,10 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2E),
-          title: const Text('Check-in Failed', style: TextStyle(color: Colors.white)),
-          content: const Text(
+          title: Text('Check-in Failed', style: TextStyle(color: AppTheme.textPrimary)),
+          content: Text(
             'You may already have an active check-in.\nCancel existing and retry?',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
@@ -582,7 +510,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Add to Trakt List', style: TextStyle(color: Colors.white)),
+        title: Text('Add to Trakt List', style: TextStyle(color: AppTheme.textPrimary)),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -593,8 +521,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               final name = list['name']?.toString() ?? 'Untitled';
               final count = list['item_count'] ?? 0;
               return ListTile(
-                title: Text(name, style: const TextStyle(color: Colors.white)),
-                subtitle: Text('$count items', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                title: Text(name, style: TextStyle(color: AppTheme.textPrimary)),
+                subtitle: Text('$count items', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
                 onTap: () => Navigator.pop(ctx, list),
               );
             },
@@ -629,7 +557,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2E),
-          title: const Text('Rate on Trakt', style: TextStyle(color: Colors.white)),
+          title: Text('Rate on Trakt', style: TextStyle(color: AppTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -652,7 +580,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               ),
               const SizedBox(height: 8),
               Text('$selected / 10',
-                style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
             ],
           ),
           actions: [
@@ -663,7 +591,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: Text('Cancel', style: TextStyle(color: AppTheme.textDisabled)),
             ),
             TextButton(
               onPressed: () { Navigator.pop(ctx); _rateTraktItem(selected); },
@@ -839,6 +767,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
   /// updating the UI incrementally as each addon responds.
   Future<void> _fetchAllStremioStreams() async {
     if (_streamAddons.isEmpty) return;
+    final gen = ++_fetchGeneration;
     setState(() {
       _isStremioFetching = true;
       _errorMessage = null;
@@ -860,7 +789,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       for (final addon in _streamAddons) {
         // Fire each addon fetch independently — don't await here
         _stremio.getStreams(baseUrl: addon['baseUrl'], type: type, id: stremioId).then((streams) {
-          if (!mounted) return;
+          if (!mounted || gen != _fetchGeneration) return;
           final tagged = streams.map((s) {
             if (s is Map<String, dynamic>) {
               return <String, dynamic>{
@@ -884,7 +813,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         }).catchError((_) {
           // No-op: don't show chip for errored addons
         }).whenComplete(() {
-          if (!mounted) return;
+          if (!mounted || gen != _fetchGeneration) return;
           pendingCount--;
           if (pendingCount <= 0) {
             setState(() {
@@ -1338,8 +1267,11 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
 
     if (stream['url'] != null) {
       if (!mounted) return;
+      final playTitle = _movie.mediaType == 'tv'
+          ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode'
+          : _movie.title;
       Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(
-        streamUrl: stream['url'], title: _movie.title,
+        streamUrl: stream['url'], title: playTitle,
         headers: Map<String, String>.from(stream['behaviorHints']?['proxyHeaders']?['request'] ?? {}),
         movie: _movie,
         selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
@@ -1420,8 +1352,11 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       if (_streamCancelled) return;
       if (navigator.canPop()) navigator.pop();
       if (url != null && mounted) {
+        final playTitle = _movie.mediaType == 'tv'
+            ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode'
+            : _movie.title;
         Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(
-          streamUrl: url!, title: _movie.title, magnetLink: magnet, movie: _movie,
+          streamUrl: url!, title: playTitle, magnetLink: magnet, movie: _movie,
           selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
           selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
           fileIndex: resolvedFileIndex,
@@ -1586,8 +1521,11 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     if (Navigator.canPop(context)) Navigator.pop(context);
 
     if (url != null) {
+      final playTitle = _movie.mediaType == 'tv'
+          ? '${_movie.title} - S$_selectedSeason E$_selectedEpisode'
+          : result.name;
       Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(
-        streamUrl: url!, title: result.name, magnetLink: magnetLink, movie: _movie,
+        streamUrl: url!, title: playTitle, magnetLink: magnetLink, movie: _movie,
         selectedSeason: _movie.mediaType == 'tv' ? _selectedSeason : null,
         selectedEpisode: _movie.mediaType == 'tv' ? _selectedEpisode : null,
         fileIndex: resolvedFileIndex,
@@ -1606,7 +1544,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       return Scaffold(
         body: Stack(fit: StackFit.expand, children: [
           _buildBackdropWidget(),
-          const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+          Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor)),
         ]),
       );
     }
@@ -1643,9 +1581,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             child: FocusableControl(
               onTap: () => Navigator.of(context).pop(),
               borderRadius: 50,
-              child: const CircleAvatar(
+              child: CircleAvatar(
                 backgroundColor: Colors.black54,
-                child: Icon(Icons.arrow_back, color: Colors.white),
+                child: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
               ),
             ),
           ),
@@ -1682,15 +1620,15 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     final r = _mdblistRatings;
     final chips = <Widget>[];
 
-    Widget ratingChip(String label, dynamic value, {Color color = Colors.white70, String? icon}) {
+    Widget ratingChip(String label, dynamic value, {Color color = const Color(0xFFB0B0C0), String? icon}) {
       if (value == null || value == 0) return const SizedBox.shrink();
       final display = value is double ? value.toStringAsFixed(1) : value.toString();
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: AppTheme.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1701,7 +1639,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             ],
             Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
             const SizedBox(width: 6),
-            Text(display, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(display, style: TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -1742,7 +1680,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             color = const Color(0xFF01B4E4);
           default:
             label = source.toUpperCase();
-            color = Colors.white60;
+            color = AppTheme.textDisabled;
         }
         chips.add(ratingChip(label, value, color: color));
       }
@@ -1752,9 +1690,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       chips.add(Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFED1C24).withValues(alpha: 0.1),
+          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFED1C24).withValues(alpha: 0.2)),
+          border: Border.all(color: AppTheme.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1762,7 +1700,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             const Icon(Icons.star_rounded, color: Color(0xFFED1C24), size: 14),
             const SizedBox(width: 4),
             Text('Trakt: $_userTraktRating/10',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ));
@@ -1772,17 +1710,17 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       chips.add(Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+          border: Border.all(color: AppTheme.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star_rounded, color: AppTheme.primaryColor, size: 14),
+            Icon(Icons.star_rounded, color: AppTheme.textPrimary, size: 14),
             const SizedBox(width: 4),
             Text('Simkl: $_userSimklRating/10',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ));
@@ -1846,22 +1784,22 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+          color: active ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: active ? AppTheme.primaryColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
+            color: active ? AppTheme.primaryColor.withValues(alpha: 0.4) : AppTheme.border,
             width: 1.2,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: active ? Colors.white : Colors.white70, size: 18),
+            Icon(icon, color: active ? AppTheme.textPrimary : AppTheme.textSecondary, size: 18),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: active ? Colors.white : Colors.white70,
+                color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -1932,8 +1870,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   const SizedBox(height: 20),
                   _buildEpisodeSelector(),
                   const SizedBox(height: 8),
-                  const Text('← → Episodes  |  ↑ ↓ Season',
-                    style: TextStyle(color: Colors.white24, fontSize: 10)),
+                  Text('← → Episodes  |  ↑ ↓ Season',
+                    style: TextStyle(color: AppTheme.textDisabled, fontSize: 10)),
                   const SizedBox(height: 24),
                 ],
                 if (!_isCollection) ...[
@@ -1974,8 +1912,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.5),
-                    Colors.black,
+                    AppTheme.bgDark.withValues(alpha: 0.5),
+                    AppTheme.bgDark,
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
@@ -2016,13 +1954,13 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(_movie.title,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold,
-                          color: Colors.white, height: 1.1),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary, height: 1.1),
                         maxLines: 3, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
                       Row(children: [
                         Text(_movie.releaseDate.take(4),
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14)),
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
                         const SizedBox(width: 12),
                         const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
                         const SizedBox(width: 4),
@@ -2056,7 +1994,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
             child: _buildDesktopLeftPanel(),
           ),
         ),
-        Container(width: 1, color: Colors.white.withValues(alpha: 0.05)),
+        Container(width: 1, color: AppTheme.border),
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -2100,14 +2038,14 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         ),
         const SizedBox(height: 24),
         Text(_movie.title,
-          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold,
-            color: Colors.white, height: 1.1, letterSpacing: -0.5)),
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary, height: 1.1, letterSpacing: -0.5)),
         const SizedBox(height: 12),
         Row(children: [
           Text(_movie.releaseDate.take(4),
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16)),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
           const SizedBox(width: 12),
-          const Text('·', style: TextStyle(color: Colors.white24)),
+          Text('·', style: TextStyle(color: AppTheme.textDisabled)),
           const SizedBox(width: 12),
           const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
           const SizedBox(width: 6),
@@ -2125,7 +2063,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         _buildActionButtons(),
         const SizedBox(height: 24),
         Text(_movie.overview,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 15, height: 1.6)),
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 15, height: 1.6)),
         const SizedBox(height: 32),
         // Collection items display
         if (_isCollection && _collectionItems.isNotEmpty) ...[
@@ -2149,9 +2087,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'This is a collection. Select an item from the list to view details and streams.',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
         ],
       );
@@ -2162,19 +2100,19 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       children: [
         if (_movie.mediaType == 'tv') ...[
           _buildSeasonSelector(),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _buildEpisodeSelector(),
-          const SizedBox(height: 8),
-          const Text('← → Navigate Episodes  |  ↑ ↓ Change Season',
-            style: TextStyle(color: Colors.white24, fontSize: 11)),
-          const SizedBox(height: 24),
+          SizedBox(height: 8),
+          Text('← → Navigate Episodes  |  ↑ ↓ Change Season',
+            style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+          SizedBox(height: 24),
         ],
         _buildSourceToggle(),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         _buildSourceChips(),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         _buildResultsHeader(),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _buildStreamList(),
       ],
     );
@@ -2200,15 +2138,15 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(children: [
-              const Icon(Icons.layers_outlined, color: Colors.white54, size: 16),
-              const SizedBox(width: 6),
-              const Text('Seasons', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+              Icon(Icons.layers_outlined, color: AppTheme.textSecondary, size: 16),
+              SizedBox(width: 6),
+              Text('Seasons', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
             ]),
             Row(children: [
               _scrollArrow(Icons.arrow_back_ios_rounded, () => _seasonScrollController.animateTo(
-                _seasonScrollController.offset - 160, duration: const Duration(milliseconds: 280), curve: Curves.easeInOut)),
+                _seasonScrollController.offset - 160, duration: Duration(milliseconds: 280), curve: Curves.easeInOut)),
               _scrollArrow(Icons.arrow_forward_ios_rounded, () => _seasonScrollController.animateTo(
-                _seasonScrollController.offset + 160, duration: const Duration(milliseconds: 280), curve: Curves.easeInOut)),
+                _seasonScrollController.offset + 160, duration: Duration(milliseconds: 280), curve: Curves.easeInOut)),
             ]),
           ],
         ),
@@ -2242,13 +2180,13 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: sel ? Colors.white : Colors.transparent,
+                    color: sel ? AppTheme.textPrimary : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: sel ? Colors.white : Colors.white30, width: 1.2),
+                    border: Border.all(color: sel ? AppTheme.textPrimary : AppTheme.border, width: 1.2),
                   ),
                   child: Text('Season $n',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                      color: sel ? Colors.black : Colors.white70)),
+                      color: sel ? AppTheme.bgDark : AppTheme.textSecondary)),
                 ),
               );
             },
@@ -2264,8 +2202,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
 
   Widget _buildEpisodeSelector() {
     if (_isLoadingSeason) {
-      return const SizedBox(height: 160,
-        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2)));
+      return SizedBox(height: 160,
+        child: Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor, strokeWidth: 2)));
     }
     
     // Handle both TMDB format (_seasonData['episodes']) and custom ID format (_seasonData['episodesBySeason'])
@@ -2339,10 +2277,10 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   duration: const Duration(milliseconds: 200),
                   width: 240,
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.03),
+                    color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.1) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.05),
+                      color: isSelected ? AppTheme.current.primaryColor : AppTheme.border,
                       width: 1.5,
                     ),
                   ),
@@ -2369,7 +2307,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.8),
+                                  AppTheme.bgDark.withValues(alpha: 0.8),
                                 ],
                               ),
                             ),
@@ -2384,7 +2322,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                 color: Colors.green.withValues(alpha: 0.8),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text('WATCHED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                              child: Text('WATCHED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                             ),
                           ),
                         Positioned(
@@ -2395,7 +2333,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                               Text(
                                 'EP $epNum',
                                 style: TextStyle(
-                                  color: isSelected ? AppTheme.primaryColor : Colors.white60,
+                                  color: isSelected ? AppTheme.current.primaryColor : AppTheme.textSecondary,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -2405,8 +2343,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                 name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: AppTheme.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2415,9 +2353,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                           ),
                         ),
                         if (isSelected)
-                          const Positioned(
+                          Positioned(
                             top: 8, right: 8,
-                            child: Icon(Icons.play_circle_fill, color: Colors.white, size: 24),
+                            child: Icon(Icons.play_circle_fill, color: AppTheme.textPrimary, size: 24),
                           ),
                       ],
                     ),
@@ -2444,9 +2382,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     final isTorrent = _isTorrentSource;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: AppTheme.border),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -2479,14 +2417,14 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor : Colors.transparent,
+          color: selected ? AppTheme.current.primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(children: [
-          Icon(icon, size: 14, color: selected ? Colors.white : Colors.white54),
+          Icon(icon, size: 14, color: selected ? AppTheme.textPrimary : AppTheme.textSecondary),
           const SizedBox(width: 5),
           Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.white54)),
+            color: selected ? AppTheme.textPrimary : AppTheme.textSecondary)),
         ]),
       ),
     );
@@ -2551,13 +2489,13 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
-                  color: sel ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.07),
+                  color: sel ? AppTheme.current.primaryColor : AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: sel ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.2)),
+                  border: Border.all(color: sel ? AppTheme.current.primaryColor : AppTheme.border),
                 ),
                 child: Text(chip['label'] as String,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                    color: sel ? Colors.white : Colors.white.withValues(alpha: 0.6))),
+                    color: sel ? AppTheme.textPrimary : AppTheme.textSecondary)),
               ),
             ),
           );
@@ -2581,35 +2519,35 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     }
     return Row(
       children: [
-        const Icon(Icons.download_rounded, color: Colors.white54, size: 16),
+        Icon(Icons.download_rounded, color: AppTheme.textSecondary, size: 16),
         const SizedBox(width: 6),
-        const Text('Available Sources',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+        Text('Available Sources',
+          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
         if (epLabel != null) ...[
           const SizedBox(width: 6),
-          Text('— $epLabel', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+          Text('— $epLabel', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
         ],
         if (_isSearching || _isStremioFetching) ...[
           const SizedBox(width: 8),
-          const SizedBox(width: 12, height: 12,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)),
+          SizedBox(width: 12, height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.current.primaryColor)),
         ],
         const Spacer(),
         if (showSort)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white12),
+              color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: AppTheme.border),
             ),
             child: DropdownButton<String>(
               value: _sortPreference,
               isDense: true,
               underline: const SizedBox.shrink(),
-              dropdownColor: const Color(0xFF0F0F2D),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 16),
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              dropdownColor: AppTheme.surfaceContainer,
+              icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textSecondary, size: 16),
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
               items: [
                 'Seeders (High to Low)', 'Seeders (Low to High)',
                 'Quality (High to Low)', 'Quality (Low to High)',
@@ -2642,7 +2580,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         await showMenu(
           context: context,
           position: position,
-          color: const Color(0xFF0F0F2D),
+          color: AppTheme.surfaceContainer,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           items: [
             PopupMenuItem(
@@ -2661,20 +2599,20 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: active
-              ? AppTheme.primaryColor.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(8),
+              ? AppTheme.current.primaryColor.withValues(alpha: 0.18)
+              : AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           border: Border.all(
-            color: active ? AppTheme.primaryColor.withValues(alpha: 0.6) : Colors.white12,
+            color: active ? AppTheme.current.primaryColor.withValues(alpha: 0.6) : AppTheme.border,
           ),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.graphic_eq,
               size: 14,
-              color: active ? AppTheme.primaryColor : Colors.white54),
+              color: active ? AppTheme.current.primaryColor : AppTheme.textSecondary),
           if (active) ...[const SizedBox(width: 4),
             Text('${_activeAudioFilters.length}',
-                style: TextStyle(color: AppTheme.primaryColor, fontSize: 11,
+                style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11,
                     fontWeight: FontWeight.bold))],
         ]),
       ),
@@ -2700,7 +2638,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
           : 'No streams found';
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text(msg, style: const TextStyle(color: Colors.white38))),
+        child: Center(child: Text(msg, style: TextStyle(color: AppTheme.textDisabled))),
       );
     }
     return ListView.separated(
@@ -2781,10 +2719,10 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       borderRadius: 10,
       child: Container(
         decoration: BoxDecoration(
-          color: (isResumable || widget.startPosition != null) ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.04),
+          color: (isResumable || widget.startPosition != null) ? AppTheme.current.primaryColor.withValues(alpha: 0.08) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isResumable
-              ? AppTheme.primaryColor.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.07)),
+              ? AppTheme.current.primaryColor.withValues(alpha: 0.35) : AppTheme.border),
         ),
         child: Stack(children: [
           Padding(
@@ -2809,10 +2747,10 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (isResumable)
-                        const Text('RESUME', style: TextStyle(color: AppTheme.primaryColor,
+                        Text('RESUME', style: TextStyle(color: AppTheme.primaryColor,
                           fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                       Text(result.name, maxLines: 3, overflow: TextOverflow.visible,
-                        style: const TextStyle(color: Colors.white, fontSize: 12,
+                        style: TextStyle(color: AppTheme.textPrimary, fontSize: 12,
                           height: 1.35, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 4),
                       Wrap(
@@ -2823,7 +2761,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                             const SizedBox(width: 2),
                             Text(result.seeders, style: const TextStyle(color: Color(0xFF22C55E), fontSize: 11)),
                           ]),
-                          Text(result.size, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                          Text(result.size, style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                           if (tracker.isNotEmpty)
                             Text(tracker, style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 11),
                               maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -2917,11 +2855,11 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         decoration: BoxDecoration(
           color: isExternal
               ? leadingColor.withValues(alpha: 0.06)
-              : ((isResumable || widget.startPosition != null) ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.04)),
+              : ((isResumable || widget.startPosition != null) ? AppTheme.current.primaryColor.withValues(alpha: 0.08) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.15)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isExternal
               ? leadingColor.withValues(alpha: 0.25)
-              : (isResumable ? AppTheme.primaryColor.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.07))),
+              : (isResumable ? AppTheme.current.primaryColor.withValues(alpha: 0.35) : AppTheme.border)),
         ),
         child: Stack(children: [
           Padding(
@@ -2938,12 +2876,12 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     Text(addonName, style: TextStyle(color: leadingColor.withValues(alpha: 0.7),
                       fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
                   Text(title, maxLines: 4, overflow: TextOverflow.visible,
-                    style: const TextStyle(color: Colors.white, fontSize: 12,
+                    style: TextStyle(color: AppTheme.textPrimary, fontSize: 12,
                       height: 1.35, fontWeight: FontWeight.w500)),
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(description, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                   ],
                 ]),
               ),
@@ -2963,56 +2901,56 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   //  SMALL REUSABLE WIDGETS
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
 
   Widget _sectionLabel(String text) => Text(text,
-    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14));
+    style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 14));
 
   Widget _genreChip(String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white24)),
-    child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)));
+      border: Border.all(color: AppTheme.border)),
+    child: Text(label, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)));
 
   Widget _castChip(String name) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white24)),
-    child: Text(name, style: const TextStyle(color: Colors.white70, fontSize: 12)));
+      border: Border.all(color: AppTheme.border)),
+    child: Text(name, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)));
 
   Widget _qualityBadge(String q, Color c) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(5)),
-    child: Text(q, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)));
+    child: Text(q, style: TextStyle(color: AppTheme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)));
 
   Widget _codecBadge(String codec) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(5),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.2))),
+      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(5),
+      border: Border.all(color: AppTheme.border)),
     child: Text(codec,
-      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w600)));
+      style: TextStyle(color: AppTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)));
 
   Widget _iconBtn(IconData icon, bool highlight, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Container(
       width: 32, height: 32,
       decoration: BoxDecoration(
-        color: highlight ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: highlight ? AppTheme.primaryColor.withValues(alpha: 0.4) : Colors.white12)),
-      child: Icon(icon, size: 17, color: highlight ? AppTheme.primaryColor : Colors.white54)));
+        color: highlight ? AppTheme.current.primaryColor.withValues(alpha: 0.15) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: highlight ? AppTheme.current.primaryColor.withValues(alpha: 0.4) : AppTheme.border)),
+      child: Icon(icon, size: 17, color: highlight ? AppTheme.current.primaryColor : AppTheme.textSecondary)));
 
   Widget _scrollArrow(IconData icon, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Icon(icon, color: Colors.white38, size: 16)));
+      child: Icon(icon, color: AppTheme.textDisabled, size: 16)));
 
   // ═════════════════════════════════════════════════════════════════════════════
   //  DESKTOP CAST ROW
@@ -3054,7 +2992,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                   children: [
                     CircleAvatar(
                       radius: 42,
-                      backgroundColor: Colors.white10,
+                      backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                       backgroundImage: profilePath.isNotEmpty
                           ? CachedNetworkImageProvider(
                               TmdbApi.getProfileUrl(profilePath))
@@ -3062,8 +3000,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                       child: profilePath.isEmpty
                           ? Text(
                               name.isNotEmpty ? name[0].toUpperCase() : '?',
-                              style: const TextStyle(
-                                  color: Colors.white54,
+                              style: TextStyle(
+                                  color: AppTheme.textDisabled,
                                   fontSize: 26,
                                   fontWeight: FontWeight.w600),
                             )
@@ -3075,8 +3013,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 11,
+                      style: TextStyle(
+                          color: AppTheme.textPrimary, fontSize: 11,
                           fontWeight: FontWeight.w600),
                     ),
                     Text(
@@ -3084,8 +3022,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 10),
+                      style: TextStyle(
+                          color: AppTheme.textDisabled, fontSize: 10),
                     ),
                   ],
                 ),
@@ -3104,7 +3042,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
       height: 32,
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: Icon(icon, size: 16, color: Colors.white60),
+        icon: Icon(icon, size: 16, color: AppTheme.textSecondary),
         onPressed: () {
           if (!_castScrollController.hasClients) return;
           final target = (_castScrollController.offset + delta)
@@ -3150,9 +3088,9 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(color: AppTheme.border),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3168,8 +3106,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                           errorWidget: (_, _, _) => Container(
                             width: 120,
                             height: 68,
-                            color: Colors.white.withValues(alpha: 0.1),
-                            child: const Icon(Icons.movie, color: Colors.white24),
+                            color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                            child: Icon(Icons.movie, color: AppTheme.textDisabled),
                           ),
                         ),
                       ),
@@ -3180,8 +3118,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
@@ -3192,8 +3130,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                             const SizedBox(height: 4),
                             Text(
                               ratings,
-                              style: const TextStyle(
-                                color: Colors.white70,
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -3202,8 +3140,8 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                             const SizedBox(height: 4),
                             Text(
                               overview,
-                              style: const TextStyle(
-                                color: Colors.white54,
+                              style: TextStyle(
+                                color: AppTheme.textDisabled,
                                 fontSize: 11,
                               ),
                               maxLines: 2,
@@ -3213,7 +3151,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16),
+                    Icon(Icons.arrow_forward_ios, color: AppTheme.textDisabled, size: 16),
                   ],
                 ),
               ),
@@ -3267,11 +3205,11 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
           children: [
             _sectionLabel('Similar'),
             const SizedBox(height: 12),
-            const SizedBox(
+            SizedBox(
               height: 40,
               child: Center(child: SizedBox(
                 width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.current.primaryColor),
               )),
             ),
           ],
@@ -3335,7 +3273,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                       child: Padding(
                                         padding: const EdgeInsets.all(6),
                                         child: Text(name, textAlign: TextAlign.center,
-                                          style: const TextStyle(fontSize: 10, color: Colors.white38)),
+                                          style: TextStyle(fontSize: 10, color: AppTheme.textDisabled)),
                                       ),
                                     ),
                                   )
@@ -3343,14 +3281,14 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                     child: Padding(
                                       padding: const EdgeInsets.all(6),
                                       child: Text(name, textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 10, color: Colors.white38)),
+                                        style: TextStyle(fontSize: 10, color: AppTheme.textDisabled)),
                                     ),
                                   ),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                       ],
                     ),
                   ),
@@ -3388,9 +3326,9 @@ class _ExpandableSynopsisState extends State<_ExpandableSynopsis> {
           duration: const Duration(milliseconds: 250),
           firstChild: Text(widget.text,
             maxLines: 3, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFFB0B0C0), fontSize: 13.5, height: 1.6)),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.5, height: 1.6)),
           secondChild: Text(widget.text,
-            style: const TextStyle(color: Color(0xFFB0B0C0), fontSize: 13.5, height: 1.6)),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.5, height: 1.6)),
           crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
         ),
         const SizedBox(height: 4),
@@ -3446,13 +3384,13 @@ class _AudioFilterMenuState extends State<_AudioFilterMenu> {
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
               child: Row(
                 children: [
-                  const Icon(Icons.graphic_eq,
-                      size: 14, color: Colors.white54),
+                  Icon(Icons.graphic_eq,
+                      size: 14, color: AppTheme.textDisabled),
                   const SizedBox(width: 6),
-                  const Expanded(
+                  Expanded(
                     child: Text('Audio',
                         style: TextStyle(
-                            color: Colors.white70,
+                            color: AppTheme.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5)),
@@ -3471,7 +3409,7 @@ class _AudioFilterMenuState extends State<_AudioFilterMenu> {
                 ],
               ),
             ),
-            const Divider(color: Colors.white12, height: 8),
+            Divider(color: AppTheme.border, height: 8),
             ...widget.allTags.map((tag) {
               final on = _selected.contains(tag);
               return InkWell(
@@ -3491,19 +3429,19 @@ class _AudioFilterMenuState extends State<_AudioFilterMenu> {
                         color: on ? AppTheme.primaryColor : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: on ? AppTheme.primaryColor : Colors.white30,
+                          color: on ? AppTheme.primaryColor : AppTheme.border,
                           width: 1.5,
                         ),
                       ),
                       child: on
-                          ? const Icon(Icons.check_rounded,
-                              size: 13, color: Colors.white)
+                          ? Icon(Icons.check_rounded,
+                              size: 13, color: AppTheme.textPrimary)
                           : null,
                     ),
                     const SizedBox(width: 10),
                     Text(tag,
                         style: TextStyle(
-                            color: on ? Colors.white : Colors.white60,
+                            color: on ? AppTheme.textPrimary : AppTheme.textDisabled,
                             fontSize: 13)),
                   ]),
                 ),

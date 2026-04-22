@@ -1836,9 +1836,13 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   }
 
   TextStyle _buildSubtitleTextStyle() {
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+    final adjustedSize = isLandscape ? _subtitleSize * 1.2 : _subtitleSize;
+    
     final base = TextStyle(
       height: 1.4,
-      fontSize: _subtitleSize,
+      fontSize: adjustedSize,
       letterSpacing: 0.0,
       wordSpacing: 0.0,
       color: _subtitleColor,
@@ -1976,9 +1980,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   onTap: () async {
                     Navigator.pop(context);
                     if (!isCurrent) {
-                      // Save current position
-                      final currentPos = _positionNotifier.value;
-
                       await _player.open(
                         Media(source.url, httpHeaders: source.headers),
                       );
@@ -2316,7 +2317,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           widget.activeProvider != 'stremio_direct';
       final isStremioDirect = widget.activeProvider == 'stremio_direct';
       final isWebStreamr = widget.activeProvider == 'webstreamr';
-      final isAmri = widget.activeProvider == 'amri';
 
       if (isStremioDirect && widget.stremioAddonBaseUrl != null) {
         // ── Stremio addon: re-fetch streams for next episode ──────────
@@ -2556,8 +2556,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   final lines = snap.data ?? [];
                   final text = lines.where((l) => l.trim().isNotEmpty).join('\n');
                   if (text.isEmpty) return const SizedBox.shrink();
+                  final orientation = MediaQuery.of(context).orientation;
+                  final isLandscape = orientation == Orientation.landscape;
                   return Positioned(
-                    left: 24, right: 24,
+                    left: isLandscape ? 60 : 24,
+                    right: isLandscape ? 60 : 24,
                     bottom: _subtitleBottomPadding,
                     child: IgnorePointer(
                       child: Text(

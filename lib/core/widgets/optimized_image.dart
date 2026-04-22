@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import '../utils/app_theme.dart';
 
 /// Optimized image widget with advanced caching, placeholders, and error handling
 class OptimizedImage extends StatelessWidget {
@@ -89,13 +88,15 @@ class OptimizedImage extends StatelessWidget {
   /// Calculate optimal memory cache width based on device pixel ratio
   int? _calculateMemCacheWidth() {
     if (width == null) return null;
-    return (width! * MediaQueryData.fromWindow(WidgetsBinding.instance.platformDispatcher).devicePixelRatio).toInt();
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    return (width! * MediaQueryData.fromView(view).devicePixelRatio).toInt();
   }
 
   /// Calculate optimal memory cache height based on device pixel ratio
   int? _calculateMemCacheHeight() {
     if (height == null) return null;
-    return (height! * MediaQueryData.fromWindow(WidgetsBinding.instance.platformDispatcher).devicePixelRatio).toInt();
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    return (height! * MediaQueryData.fromView(view).devicePixelRatio).toInt();
   }
 
   /// Calculate max disk cache size (limit to 1080p for performance)
@@ -227,22 +228,22 @@ class ImagePreloader {
   static final Map<String, CachedNetworkImageProvider> _cache = {};
 
   /// Preload a list of images
-  static Future<void> preloadImages(List<String> urls) async {
+  static Future<void> preloadImages(BuildContext context, List<String> urls) async {
     final futures = urls.where((url) => url.isNotEmpty).map((url) {
       final provider = CachedNetworkImageProvider(url);
       _cache[url] = provider;
-      return precacheImage(provider, WidgetsBinding.instance.platformDispatcher.views.first);
+      return precacheImage(provider, context);
     });
 
     await Future.wait(futures, eagerError: true);
   }
 
   /// Preload a single image
-  static Future<void> preloadImage(String url) async {
+  static Future<void> preloadImage(BuildContext context, String url) async {
     if (url.isEmpty) return;
     final provider = CachedNetworkImageProvider(url);
     _cache[url] = provider;
-    await precacheImage(provider, WidgetsBinding.instance.platformDispatcher.views.first);
+    await precacheImage(provider, context);
   }
 
   /// Clear the preload cache

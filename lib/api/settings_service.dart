@@ -356,7 +356,7 @@ class SettingsService {
 
   /// All available nav items in default order. 'settings' is always last and locked.
   static const List<String> allNavIds = [
-    'home', 'discover', 'search', 'mylist', 'magnet', 'anime',
+    'home', 'discover', 'search', 'mylist', 'magnet',
   ];
 
   /// Returns the ordered list of visible nav item IDs.

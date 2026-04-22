@@ -2,19 +2,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'api/settings_service.dart';
 import 'api/torrent_stream_service.dart';
-import 'api/tmdb_api.dart';
-import 'api/local_server_service.dart';
 import 'models/movie.dart';
 import 'services/player_pool_service.dart';
 import 'utils/webview_cleanup.dart';
 import 'utils/app_theme.dart';
+import 'widgets/streame_logo.dart';
 import 'core/error/error_boundary.dart';
 import 'core/providers/service_providers.dart';
 
@@ -323,44 +322,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.5), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                      blurRadius: 40,
-                      spreadRadius: 10,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 80,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 32),
+              const StreameLogo(size: 128),
+              SizedBox(height: 32),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Colors.white, Colors.white70, AppTheme.primaryColor],
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [AppTheme.textPrimary, AppTheme.textSecondary, AppTheme.primaryColor],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ).createShader(bounds),
-                    child: const Text(
+                    child: Text(
                       'STREAME',
                       style: TextStyle(
                         fontSize: 64,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -2,
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontFamily: 'Poppins',
                       ),
                     ),
@@ -372,7 +352,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    'YOUR CINEMA UNIVERSE',
+                    'ENJOY!',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
@@ -393,7 +373,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: _progress,
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                        backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                         valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                         minHeight: 4,
                       ),
@@ -404,11 +384,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                     opacity: _fadeAnimation,
                     child: Text(
                       _statusMessage.toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2,
-                        color: Colors.white60,
+                        color: AppTheme.textDisabled,
                         fontFamily: 'Poppins',
                       ),
                     ),

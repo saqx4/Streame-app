@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import '../error/either.dart';
 import '../error/failures.dart';

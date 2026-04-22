@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../api/tmdb_api.dart';
@@ -33,11 +33,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final TmdbApi _api = TmdbApi();
   final StremioService _stremio = StremioService();
   final PageController _heroController = PageController();
+  bool _isFullscreen = false;
   
   late Future<List<Movie>> _trendingFuture;
   late Future<List<Movie>> _popularFuture;
   late Future<List<Movie>> _topRatedFuture;
   late Future<List<Movie>> _nowPlayingFuture;
+  late Future<List<Movie>> _trendingTvFuture;
+  late Future<List<Movie>> _topRatedTvFuture;
+  late Future<List<Movie>> _airingTodayTvFuture;
   
   Timer? _heroTimer;
   int _heroIndex = 0;
@@ -68,7 +72,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _popularFuture = _api.getPopular();
     _topRatedFuture = _api.getTopRated();
     _nowPlayingFuture = _api.getNowPlaying();
-    
+    _trendingTvFuture = _api.getTrendingTv();
+    _topRatedTvFuture = _api.getTopRatedTv();
+    _airingTodayTvFuture = _api.getAiringTodayTv();
+
     _startHeroTimer();
     _loadStremioCatalogs();
 
@@ -190,6 +197,36 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     super.dispose();
   }
 
+  Widget _buildErrorState({required String message, VoidCallback? onRetry}) {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.withValues(alpha: 0.7), size: 48),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildTraktCalendarSection() {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -198,31 +235,42 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.calendar_month_rounded, color: AppTheme.primaryColor, size: 18),
+                child: const Icon(Icons.calendar_month_rounded, color: AppTheme.primaryColor, size: 20),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Upcoming Schedule', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                    const SizedBox(height: 4),
+                    const Text(
+                      'Upcoming Schedule',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Container(
-                      height: 2.5,
-                      width: 36,
+                      height: 3,
+                      width: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
                         gradient: LinearGradient(
-                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                          colors: [
+                            AppTheme.primaryColor,
+                            AppTheme.primaryColor.withValues(alpha: 0.0),
+                          ],
                         ),
                       ),
                     ),
@@ -293,12 +341,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
                       ],
                       const Spacer(),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
-                          const SizedBox(width: 4),
-                          Text(dateLabel, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
-                        ],
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(dateLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -319,31 +373,42 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.movie_filter_rounded, color: AppTheme.primaryColor, size: 18),
+                child: const Icon(Icons.movie_filter_rounded, color: AppTheme.primaryColor, size: 20),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Upcoming Movies', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                    const SizedBox(height: 4),
+                    const Text(
+                      'Upcoming Movies',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Container(
-                      height: 2.5,
-                      width: 36,
+                      height: 3,
+                      width: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
                         gradient: LinearGradient(
-                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                          colors: [
+                            AppTheme.primaryColor,
+                            AppTheme.primaryColor.withValues(alpha: 0.0),
+                          ],
                         ),
                       ),
                     ),
@@ -407,12 +472,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         Text('$year', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                       ],
                       const Spacer(),
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
-                          const SizedBox(width: 4),
-                          Text(dateLabel, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
-                        ],
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(dateLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -577,10 +648,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppTheme.bgDark,
-      body: CustomScrollView(
-        cacheExtent: 1000, // Increased for smoother scrolling
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+      body: Stack(
+        children: [
+          CustomScrollView(
+            cacheExtent: 1000, // Increased for smoother scrolling
+            physics: const BouncingScrollPhysics(),
+            slivers: [
           // Hero
           SliverToBoxAdapter(
             child: RepaintBoundary(
@@ -620,6 +693,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             }),
           // Top Rated
           SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'Top Rated', icon: Icons.star_rounded, future: _topRatedFuture, onMovieTap: _openDetails))),
+          // Trending TV Shows
+          SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'Trending TV Shows', icon: Icons.tv_rounded, future: _trendingTvFuture, onMovieTap: _openDetails, isPortrait: true))),
+          // Top Rated TV Shows
+          SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'Top Rated TV Shows', icon: Icons.emoji_events_rounded, future: _topRatedTvFuture, onMovieTap: _openDetails, isPortrait: true))),
+          // New Releases TV Shows (Airing Today)
+          SliverToBoxAdapter(child: RepaintBoundary(child: _MovieSection(title: 'New Releases TV', icon: Icons.live_tv_rounded, future: _airingTodayTvFuture, onMovieTap: _openDetails, isPortrait: true))),
           // Trakt Recommendations
           if (_traktRecommendations.isNotEmpty)
             SliverToBoxAdapter(child: RepaintBoundary(child: _StaticMovieSection(title: 'Recommended for You', icon: Icons.recommend_rounded, movies: _traktRecommendations, onMovieTap: _openDetails))),
@@ -634,18 +713,50 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
+          // Fullscreen button
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.overlay.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                  color: AppTheme.textPrimary,
+                  size: 20,
+                ),
+                onPressed: () async {
+                  setState(() {
+                    _isFullscreen = !_isFullscreen;
+                  });
+                  await WindowManager.instance.setFullScreen(_isFullscreen);
+                },
+                tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildHeroShimmer() {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final h = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.75;
+    final h = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.72;
     return Container(
       height: h,
       color: AppTheme.bgDark,
       child: Shimmer.fromColors(
-        baseColor: Colors.white.withValues(alpha: 0.05),
-        highlightColor: Colors.white.withValues(alpha: 0.1),
+        baseColor: AppTheme.shimmerBase,
+        highlightColor: AppTheme.shimmerHighlight,
         child: Container(color: Colors.white),
       ),
     );
@@ -653,7 +764,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   Widget _buildHeroCarousel(List<Movie> movies) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final height = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.75;
+    final height = isLandscape ? MediaQuery.of(context).size.height * 0.6 : MediaQuery.of(context).size.height * 0.72;
     final heroMovie = movies[_heroIndex];
     
     return SizedBox(
@@ -677,22 +788,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   ),
-                  // Simple, high-performance gradient overlay
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          AppTheme.bgDark.withValues(alpha: 0.2),
-                          AppTheme.bgDark.withValues(alpha: 0.8),
-                          AppTheme.bgDark,
-                        ],
-                        stops: const [0.0, 0.4, 0.8, 1.0],
-                      ),
-                    ),
-                  ),
+                  // Bottom fade gradient
+                  Container(decoration: BoxDecoration(gradient: AppTheme.bottomFade(0.35))),
                 ],
               );
             },
@@ -712,23 +809,26 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   const SizedBox(height: 16),
                   
                   // Meta row
-                  Row(
-                    children: [
-                      _buildRatingBadge(heroMovie.voteAverage),
-                      const SizedBox(width: 12),
-                      if (heroMovie.releaseDate.isNotEmpty)
-                        Text(
-                          heroMovie.releaseDate.split('-').first,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                      const SizedBox(width: 12),
-                      if (heroMovie.mediaType == 'tv')
-                        _buildTypeBadge('SERIES'),
-                    ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildRatingBadge(heroMovie.voteAverage),
+                        const SizedBox(width: AppSpacing.md),
+                        if (heroMovie.releaseDate.isNotEmpty)
+                          Text(
+                            heroMovie.releaseDate.split('-').first,
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        const SizedBox(width: AppSpacing.md),
+                        if (heroMovie.mediaType == 'tv')
+                          _buildTypeBadge('SERIES'),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   
-                  // Synopsis - streamlined
+                  // Synopsis
                   if (heroMovie.overview.isNotEmpty)
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 600),
@@ -737,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: AppTheme.textSecondary,
                           fontSize: 14,
                           height: 1.4,
                         ),
@@ -746,30 +846,36 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   const SizedBox(height: 24),
                   
                   // Action buttons
-                  Row(
-                    children: [
-                      _buildPrimaryPlayButton(heroMovie),
-                      const SizedBox(width: 12),
-                      _buildSecondaryInfoButton(heroMovie),
-                      const SizedBox(width: 12),
-                      _MyListButton.movie(movie: heroMovie),
-                    ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildPrimaryPlayButton(heroMovie),
+                        const SizedBox(width: 12),
+                        _buildSecondaryInfoButton(heroMovie),
+                        const SizedBox(width: 12),
+                        _MyListButton.movie(movie: heroMovie),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 32),
                   
                   // Minimal page indicator
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(movies.length, (i) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      height: 4,
-                      width: i == _heroIndex ? 24 : 8,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(2),
-                        color: i == _heroIndex ? AppTheme.primaryColor : Colors.white24,
-                      ),
-                    )),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(movies.length, (i) => AnimatedContainer(
+                        duration: AppDurations.normal,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        height: 3,
+                        width: i == _heroIndex ? 24 : 8,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          color: i == _heroIndex ? AppTheme.current.primaryColor : AppTheme.textDisabled.withValues(alpha: 0.3),
+                        ),
+                      )),
+                    ),
                   ),
                 ],
               ),
@@ -871,12 +977,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 1),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary, letterSpacing: 1),
       ),
     );
   }
@@ -906,20 +1012,20 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildSecondaryInfoButton(Movie movie) {
     return FocusableControl(
       onTap: () => _openDetails(movie),
-      borderRadius: 12,
+      borderRadius: AppRadius.md,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppTheme.border),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('Details', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            Icon(Icons.info_outline_rounded, color: AppTheme.textPrimary, size: 20),
+            const SizedBox(width: 8),
+            Text('Details', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -932,8 +1038,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       movie.title,
       style: TextStyle(
         fontSize: isLandscape ? 48 : 36,
-        fontWeight: FontWeight.w900,
-        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.textPrimary,
         height: 1.0,
         letterSpacing: -1.0,
         shadows: AppTheme.isLightMode ? null : [
@@ -946,40 +1052,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  // ── Light-mode-aware frosted glass helpers ────────────────────────
-
-  Widget _buildFrostedPill({required VoidCallback onTap, required Widget child}) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(28),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildFrostedCircle({required Widget child}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-      ),
-      child: child,
-    );
-  }
-
   Widget _buildFrostedArrow({required IconData icon}) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
+        color: AppTheme.overlay.withValues(alpha: 0.5),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: AppTheme.border),
       ),
-      child: Icon(icon, color: Colors.white, size: 18),
+      child: Icon(icon, color: AppTheme.textPrimary, size: 18),
     );
   }
 }
@@ -1011,7 +1092,7 @@ class _MovieSectionState extends State<_MovieSection> {
   void _scrollLeft() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.offset - 600,
+        (_scrollController.offset - 600).clamp(0.0, _scrollController.position.maxScrollExtent),
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
@@ -1021,30 +1102,29 @@ class _MovieSectionState extends State<_MovieSection> {
   void _scrollRight() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.offset + 600,
+        (_scrollController.offset + 600).clamp(0.0, _scrollController.position.maxScrollExtent),
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
     }
   }
 
+  Widget _buildSmallFrostedArrow(IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
+    );
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Widget _buildSmallFrostedArrow(IconData icon) {
-    final inner = Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
-    );
-    return inner;
   }
 
   @override
@@ -1062,7 +1142,7 @@ class _MovieSectionState extends State<_MovieSection> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Container(height: 18, width: 140, decoration: BoxDecoration(color: AppTheme.bgCard, borderRadius: BorderRadius.circular(6))),
+                      child: Container(height: 18, width: 140, decoration: BoxDecoration(color: AppTheme.surfaceContainer, borderRadius: BorderRadius.circular(AppRadius.sm))),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -1074,7 +1154,7 @@ class _MovieSectionState extends State<_MovieSection> {
                         separatorBuilder: (_, _) => const SizedBox(width: 14),
                         itemBuilder: (_, _) => Container(
                           width: widget.isPortrait ? 150 : 280,
-                          decoration: BoxDecoration(color: AppTheme.bgCard, borderRadius: BorderRadius.circular(14)),
+                          decoration: BoxDecoration(color: AppTheme.surfaceContainer, borderRadius: BorderRadius.circular(AppRadius.md)),
                         ),
                       ),
                     ),
@@ -1083,8 +1163,8 @@ class _MovieSectionState extends State<_MovieSection> {
               );
             if (AppTheme.isLightMode) return shimmerChild;
             return Shimmer.fromColors(
-              baseColor: AppTheme.bgCard,
-              highlightColor: const Color(0xFF1E1E2F),
+              baseColor: AppTheme.shimmerBase,
+              highlightColor: AppTheme.shimmerHighlight,
               child: shimmerChild,
             );
           }
@@ -1096,33 +1176,44 @@ class _MovieSectionState extends State<_MovieSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
               child: Row(
                 children: [
                   if (widget.icon != null) ...[
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: Icon(widget.icon, color: AppTheme.primaryColor, size: 18),
+                      child: Icon(widget.icon, color: AppTheme.current.primaryColor, size: 20),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.md),
                   ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                        const SizedBox(height: 4),
+                        Text(
+                          widget.title,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Container(
-                          height: 2.5,
-                          width: 36,
+                          height: 3,
+                          width: 40,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(2),
                             gradient: LinearGradient(
-                              colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                              colors: [
+                                AppTheme.current.primaryColor,
+                                AppTheme.current.primaryColor.withValues(alpha: 0.0),
+                              ],
                             ),
                           ),
                         ),
@@ -1212,16 +1303,15 @@ class _StaticMovieSectionState extends State<_StaticMovieSection> {
   }
 
   Widget _buildSmallFrostedArrow(IconData icon) {
-    final inner = Container(
+    return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.border),
       ),
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
+      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );
-    return inner;
   }
 
   @override
@@ -1238,18 +1328,18 @@ class _StaticMovieSectionState extends State<_StaticMovieSection> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                  child: Icon(widget.icon, color: AppTheme.primaryColor, size: 18),
+                  child: Icon(widget.icon, color: AppTheme.current.primaryColor, size: 18),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.md),
               ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                    Text(widget.title, style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                     const SizedBox(height: 4),
                     Container(
                       height: 2.5,
@@ -1257,7 +1347,7 @@ class _StaticMovieSectionState extends State<_StaticMovieSection> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
                         gradient: LinearGradient(
-                          colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                          colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.0)],
                         ),
                       ),
                     ),
@@ -1304,9 +1394,9 @@ class _MovieCard extends StatelessWidget {
 
   const _MovieCard({
     required this.movie,
+    required this.onTap,
     this.isPortrait = false,
     this.rank,
-    required this.onTap,
   });
 
   @override
@@ -1336,25 +1426,25 @@ class _MovieCard extends StatelessWidget {
               foreground: Paint()
                 ..style = PaintingStyle.stroke
                 ..strokeWidth = 2
-                ..color = Colors.white.withValues(alpha: 0.1),
+                ..color = AppTheme.textDisabled.withValues(alpha: 0.15),
               height: 0.85,
               letterSpacing: -8,
             ),
           ),
         FocusableControl(
           onTap: onTap,
-          borderRadius: 14,
+          borderRadius: AppRadius.lg,
           scaleOnFocus: 1.05,
           child: Container(
             width: cardWidth,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppTheme.bgCard,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+              color: AppTheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppTheme.border, width: 0.5),
               boxShadow: AppTheme.isLightMode ? null : [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 8)),
-                BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: -4),
+                BoxShadow(color: AppTheme.current.primaryColor.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: -4),
               ],
             ),
             child: Stack(
@@ -1364,16 +1454,16 @@ class _MovieCard extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: imageUrl,
                     fit: BoxFit.cover,
-                    placeholder: (c, u) => Container(color: AppTheme.bgCard),
-                    errorWidget: (c, u, e) => Container(
-                      color: AppTheme.bgCard,
-                      child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white24))),
+                    placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                    errorWidget: (_, __, ___) => Container(
+                      color: AppTheme.surfaceContainer,
+                      child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
                     ),
                   )
                 else
                   Container(
-                    color: AppTheme.bgCard,
-                    child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white24))),
+                    color: AppTheme.surfaceContainer,
+                    child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
                   ),
                 
                 // Gradient overlay
@@ -1385,8 +1475,8 @@ class _MovieCard extends StatelessWidget {
                       colors: [
                         Colors.transparent,
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.black.withValues(alpha: 0.95),
+                        AppTheme.bgDark.withValues(alpha: 0.7),
+                        AppTheme.bgDark.withValues(alpha: 0.95),
                       ],
                       stops: const [0.0, 0.45, 0.8, 1.0],
                     ),
@@ -1412,8 +1502,8 @@ class _MovieCard extends StatelessWidget {
                         maxLines: isPortrait ? 2 : 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white, 
-                          fontWeight: FontWeight.bold, 
+                          color: AppTheme.textPrimary, 
+                          fontWeight: FontWeight.w600, 
                           fontSize: isDesktop ? 14 : 13,
                           height: 1.2,
                         ),
@@ -1424,13 +1514,13 @@ class _MovieCard extends StatelessWidget {
                           if (movie.releaseDate.isNotEmpty)
                             Text(
                               movie.releaseDate.split('-').first,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
                             ),
                           if (movie.mediaType == 'tv') ...[
                             if (movie.releaseDate.isNotEmpty) ...[
-                              Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                              Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                             ],
-                            Text('TV', style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('TV', style: TextStyle(color: AppTheme.current.primaryColor.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
                           ],
                         ],
                       ),
@@ -1457,9 +1547,9 @@ Widget _buildRatingBadge(double voteAverage) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      color: AppTheme.overlay.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      border: Border.all(color: AppTheme.border),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -1468,7 +1558,7 @@ Widget _buildRatingBadge(double voteAverage) {
         const SizedBox(width: 4),
         Text(
           voteAverage.toStringAsFixed(1),
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
         ),
       ],
     ),
@@ -1480,16 +1570,16 @@ Widget _buildRatingBadgeText(String rating) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      color: AppTheme.overlay.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      border: Border.all(color: AppTheme.border),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.star_rounded, color: Colors.amber, size: 11),
         const SizedBox(width: 2),
-        Text(rating, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(rating, style: TextStyle(color: AppTheme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
       ],
     ),
   );
@@ -1529,16 +1619,15 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
   }
 
   Widget _buildCWSectionArrow(IconData icon) {
-    final inner = Container(
+    return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.border),
       ),
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
+      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );
-    return inner;
   }
 
   Future<void> _resumePlayback(Map<String, dynamic> item) async {
@@ -1959,31 +2048,42 @@ class _ContinueWatchingSectionState extends State<_ContinueWatchingSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
-                    child: const Icon(Icons.play_circle_outline_rounded, color: AppTheme.primaryColor, size: 18),
+                    child: Icon(Icons.play_circle_outline_rounded, color: AppTheme.current.primaryColor, size: 20),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Continue Watching", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                        const SizedBox(height: 4),
+                        Text(
+                          "Continue Watching",
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Container(
-                          height: 2.5,
-                          width: 36,
+                          height: 3,
+                          width: 40,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(2),
                             gradient: LinearGradient(
-                              colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.0)],
+                              colors: [
+                                AppTheme.current.primaryColor,
+                                AppTheme.current.primaryColor.withValues(alpha: 0.0),
+                              ],
                             ),
                           ),
                         ),
@@ -2037,11 +2137,11 @@ Widget _buildCWPlayButton() {
   return Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: AppTheme.primaryColor.withValues(alpha: 0.8),
+      color: AppTheme.current.primaryColor.withValues(alpha: 0.8),
       shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      border: Border.all(color: AppTheme.border),
     ),
-    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 28),
   );
 }
 
@@ -2083,18 +2183,18 @@ class _HistoryCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: isLoading ? () {} : onTap,
-      borderRadius: 14,
+      borderRadius: AppRadius.lg,
       scaleOnFocus: 1.05,
       child: Container(
         width: 280,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+          color: AppTheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppTheme.border, width: 0.5),
           boxShadow: AppTheme.isLightMode ? null : [
             BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.06), blurRadius: 24, spreadRadius: -4),
+            BoxShadow(color: AppTheme.current.primaryColor.withValues(alpha: 0.06), blurRadius: 24, spreadRadius: -4),
           ],
         ),
         child: Stack(
@@ -2105,10 +2205,10 @@ class _HistoryCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (c, u) => Container(color: AppTheme.bgCard),
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
               )
             else
-              Container(color: AppTheme.bgCard, child: const Icon(Icons.movie, color: Colors.white24, size: 40)),
+              Container(color: AppTheme.surfaceContainer, child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 40)),
             
             // Dark overlay gradient
             Container(
@@ -2117,10 +2217,10 @@ class _HistoryCard extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.1),
-                    Colors.black.withValues(alpha: 0.3),
-                    Colors.black.withValues(alpha: 0.85),
-                    Colors.black.withValues(alpha: 0.95),
+                    AppTheme.bgDark.withValues(alpha: 0.1),
+                    AppTheme.bgDark.withValues(alpha: 0.3),
+                    AppTheme.bgDark.withValues(alpha: 0.85),
+                    AppTheme.bgDark.withValues(alpha: 0.95),
                   ],
                   stops: const [0.0, 0.3, 0.7, 1.0],
                 ),
@@ -2144,8 +2244,8 @@ class _HistoryCard extends StatelessWidget {
                       onTap: onRemove,
                       child: Container(
                         padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.close_rounded, color: Colors.white70, size: 14),
+                        decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
+                        child: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 14),
                       ),
                     ),
                   ),
@@ -2157,8 +2257,8 @@ class _HistoryCard extends StatelessWidget {
                       onTap: onInfo,
                       child: Container(
                         padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 14),
+                        decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
+                        child: Icon(Icons.info_outline_rounded, color: AppTheme.textSecondary, size: 14),
                       ),
                     ),
                   ),
@@ -2181,7 +2281,7 @@ class _HistoryCard extends StatelessWidget {
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
                         ),
                         if (subtitle.isNotEmpty)
                           Padding(
@@ -2190,7 +2290,7 @@ class _HistoryCard extends StatelessWidget {
                               subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                             ),
                           ),
                         if (remainingText.isNotEmpty)
@@ -2198,7 +2298,7 @@ class _HistoryCard extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 3),
                             child: Text(
                               remainingText,
-                              style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: AppTheme.current.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
                             ),
                           ),
                       ],
@@ -2206,11 +2306,11 @@ class _HistoryCard extends StatelessWidget {
                   ),
                   // Progress bar
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      color: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.border,
+                      color: AppTheme.current.primaryColor,
                       minHeight: 3,
                     ),
                   ),
@@ -2221,10 +2321,10 @@ class _HistoryCard extends StatelessWidget {
             if (isLoading)
                Container(
                  decoration: BoxDecoration(
-                   color: Colors.black.withValues(alpha: 0.6),
-                   borderRadius: BorderRadius.circular(14),
+                   color: AppTheme.bgDark.withValues(alpha: 0.6),
+                   borderRadius: BorderRadius.circular(AppRadius.lg),
                  ),
-                 child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                 child: Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor)),
                ),
           ],
         ),

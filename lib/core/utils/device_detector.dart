@@ -92,8 +92,8 @@ class DeviceDetector {
           }
         }
       } else if (Platform.isWindows) {
-        // Try wmic
-        final result = await Process.run('wmic', ['path', 'win32_VideoController', 'get', 'name']);
+        // Try PowerShell (wmic is deprecated and may not be available)
+        final result = await Process.run('powershell', ['-Command', 'Get-WmiObject Win32_VideoController | Select-Object -ExpandProperty Name']);
         if (result.exitCode == 0) {
           final output = result.stdout.toString();
           if (output.contains('Intel')) {
@@ -136,12 +136,9 @@ class DeviceDetector {
           }
         }
       } else if (Platform.isWindows) {
-        final result = await Process.run('wmic', ['cpu', 'get', 'name']);
+        final result = await Process.run('powershell', ['-Command', 'Get-WmiObject Win32_Processor | Select-Object -ExpandProperty Name']);
         if (result.exitCode == 0) {
-          final lines = result.stdout.toString().split('\n');
-          if (lines.length > 1) {
-            _cpuInfo = lines[1].trim();
-          }
+          _cpuInfo = result.stdout.toString().trim();
         }
       } else if (Platform.isMacOS) {
         final result = await Process.run('sysctl', ['-n', 'machdep.cpu.brand_string']);
@@ -173,14 +170,11 @@ class DeviceDetector {
           }
         }
       } else if (Platform.isWindows) {
-        final result = await Process.run('wmic', ['OS', 'get', 'TotalVisibleMemorySize']);
+        final result = await Process.run('powershell', ['-Command', '(Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory']);
         if (result.exitCode == 0) {
-          final lines = result.stdout.toString().split('\n');
-          if (lines.length > 1) {
-            final kb = int.tryParse(lines[1].trim());
-            if (kb != null) {
-              _ramGb = kb / 1024 / 1024;
-            }
+          final bytes = int.tryParse(result.stdout.toString().trim());
+          if (bytes != null) {
+            _ramGb = bytes / 1024 / 1024 / 1024;
           }
         }
       } else if (Platform.isMacOS) {
@@ -207,14 +201,16 @@ class DeviceDetector {
   String getRecommendedHwDecMode() {
     if (!_detected) return 'autoHw';
     
-    // If no GPU detected, use software decoding
-    if (_gpuVendor == null) {
-      return 'software';
-    }
-    
     // If low RAM (< 4GB), use software decoding to save memory
     if (_ramGb != null && _ramGb! < 4) {
       return 'software';
+    }
+    
+    // If no GPU detected, still try hardware decoding (may work via dxva2/d3d11va)
+    // Only fall back to software if we're confident it won't work
+    // Default to autoHw for best performance
+    if (_gpuVendor == null) {
+      return 'autoHw';
     }
     
     // Intel GPU: use auto for VA-API support

@@ -24,18 +24,11 @@ class _MoviePosterState extends State<MoviePoster> {
   @override
   Widget build(BuildContext context) {
     final bool isActive = _isHovered || _isFocused;
+    final primary = AppTheme.current.primaryColor;
 
     return InkWell(
-      onFocusChange: (hasFocus) {
-        setState(() {
-          _isFocused = hasFocus;
-        });
-      },
-      onHover: (isHovering) {
-        setState(() {
-          _isHovered = isHovering;
-        });
-      },
+      onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
+      onHover: (isHovering) => setState(() => _isHovered = isHovering),
       onTap: () async {
         final navigator = Navigator.of(context);
         final isStreamingMode = await SettingsService().isStreamingModeEnabled();
@@ -49,68 +42,68 @@ class _MoviePosterState extends State<MoviePoster> {
           );
         }
       },
-      splashColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+      splashColor: primary.withValues(alpha: 0.12),
       highlightColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(16.0),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: AnimatedScale(
-        scale: isActive ? 1.05 : 1.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
+        scale: isActive ? 1.04 : 1.0,
+        duration: AppDurations.slow,
+        curve: Curves.easeOutCubic,
         child: Container(
-          margin: const EdgeInsets.all(4.0),
+          margin: const EdgeInsets.all(3.0),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.0),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(
-              color: isActive ? AppTheme.primaryColor : Colors.white10,
-              width: isActive ? 2.5 : 1,
+              color: isActive ? primary : AppTheme.border,
+              width: isActive ? 2 : 1,
             ),
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.25),
-                      blurRadius: 20,
-                      spreadRadius: -4,
-                      offset: const Offset(0, 8),
+                      color: primary.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
                     )
                   ]
                 : [],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(13.0),
+            borderRadius: BorderRadius.circular(AppRadius.lg - 1),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Background Image
+                // Poster image
                 CachedNetworkImage(
                   imageUrl: TmdbApi.getImageUrl(widget.movie.posterPath),
                   fit: BoxFit.cover,
                   memCacheWidth: 320,
-                  placeholder: (context, url) => Container(
-                    color: AppTheme.bgCard,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor.withValues(alpha: 0.4))),
+                  placeholder: (_, __) => Container(
+                    color: AppTheme.surfaceContainer,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: primary.withValues(alpha: 0.3))),
                   ),
-                  errorWidget: (context, url, error) => Container(
-                    color: AppTheme.bgCard,
-                    child: const Icon(Icons.movie_outlined, color: Colors.white12),
+                  errorWidget: (_, __, ___) => Container(
+                    color: AppTheme.surfaceContainer,
+                    child: Icon(Icons.movie_outlined, color: AppTheme.textDisabled, size: 32),
                   ),
                 ),
-                
-                // Fancy Info Footer - Sliding up on Focus
+
+                // Info footer — slides up on hover/focus
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 350),
+                  duration: AppDurations.slow,
                   curve: Curves.easeOutQuart,
-                  bottom: isActive ? 0 : -60,
+                  bottom: isActive ? 0 : -64,
                   left: 0, right: 0,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          const Color(0xFF05050A).withValues(alpha: 0.0),
-                          const Color(0xFF05050A).withValues(alpha: 0.85),
-                          const Color(0xFF05050A),
+                          AppTheme.bgDark.withValues(alpha: 0.0),
+                          AppTheme.bgDark.withValues(alpha: 0.88),
+                          AppTheme.bgDark,
                         ],
                       ),
                     ),
@@ -122,26 +115,26 @@ class _MoviePosterState extends State<MoviePoster> {
                           widget.movie.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
-                            const SizedBox(width: 4),
+                            Icon(Icons.star_rounded, color: Colors.amber.shade400, size: 13),
+                            const SizedBox(width: 3),
                             Text(
                               widget.movie.voteAverage.toStringAsFixed(1),
-                              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.amber.shade400, fontSize: 11, fontWeight: FontWeight.w600),
                             ),
                             const Spacer(),
                             if (widget.movie.releaseDate.isNotEmpty)
                               Text(
-                                widget.movie.releaseDate.take(4),
-                                style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+                                widget.movie.releaseDate.substring(0, 4),
+                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
                               ),
                           ],
                         ),
@@ -150,9 +143,9 @@ class _MoviePosterState extends State<MoviePoster> {
                   ),
                 ),
 
-                // My List add/remove button
+                // My List button
                 Positioned(
-                  top: 8, right: 8,
+                  top: 6, right: 6,
                   child: ValueListenableBuilder<int>(
                     valueListenable: MyListService.changeNotifier,
                     builder: (context, _, _) {
@@ -179,16 +172,16 @@ class _MoviePosterState extends State<MoviePoster> {
                           }
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.all(6),
+                          duration: AppDurations.fast,
+                          padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
-                            color: inList ? AppTheme.primaryColor : Colors.black.withValues(alpha: 0.4),
+                            color: inList ? primary : AppTheme.overlay.withValues(alpha: 0.5),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             inList ? Icons.bookmark_rounded : Icons.add_rounded,
-                            size: 16,
-                            color: Colors.white,
+                            size: 14,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       );

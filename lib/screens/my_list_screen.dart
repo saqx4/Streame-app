@@ -130,7 +130,7 @@ class _MyListScreenState extends State<MyListScreen> {
                 const SizedBox(width: 12),
                 Text(
                   '${_items.length} items',
-                  style: const TextStyle(color: Colors.white38, fontSize: 14, fontWeight: FontWeight.normal),
+                  style: TextStyle(color: AppTheme.textDisabled, fontSize: 14, fontWeight: FontWeight.normal),
                 ),
               ],
             ),
@@ -143,16 +143,16 @@ class _MyListScreenState extends State<MyListScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bookmark_border, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+                    Icon(Icons.bookmark_border, size: 80, color: AppTheme.textDisabled.withValues(alpha: 0.2)),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Your list is empty',
-                      style: TextStyle(color: Colors.white38, fontSize: 18),
+                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Tap the + button on any movie or show to add it here',
-                      style: TextStyle(color: Colors.white24, fontSize: 13),
+                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
                     ),
                   ],
                 ),
@@ -268,13 +268,13 @@ class _MyListCard extends StatelessWidget {
                 placeholder: (_, _) => Container(color: AppTheme.bgCard),
                 errorWidget: (_, _, _) => Container(
                   color: AppTheme.bgCard,
-                  child: Center(child: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
+                  child: Center(child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
                 ),
               )
             else
               Container(
                 color: AppTheme.bgCard,
-                child: Center(child: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
+                child: Center(child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
               ),
 
             // Gradient
@@ -323,7 +323,7 @@ class _MyListCard extends StatelessWidget {
                 ),
                 child: Text(
                   mediaType == 'tv' || mediaType == 'series' ? 'TV' : 'MOVIE',
-                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                 ),
               ),
             ),
@@ -335,7 +335,7 @@ class _MyListCard extends StatelessWidget {
                 title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
 
@@ -351,7 +351,7 @@ class _MyListCard extends StatelessWidget {
                     color: Colors.red.withValues(alpha: 0.8),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  child: Icon(Icons.close, size: 14, color: AppTheme.textPrimary),
                 ),
               ),
             ),

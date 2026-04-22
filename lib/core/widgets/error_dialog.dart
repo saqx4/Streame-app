@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../error/failures.dart';
-import '../error/error_handler.dart';
 import '../../utils/app_theme.dart';
 
 /// User-friendly error dialog that shows different messages based on failure type

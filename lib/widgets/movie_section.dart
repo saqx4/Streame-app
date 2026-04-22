@@ -15,7 +15,7 @@ class MovieSection extends StatefulWidget {
 
 class _MovieSectionState extends State<MovieSection> {
   final ScrollController _controller = ScrollController();
-  final double _scrollAmount = 400.0; // Adjusted for wider cards
+  final double _scrollAmount = 400.0;
 
   @override
   void dispose() {
@@ -25,73 +25,58 @@ class _MovieSectionState extends State<MovieSection> {
 
   void _scrollLeft() {
     if (_controller.hasClients) {
-      final target = (_controller.offset - _scrollAmount).clamp(
-        0.0,
-        _controller.position.maxScrollExtent,
-      );
-      _controller.animateTo(
-        target,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOutCubic, // Smoother curve
-      );
+      final target = (_controller.offset - _scrollAmount).clamp(0.0, _controller.position.maxScrollExtent);
+      _controller.animateTo(target, duration: AppDurations.slow, curve: Curves.easeInOutCubic);
     }
   }
 
   void _scrollRight() {
     if (_controller.hasClients) {
-      final target = (_controller.offset + _scrollAmount).clamp(
-        0.0,
-        _controller.position.maxScrollExtent,
-      );
-      _controller.animateTo(
-        target,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOutCubic,
-      );
+      final target = (_controller.offset + _scrollAmount).clamp(0.0, _controller.position.maxScrollExtent);
+      _controller.animateTo(target, duration: AppDurations.slow, curve: Curves.easeInOutCubic);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.movies.isEmpty) return const SizedBox.shrink();
+    final primary = AppTheme.current.primaryColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Section header
         Padding(
-          padding: const EdgeInsets.only(left: 24.0, top: 24.0, bottom: 12.0),
+          padding: const EdgeInsets.only(left: AppSpacing.xl, top: AppSpacing.xl, bottom: AppSpacing.md),
           child: Row(
             children: [
               Container(
-                width: 4,
-                height: 24,
+                width: 3,
+                height: 22,
                 decoration: BoxDecoration(
-                  color: Colors.deepPurpleAccent,
+                  color: primary,
                   borderRadius: BorderRadius.circular(2),
                   boxShadow: AppTheme.isLightMode ? null : [
-                    BoxShadow(
-                      color: Colors.deepPurpleAccent.withValues(alpha: 0.5),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
+                    BoxShadow(color: primary.withValues(alpha: 0.4), blurRadius: 6, spreadRadius: 1),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Text(
                 widget.title,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
           ),
         ),
+        // Horizontal list
         SizedBox(
-          height: 450, // Increased height for larger cards + scale
+          height: 400,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -100,71 +85,64 @@ class _MovieSectionState extends State<MovieSection> {
                 controller: _controller,
                 scrollDirection: Axis.horizontal,
                 itemCount: widget.movies.length,
-                padding: const EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 clipBehavior: Clip.none,
                 itemBuilder: (context, index) {
                   return SizedBox(
-                    width: 220,
+                    width: 180,
                     child: MoviePoster(movie: widget.movies[index]),
                   );
                 },
               ),
-              // Left Arrow with Glow
+              // Left arrow
               Positioned(
-                left: 10,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24),
-                      boxShadow: AppTheme.isLightMode ? null : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(2, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 28),
-                      onPressed: _scrollLeft,
-                      tooltip: 'Scroll Left',
-                    ),
-                  ),
-                ),
+                left: 8,
+                child: _ScrollArrow(icon: Icons.arrow_back_ios_new, onPressed: _scrollLeft),
               ),
-              // Right Arrow with Glow
+              // Right arrow
               Positioned(
-                right: 10,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24),
-                      boxShadow: AppTheme.isLightMode ? null : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(2, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 28),
-                      onPressed: _scrollRight,
-                      tooltip: 'Scroll Right',
-                    ),
-                  ),
-                ),
+                right: 8,
+                child: _ScrollArrow(icon: Icons.arrow_forward_ios, onPressed: _scrollRight),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ScrollArrow extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _ScrollArrow({required this.icon, required this.onPressed});
+
+  @override
+  State<_ScrollArrow> createState() => _ScrollArrowState();
+}
+
+class _ScrollArrowState extends State<_ScrollArrow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: AppDurations.fast,
+        decoration: BoxDecoration(
+          color: _isHovered ? AppTheme.surfaceContainerHigh : AppTheme.overlay.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+          border: Border.all(color: _isHovered ? AppTheme.borderStrong : AppTheme.border),
+        ),
+        child: IconButton(
+          icon: Icon(widget.icon, color: AppTheme.textPrimary, size: 20),
+          onPressed: widget.onPressed,
+        ),
+      ),
     );
   }
 }

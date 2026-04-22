@@ -92,31 +92,31 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2E),
-          title: const Text('Create Trakt List', style: TextStyle(color: Colors.white)),
+          title: Text('Create Trakt List', style: TextStyle(color: AppTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'List name',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                  hintStyle: TextStyle(color: AppTheme.textDisabled),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppTheme.textPrimary),
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Description (optional)',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                  hintStyle: TextStyle(color: AppTheme.textDisabled),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 ),
               ),
@@ -124,10 +124,10 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
               DropdownButtonFormField<String>(
                 initialValue: privacy,
                 dropdownColor: const Color(0xFF1A1A2E),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppTheme.textPrimary),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 ),
                 items: const [
@@ -142,7 +142,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: Text('Cancel', style: TextStyle(color: AppTheme.textDisabled)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -202,13 +202,13 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
       backgroundColor: AppTheme.bgDark,
       appBar: AppBar(
         backgroundColor: AppTheme.bgDark,
-        title: const Text('Lists', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text('Lists', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w800)),
+        iconTheme: IconThemeData(color: AppTheme.textPrimary),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryColor,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
+          labelColor: AppTheme.textPrimary,
+          unselectedLabelColor: AppTheme.textDisabled,
           tabs: const [
             Tab(text: 'Trakt'),
             Tab(text: 'MDBlist'),
@@ -229,8 +229,8 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
 
   Widget _buildTraktTab() {
     if (!_isTraktLoggedIn) {
-      return const Center(
-        child: Text('Login to Trakt in Settings', style: TextStyle(color: Colors.white54, fontSize: 16)),
+      return Center(
+        child: Text('Login to Trakt in Settings', style: TextStyle(color: AppTheme.textDisabled, fontSize: 16)),
       );
     }
     if (_loadingTrakt) {
@@ -248,7 +248,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
               label: const Text('Create New List'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.textPrimary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 minimumSize: const Size(double.infinity, 48),
               ),
@@ -257,7 +257,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
         ),
         Expanded(
           child: _traktLists.isEmpty
-            ? const Center(child: Text('No lists yet', style: TextStyle(color: Colors.white38)))
+            ? Center(child: Text('No lists yet', style: TextStyle(color: AppTheme.textDisabled)))
             : ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _traktLists.length,
@@ -286,15 +286,15 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
 
   Widget _buildMdblistTab() {
     if (!_isMdblistConfigured) {
-      return const Center(
-        child: Text('Configure MDBlist in Settings', style: TextStyle(color: Colors.white54, fontSize: 16)),
+      return Center(
+        child: Text('Configure MDBlist in Settings', style: TextStyle(color: AppTheme.textDisabled, fontSize: 16)),
       );
     }
     if (_loadingMdblist) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
     return _mdblistLists.isEmpty
-      ? const Center(child: Text('No lists yet', style: TextStyle(color: Colors.white38)))
+      ? Center(child: Text('No lists yet', style: TextStyle(color: AppTheme.textDisabled)))
       : ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: _mdblistLists.length,
@@ -317,8 +317,8 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
 
   Widget _buildTopListsTab() {
     if (!_isMdblistConfigured) {
-      return const Center(
-        child: Text('Configure MDBlist in Settings', style: TextStyle(color: Colors.white54, fontSize: 16)),
+      return Center(
+        child: Text('Configure MDBlist in Settings', style: TextStyle(color: AppTheme.textDisabled, fontSize: 16)),
       );
     }
     if (_mdblistTopLists.isEmpty) {
@@ -360,7 +360,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: AppTheme.border),
         ),
         child: Row(
           children: [
@@ -377,18 +377,18 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(name, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                  Text(subtitle, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(description, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11)),
+                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.3)),
+            Icon(Icons.chevron_right_rounded, color: AppTheme.textDisabled),
           ],
         ),
       ),
@@ -488,13 +488,13 @@ class _TraktListItemsScreenState extends State<_TraktListItemsScreen> {
       backgroundColor: AppTheme.bgDark,
       appBar: AppBar(
         backgroundColor: AppTheme.bgDark,
-        title: Text(widget.listName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(widget.listName, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        iconTheme: IconThemeData(color: AppTheme.textPrimary),
       ),
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
         : _movies.isEmpty
-          ? const Center(child: Text('No items', style: TextStyle(color: Colors.white38)))
+          ? Center(child: Text('No items', style: TextStyle(color: AppTheme.textDisabled)))
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _movies.length,
@@ -599,13 +599,13 @@ class _MdblistItemsScreenState extends State<_MdblistItemsScreen> {
       backgroundColor: AppTheme.bgDark,
       appBar: AppBar(
         backgroundColor: AppTheme.bgDark,
-        title: Text(widget.listName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(widget.listName, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+        iconTheme: IconThemeData(color: AppTheme.textPrimary),
       ),
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
         : _movies.isEmpty
-          ? const Center(child: Text('No items', style: TextStyle(color: Colors.white38)))
+          ? Center(child: Text('No items', style: TextStyle(color: AppTheme.textDisabled)))
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _movies.length,
@@ -645,7 +645,7 @@ Widget _movieListTile({
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Row(
         children: [
@@ -655,8 +655,8 @@ Widget _movieListTile({
               ? Image.network(posterUrl, width: 50, height: 75, fit: BoxFit.cover)
               : Container(
                   width: 50, height: 75,
-                  color: Colors.white10,
-                  child: const Icon(Icons.movie, color: Colors.white24, size: 24),
+                  color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                  child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 24),
                 ),
           ),
           const SizedBox(width: 12),
@@ -665,24 +665,24 @@ Widget _movieListTile({
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     if (movie.releaseDate.isNotEmpty)
                       Text(movie.releaseDate.split('-').first,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                     if (movie.mediaType == 'tv') ...[
                       if (movie.releaseDate.isNotEmpty)
-                        Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
+                        Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
                       Text('TV', style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
                     if (movie.voteAverage > 0) ...[
-                      Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
+                      Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
                       const Icon(Icons.star_rounded, size: 13, color: Colors.amber),
                       const SizedBox(width: 2),
                       Text(movie.voteAverage.toStringAsFixed(1),
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                     ],
                   ],
                 ),

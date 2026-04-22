@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:window_manager/window_manager.dart';
 import '../../../utils/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,23 +74,14 @@ class GlassIconButton extends StatefulWidget {
 }
 
 class _GlassIconButtonState extends State<GlassIconButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onPressed,
         child: Glass(
           radius: widget.size / 2,
-          hovered: _isHovered,
           child: Container(
             width: widget.size,
             height: widget.size,
@@ -408,36 +398,30 @@ class VolumeSlider extends StatefulWidget {
 }
 
 class _VolumeSliderState extends State<VolumeSlider> {
-  bool _isHovered = false;
-
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Glass(
-        radius: 20,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              widget.volume == 0 ? Icons.volume_off : Icons.volume_up,
-              size: 18,
-              color: Colors.white,
+    return Glass(
+      radius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            widget.volume == 0 ? Icons.volume_off : Icons.volume_up,
+            size: 18,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 100,
+            child: Slider(
+              value: widget.volume,
+              onChanged: widget.onVolumeChanged,
+              activeColor: AppTheme.primaryColor,
+              inactiveColor: Colors.white.withValues(alpha: 0.3),
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 100,
-              child: Slider(
-                value: widget.volume,
-                onChanged: widget.onVolumeChanged,
-                activeColor: AppTheme.primaryColor,
-                inactiveColor: Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

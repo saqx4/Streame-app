@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/my_list_service.dart';
 import '../services/watch_history_service.dart';
 import '../services/episode_watched_service.dart';
+import 'api_keys.dart';
 
 /// Full Trakt.tv integration — OAuth device-code auth, watchlist sync,
 /// scrobble, playback progress, and two-way import/export.
@@ -24,6 +25,9 @@ class TraktService {
       String.fromEnvironment('TRAKT_CLIENT_ID');
   static const String _clientSecret =
       String.fromEnvironment('TRAKT_CLIENT_SECRET');
+
+  // Check if credentials are configured
+  static bool get isConfigured => _clientId.isNotEmpty && _clientSecret.isNotEmpty;
 
   // ── Secure Storage Keys ────────────────────────────────────────────────
   static const String _keyAccessToken = 'trakt_access_token';
@@ -46,6 +50,10 @@ class TraktService {
   /// Step 1 — request a device code + user_code.
   /// Returns the API response map or null on failure.
   Future<Map<String, dynamic>?> startDeviceAuth() async {
+    if (!isConfigured) {
+      debugPrint('[Trakt] Error: TRAKT_CLIENT_ID and TRAKT_CLIENT_SECRET not configured');
+      return null;
+    }
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/oauth/device/code'),
@@ -1526,8 +1534,8 @@ class TraktService {
   }
 
   // ── TMDB poster resolution ─────────────────────────────────────────────
-  static const String _tmdbApiKey = '3308647fabe47a844ab269e6eab19132';
-  static const String _tmdbBase = 'https://api.themoviedb.org/3';
+  static final String _tmdbApiKey = ApiKeys.tmdbApiKey;
+  static final String _tmdbBase = ApiKeys.tmdbBaseUrl;
 
   /// Fetch the TMDB poster_path for a given TMDB ID.
   /// Returns the relative path (e.g. "/abc123.jpg") or empty string.

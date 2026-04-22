@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../models/stream_source.dart';
-import 'tmdb_service.dart';
 
 class ExtractedMedia {
   final String url;

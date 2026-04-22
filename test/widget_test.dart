@@ -1,30 +1,22 @@
-// This is a basic Flutter widget test.
+// Basic Flutter widget test for Streame app
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// This test verifies the app can initialize and render without errors.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:play_torrio_native/main.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:streame/main.dart';
 
 void main() {
-  testWidgets('App smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const StreameApp());
+  testWidgets('App smoke test - app initializes', (WidgetTester tester) async {
+    // Build our app with ProviderScope wrapper and trigger a frame.
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: StreameApp(),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsNothing);
+    // Verify the app rendered (splash screen should be visible)
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

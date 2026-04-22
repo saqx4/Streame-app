@@ -195,8 +195,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
             return ListTile(
               dense: true,
               visualDensity: VisualDensity.compact,
-              title: Text(type, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
-              trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 20) : null,
+              title: Text(type, style: TextStyle(color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+              trailing: isSelected ? Icon(Icons.check_circle, color: AppTheme.current.primaryColor, size: 20) : null,
               onTap: () {
                 setState(() { _selectedType = type; _currentPage = 1; });
                 Navigator.pop(context);
@@ -239,11 +239,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                                 if (selected) { _selectedGenreNames.add(name); } else { _selectedGenreNames.remove(name); }
                               });
                             },
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            selectedColor: AppTheme.primaryColor,
-                            checkmarkColor: Colors.white,
-                            labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.white70),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
+                            backgroundColor: AppTheme.surfaceContainerHigh,
+                            selectedColor: AppTheme.current.primaryColor,
+                            checkmarkColor: AppTheme.textPrimary,
+                            labelStyle: TextStyle(color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg), side: BorderSide.none),
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           );
@@ -261,8 +261,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                         setState(() => _currentPage = 1);
                         _loadData();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
-                      child: const Text("Apply", style: TextStyle(color: Colors.white, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.current.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
+                      child: Text("Apply", style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                     ),
                   ),
                 ],
@@ -307,10 +307,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                                 if (selected) { _selectedYears.add(y); } else { _selectedYears.remove(y); }
                               });
                             },
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            selectedColor: AppTheme.primaryColor,
-                            labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.white70),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
+                            backgroundColor: AppTheme.surfaceContainerHigh,
+                            selectedColor: AppTheme.current.primaryColor,
+                            labelStyle: TextStyle(color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg), side: BorderSide.none),
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           );
@@ -328,8 +328,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                         setState(() => _currentPage = 1);
                         _loadData();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
-                      child: const Text("Apply", style: TextStyle(color: Colors.white, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.current.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
+                      child: Text("Apply", style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                     ),
                   ),
                 ],
@@ -367,11 +367,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                             label: const Text('Any', style: TextStyle(fontSize: 12)),
                             selected: _selectedLanguage == null,
                             onSelected: (_) => setDialogState(() => _selectedLanguage = null),
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            selectedColor: AppTheme.primaryColor,
-                            checkmarkColor: Colors.white,
-                            labelStyle: TextStyle(color: _selectedLanguage == null ? Colors.white : Colors.white70),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
+                            backgroundColor: AppTheme.surfaceContainerHigh,
+                            selectedColor: AppTheme.current.primaryColor,
+                            checkmarkColor: AppTheme.textPrimary,
+                            labelStyle: TextStyle(color: _selectedLanguage == null ? AppTheme.textPrimary : AppTheme.textSecondary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg), side: BorderSide.none),
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -382,11 +382,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                               label: Text(name, style: const TextStyle(fontSize: 12)),
                               selected: isSelected,
                               onSelected: (_) => setDialogState(() => _selectedLanguage = isSelected ? null : code),
-                              backgroundColor: Colors.white.withValues(alpha: 0.08),
-                              selectedColor: AppTheme.primaryColor,
-                              checkmarkColor: Colors.white,
-                              labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.white70),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
+                              backgroundColor: AppTheme.surfaceContainerHigh,
+                              selectedColor: AppTheme.current.primaryColor,
+                              checkmarkColor: AppTheme.textPrimary,
+                              labelStyle: TextStyle(color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg), side: BorderSide.none),
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               visualDensity: VisualDensity.compact,
                             );
@@ -405,8 +405,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                         setState(() => _currentPage = 1);
                         _loadData();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
-                      child: const Text("Apply", style: TextStyle(color: Colors.white, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.current.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
+                      child: Text("Apply", style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                     ),
                   ),
                 ],
@@ -435,10 +435,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                   const SizedBox(height: 4),
                   SliderTheme(
                     data: SliderThemeData(
-                      activeTrackColor: AppTheme.primaryColor,
-                      inactiveTrackColor: Colors.white12,
-                      thumbColor: AppTheme.primaryColor,
-                      overlayColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      activeTrackColor: AppTheme.current.primaryColor,
+                      inactiveTrackColor: AppTheme.border,
+                      thumbColor: AppTheme.current.primaryColor,
+                      overlayColor: AppTheme.current.primaryColor.withValues(alpha: 0.15),
                     ),
                     child: Slider(
                       value: localRating,
@@ -454,7 +454,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text("Cancel", style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
+                          child: Text("Cancel", style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -465,8 +465,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                             Navigator.pop(context);
                             _loadData();
                           },
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
-                          child: const Text("Apply", style: TextStyle(color: Colors.white, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.current.primaryColor, padding: const EdgeInsets.symmetric(vertical: 10)),
+                          child: Text("Apply", style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                         ),
                       ),
                     ],
@@ -506,7 +506,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
           // Filter Bar
           Container(
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-            color: AppTheme.bgCard,
+            color: AppTheme.surfaceContainer,
             child: Row(
               children: [
                 Expanded(
@@ -530,9 +530,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
           // Grid
           Expanded(
             child: _isLoading 
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+              ? Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor))
               : _movies.isEmpty 
-                ? const Center(child: Text("No results found", style: TextStyle(color: Colors.white54)))
+                ? Center(child: Text("No results found", style: TextStyle(color: AppTheme.textSecondary)))
                 : GridView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
@@ -553,20 +553,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
           // Pagination
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.bgCard,
+            color: AppTheme.surfaceContainer,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ElevatedButton(
                   onPressed: _currentPage > 1 ? _prevPage : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white10),
-                  child: const Text("Previous", style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.surfaceContainerHigh),
+                  child: Text("Previous", style: TextStyle(color: AppTheme.textPrimary)),
                 ),
-                Text("Page $_currentPage", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text("Page $_currentPage", style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
                 ElevatedButton(
                   onPressed: _movies.isNotEmpty ? _nextPage : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                  child: const Text("Next", style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.current.primaryColor),
+                  child: Text("Next", style: TextStyle(color: AppTheme.textPrimary)),
                 ),
               ],
             ),
@@ -591,8 +591,8 @@ class _FilterButton extends StatelessWidget {
       child: ActionChip(
         label: Text(label),
         onPressed: onTap,
-        backgroundColor: isActive ? AppTheme.primaryColor : Colors.white10,
-        labelStyle: TextStyle(color: isActive ? Colors.white : Colors.white70, fontWeight: isActive ? FontWeight.bold : FontWeight.normal),
+        backgroundColor: isActive ? AppTheme.current.primaryColor : AppTheme.surfaceContainerHigh,
+        labelStyle: TextStyle(color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.normal),
         side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
@@ -631,9 +631,9 @@ class _CompactFilterDialog extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.bgCard.withValues(alpha: 0.92),
+          color: AppTheme.surfaceContainer.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: AppTheme.border),
           boxShadow: AppTheme.isLightMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 30, spreadRadius: -5)],
         ),
         padding: const EdgeInsets.all(20),
@@ -644,14 +644,14 @@ class _CompactFilterDialog extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                  child: Text(title, style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.close, color: Colors.white54, size: 18),
+                    decoration: BoxDecoration(color: AppTheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(AppRadius.sm)),
+                    child: Icon(Icons.close, color: AppTheme.textSecondary, size: 18),
                   ),
                 ),
               ],
@@ -677,11 +677,11 @@ class _DiscoverCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 12,
+      borderRadius: AppRadius.md,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppTheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           boxShadow: AppTheme.isLightMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         clipBehavior: Clip.antiAlias,
@@ -692,13 +692,13 @@ class _DiscoverCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (c, u) => Container(color: AppTheme.bgCard),
-                errorWidget: (c, u, e) => const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
               )
             else
               Center(child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               )),
             
             // Rating Badge
@@ -707,15 +707,15 @@ class _DiscoverCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppTheme.overlay.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.star, color: Colors.amber, size: 10),
                     const SizedBox(width: 4),
-                    Text(movie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(movie.voteAverage.toStringAsFixed(1), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   ],
                 ),
               ),
@@ -766,13 +766,13 @@ class _AddToMyListButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: AppTheme.overlay.withValues(alpha: 0.6),
               shape: BoxShape.circle,
             ),
             child: Icon(
               inList ? Icons.bookmark : Icons.add,
               size: 16,
-              color: inList ? AppTheme.primaryColor : Colors.white70,
+              color: inList ? AppTheme.current.primaryColor : AppTheme.textSecondary,
             ),
           ),
         );

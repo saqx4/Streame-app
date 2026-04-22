@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'error_handler.dart';
 import 'failures.dart';
-import '../widgets/error_dialog.dart';
 
 /// Global error boundary widget that catches Flutter errors
 class ErrorBoundary extends ConsumerStatefulWidget {
@@ -35,8 +34,12 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
     );
     
     if (mounted) {
-      setState(() {
-        _error = details.exception;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _error = details.exception;
+          });
+        }
       });
     }
   }
@@ -72,7 +75,9 @@ class _ErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Center(
         child: Padding(
@@ -120,6 +125,7 @@ class _ErrorScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,26 +59,20 @@ class _Glass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillOpacity = hovered ? 0.65 : 0.45;
+    final fillOpacity = hovered ? 0.82 : 0.68;
     final borderOpacity = hovered ? 0.22 : 0.10;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: (tint ?? const Color(0xFF1C1C1E)).withValues(alpha: fillOpacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: borderOpacity),
-              width: 0.5,
-            ),
-          ),
-          child: child,
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: (tint ?? const Color(0xFF1C1C1E)).withValues(alpha: fillOpacity),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: borderOpacity),
+          width: 0.5,
         ),
       ),
+      child: child,
     );
   }
 }
@@ -530,6 +523,7 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
   String? _activeSkipLabel;   // e.g. 'Skip Intro', 'Skip Recap', etc.
   Duration? _activeSkipTarget; // where to seek when the user taps
   bool _skipDismissed = false; // user dismissed the current segment button
+  int _lastSkipCheckMs = 0;    // throttle: only check segments every 500ms
 
   // ── Inline Toast ──────────────────────────────────────────────────────────
   String? _toastMessage;
@@ -576,15 +570,11 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
       mpv.setProperty('opengl-pbo', 'yes');
     }
 
-    // ── VideoController: skip GPU acceleration ────────────────────────────
-    // On Haswell/older Intel GPUs, EGL context creation fails (EGL display or
-    // context is invalid) → S/W rendering fallback. Disabling hardware
-    // acceleration skips the failed GPU attempt entirely and goes directly to
-    // the working CPU upload path, which is faster than try+fail+fallback.
+    // ── VideoController: enable hardware acceleration ──────────────────────
     _controller = VideoController(
       _player,
       configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: false,
+        enableHardwareAcceleration: true,
       ),
     );
 
@@ -853,9 +843,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           await _player.open(Media(source.url, httpHeaders: source.headers ?? widget.headers));
           _player.setVolume(_volumeNotifier.value);
           
-          // Pre-buffer: wait 3 seconds for stream to build buffer before playing
-          await Future.delayed(const Duration(seconds: 3));
-          
           // Check hardware acceleration status
           _checkHardwareAcceleration();
           
@@ -882,9 +869,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           await _configureMpvProperties();
           await _player.open(Media(widget.mediaPath, httpHeaders: widget.headers));
           _player.setVolume(_volumeNotifier.value);
-          
-          // Pre-buffer: wait 3 seconds for stream to build buffer before playing
-          await Future.delayed(const Duration(seconds: 3));
           
           // Check hardware acceleration status
           _checkHardwareAcceleration();
@@ -1151,14 +1135,8 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     if (_player.platform is! NativePlayer) return;
     final mpv = _player.platform as NativePlayer;
 
-    // ── Intel GPU Specific Configuration ───────────────────────────────────
-    // Prefer VA-API for Intel GPUs on Linux
+    // ── Hardware Decoding ───────────────────────────────────────────────────
     await mpv.setProperty('hwdec', _hwDecMode.mpvValue);
-    
-    // Force VA-API for Intel if hardware mode is selected
-    if (_hwDecMode == _HwDecMode.autoHw) {
-      await mpv.setProperty('hwdec', 'vaapi');
-    }
 
     // Direct rendering disabled — with hwdec=auto, the decoder may use
     // copy-back modes (auto-copy) which are incompatible with vd-lavc-dr.
@@ -1170,8 +1148,8 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('vd-lavc-threads', '4');
 
     // ── Hardware Acceleration Optimizations ─────────────────────────────────
-    // Enable zero-copy for hardware decoding when possible (reduces CPU usage)
-    await mpv.setProperty('vd-lavc-software-fallback', 'yes');
+    // Fallback to software after 1 failed hardware decode attempt
+    await mpv.setProperty('vd-lavc-software-fallback', '1');
     
     // Allow faster GPU decoding with some quality trade-off
     await mpv.setProperty('vd-lavc-fast', 'yes');
@@ -1180,8 +1158,9 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('hwdec-codecs', 'all');
 
     // ── Intel GPU Specific Settings ────────────────────────────────────────
-    // Prefer Vulkan/OpenGL for Intel GPUs
-    await mpv.setProperty('gpu-api', 'auto');
+    // NOTE: gpu-api is set to 'opengl' in initState BEFORE VideoController is
+    // created. Do NOT override it here — setting gpu-api=auto would switch to
+    // Vulkan, which fails on Haswell/older Intel GPUs.
     
     // Use pixel buffer objects for better performance
     await mpv.setProperty('opengl-pbo', 'yes');
@@ -1192,28 +1171,15 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     // Disable alpha channel to prevent transparency issues
     await mpv.setProperty('alpha', 'no');
 
-    // ── Audio Codec Fallback ──────────────────────────────────────────────
-    // Continue playback even if audio codec is unsupported (e.g., TrueHD).
-    // User can switch to alternate audio track from the menu.
-    await mpv.setProperty('ad-lavc-downmix', 'no');
-    await mpv.setProperty('audio-fallback-to-null', 'yes');
-
-    // Disable built-in OSD / subtitle rendering – Flutter renders them.
-    await mpv.setProperty('sub-visibility', 'no');
-    await mpv.setProperty('sub-auto', 'all');
-
     // ── Frame Interpolation (Smooth Motion) ─────────────────────────────────
-    // Interpolate frames to match display refresh rate for smoother motion.
-    // Reduces stutter on low frame rate content (24fps on 60Hz displays).
-    // Uses motion interpolation to generate intermediate frames.
-    await mpv.setProperty('interpolation', 'yes');
-    await mpv.setProperty('video-sync-interpolation-threshold', '0.0001');
+    // Disabled by default — heavy GPU overhead. Users can enable via MPV
+    // config if they need smooth motion on 24fps/60Hz setups.
+    await mpv.setProperty('interpolation', 'no');
     
     // ── Debanding (Remove Color Banding) ───────────────────────────────────
-    // Gradual debanding filter to reduce color banding artifacts in
-    // compressed video sources. Improves visual quality in gradients.
-    await mpv.setProperty('deband', 'yes');
-    await mpv.setProperty('deband-iterations', '4');
+    // Disabled by default — expensive GPU filter. Users can enable via MPV
+    // config if they see banding artifacts in dark gradients.
+    await mpv.setProperty('deband', 'no');
 
     // ── Video Sync & VSync (Anti-Tearing) ───────────────────────────────────
     // User-configurable video sync mode to handle different rendering scenarios
@@ -1251,22 +1217,22 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
     await mpv.setProperty('network-timeout', '30');
     await mpv.setProperty('tls-verify', 'no'); // for self-signed / CDN certs
 
-    // Cache: Increased to 500 MB in memory, read 180 s ahead.
+    // Cache: Increased to 1 GB in memory, read 300 s ahead.
     // Larger cache prevents frame drops on variable-bitrate streams.
     await mpv.setProperty('cache', 'yes');
-    await mpv.setProperty('cache-secs', '180');
-    await mpv.setProperty('demuxer-max-bytes', '500MiB');
-    await mpv.setProperty('demuxer-readahead-secs', '180');
+    await mpv.setProperty('cache-secs', '300');
+    await mpv.setProperty('demuxer-max-bytes', '1GiB');
+    await mpv.setProperty('demuxer-readahead-secs', '300');
 
     // How far back the demuxer keeps decoded data (for backward seeks).
-    await mpv.setProperty('demuxer-max-back-bytes', '100MiB');
+    await mpv.setProperty('demuxer-max-back-bytes', '200MiB');
 
     // ── Cache-pause (Anti-Stutter) ─────────────────────────────────────────
     // Pause playback on cache underrun instead of stuttering through it.
     // This is the single most important setting for smooth torrent/stream playback.
     await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
-    await mpv.setProperty('cache-pause-wait', '10');       // wait up to 10s for buffer to recover (increased)
-    await mpv.setProperty('cache-pause-done', '3');        // resume when buffer has 3s ahead (increased)
+    await mpv.setProperty('cache-pause-wait', '15');       // wait up to 15s for buffer to recover (increased)
+    await mpv.setProperty('cache-pause-done', '5');        // resume when buffer has 5s ahead (increased)
 
     // Prevent yt-dlp from being invoked (we supply our own URL).
     await mpv.setProperty('ytdl', 'no');
@@ -2000,9 +1966,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
                   onTap: () async {
                     Navigator.pop(context);
                     if (!isCurrent) {
-                      // Save current position
-                      final currentPos = _positionNotifier.value;
-
                       await _player.open(
                         Media(source.url, httpHeaders: source.headers ?? widget.headers),
                       );
@@ -2051,6 +2014,11 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
 
   void _updateActiveSkipSegment(Duration pos) {
     if (_introDbData == null) return;
+
+    // Throttle: only check segments every 500ms
+    final now = pos.inMilliseconds;
+    if ((now - _lastSkipCheckMs).abs() < 500) return;
+    _lastSkipCheckMs = now;
 
     final posMs = pos.inMilliseconds;
     String? label;
@@ -2186,7 +2154,6 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
           widget.activeProvider != 'stremio_direct';
       final isStremioDirect = widget.activeProvider == 'stremio_direct';
       final isWebStreamr = widget.activeProvider == 'webstreamr';
-      final isAmri = widget.activeProvider == 'amri';
 
       if (isStremioDirect && widget.stremioAddonBaseUrl != null) {
         // ── Stremio addon: re-fetch streams for next episode ────────────
@@ -3268,9 +3235,7 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                   alignment: Alignment.centerLeft,
                   children: [
                     // ── Background track ────────────────────────────────
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
+                    Container(
                       height: trackH,
                       width: _trackWidth,
                       decoration: BoxDecoration(
@@ -3280,9 +3245,7 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                     ),
 
                     // ── Buffered ─────────────────────────────────────────
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
+                    Container(
                       height: trackH,
                       width: (_bufFrac * _trackWidth).clamp(0.0, _trackWidth),
                       decoration: BoxDecoration(
@@ -3292,9 +3255,7 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                     ),
 
                     // ── Played (purple accent) ───────────────────────────
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 80),
-                      curve: Curves.easeOut,
+                    Container(
                       height: trackH,
                       width: playPx,
                       decoration: BoxDecoration(
@@ -3342,45 +3303,35 @@ class _GlassSeekbarState extends State<_GlassSeekbar> {
                       ),
                     ),
 
-                    // ── Hover tooltip: glassy pill above cursor ──────────
+                    // ── Hover tooltip: pill above cursor (no blur for perf) ──
                     if (active && widget.duration.inMilliseconds > 0)
                       Positioned(
                         top: -38,
                         left: tipLeft,
-                        child: AnimatedOpacity(
-                          opacity: active ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 120),
-                          child: ClipRRect(
+                        child: Container(
+                          width: tipW,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1C1C1E).withValues(alpha: 0.90),
                             borderRadius: BorderRadius.circular(8),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                              child: Container(
-                                width: tipW,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1C1C1E).withValues(alpha: 0.82),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.18),
-                                    width: 0.6,
-                                  ),
-                                ),
-                                child: Text(
-                                  formatDuration(_hoverTime),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.visible,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'monospace',
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              width: 0.6,
+                            ),
+                          ),
+                          child: Text(
+                            formatDuration(_hoverTime),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                              letterSpacing: 0.3,
                             ),
                           ),
                         ),

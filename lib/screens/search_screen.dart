@@ -320,20 +320,20 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
           controller: _controller,
           focusNode: _focusNode,
           onChanged: _onSearchChanged,
-          style: const TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: AppTheme.textPrimary, fontSize: 18),
           decoration: InputDecoration(
             hintText: "Search movies, shows...",
-            hintStyle: const TextStyle(color: Colors.white38),
+            hintStyle: TextStyle(color: AppTheme.textDisabled),
             border: InputBorder.none,
             suffixIcon: _query.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.white70),
+                    icon: Icon(Icons.clear, color: AppTheme.textSecondary),
                     onPressed: () {
                       _controller.clear();
                       _onSearchChanged('');
                     },
                   )
-                : const Icon(Icons.search, color: Colors.white70),
+                : Icon(Icons.search, color: AppTheme.textSecondary),
           ),
         ),
       ),
@@ -396,8 +396,8 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
                 ],
                 Text(
                   section.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
@@ -406,7 +406,7 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
                 const SizedBox(width: 8),
                 Text(
                   '${section.results.length}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                  style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
                 ),
               ],
             ),
@@ -443,11 +443,11 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search, size: 80, color: Colors.white.withValues(alpha: 0.05)),
+          Icon(Icons.search, size: 80, color: AppTheme.textDisabled.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           Text(
             _query.isEmpty ? "Search for your favorite content" : "No results found",
-            style: const TextStyle(color: Colors.white38),
+            style: TextStyle(color: AppTheme.textDisabled),
           ),
         ],
       ),
@@ -588,10 +588,10 @@ class _ArrowButton extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Colors.white70, size: 18),
+          child: Icon(icon, color: AppTheme.textSecondary, size: 18),
         ),
       ),
     );
@@ -614,11 +614,11 @@ class _SearchCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 12,
+      borderRadius: AppRadius.md,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppTheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         clipBehavior: Clip.antiAlias,
@@ -629,13 +629,13 @@ class _SearchCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.bgCard),
-                errorWidget: (_, _, _) => const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
               )
             else
               Center(child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(movie.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               )),
 
             if (movie.voteAverage > 0)
@@ -644,8 +644,8 @@ class _SearchCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.overlay.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Text(movie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
                 ),
@@ -655,18 +655,18 @@ class _SearchCard extends StatelessWidget {
               bottom: 0, left: 0, right: 0,
               child: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [Colors.black87, Colors.transparent],
+                    colors: [AppTheme.bgDark.withValues(alpha: 0.85), Colors.transparent],
                   ),
                 ),
                 child: Text(
                   movie.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Colors.white),
+                  style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
                 ),
               ),
             ),
@@ -697,11 +697,11 @@ class _StremioSearchCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 12,
+      borderRadius: AppRadius.md,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppTheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         clipBehavior: Clip.antiAlias,
@@ -712,18 +712,18 @@ class _StremioSearchCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.bgCard),
-                errorWidget: (_, _, _) => Center(
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                errorWidget: (_, __, ___) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                    child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
                   ),
                 ),
               )
             else
               Center(child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
               )),
 
             if (type.isNotEmpty)
@@ -735,7 +735,7 @@ class _StremioSearchCard extends StatelessWidget {
                     color: type == 'series' ? Colors.blue.withValues(alpha: 0.7) : AppTheme.current.primaryColor.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: Text(type.toUpperCase(), style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: Text(type.toUpperCase(), style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 ),
               ),
 
@@ -745,8 +745,8 @@ class _StremioSearchCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.overlay.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -763,18 +763,18 @@ class _StremioSearchCard extends StatelessWidget {
               bottom: 0, left: 0, right: 0,
               child: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [Colors.black87, Colors.transparent],
+                    colors: [AppTheme.bgDark.withValues(alpha: 0.85), Colors.transparent],
                   ),
                 ),
                 child: Text(
                   name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Colors.white),
+                  style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
                 ),
               ),
             ),
@@ -827,13 +827,13 @@ class _AddToMyListButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: AppTheme.overlay.withValues(alpha: 0.6),
               shape: BoxShape.circle,
             ),
             child: Icon(
               inList ? Icons.bookmark : Icons.add,
               size: 16,
-              color: inList ? AppTheme.primaryColor : Colors.white70,
+              color: inList ? AppTheme.current.primaryColor : AppTheme.textSecondary,
             ),
           ),
         );
@@ -867,13 +867,13 @@ class _AddToMyListStremioButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: AppTheme.overlay.withValues(alpha: 0.6),
               shape: BoxShape.circle,
             ),
             child: Icon(
               inList ? Icons.bookmark : Icons.add,
               size: 16,
-              color: inList ? AppTheme.primaryColor : Colors.white70,
+              color: inList ? AppTheme.current.primaryColor : AppTheme.textSecondary,
             ),
           ),
         );
