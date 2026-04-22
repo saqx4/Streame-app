@@ -18,15 +18,55 @@ class SimklService {
   // ── Constants ──────────────────────────────────────────────────────────
   static const String _baseUrl = 'https://api.simkl.com';
 
-  // Injected at build time via --dart-define or .env
-  static const String _clientId =
-      String.fromEnvironment('SIMKL_CLIENT_ID');
+  // Fallback from compile-time --dart-define (may be empty)
+  static const String _envClientId = String.fromEnvironment('SIMKL_CLIENT_ID');
   // ignore: unused_field
-  static const String _clientSecret =
-      String.fromEnvironment('SIMKL_CLIENT_SECRET');
+  static const String _envClientSecret = String.fromEnvironment(
+    'SIMKL_CLIENT_SECRET',
+  );
 
   // ── Secure Storage Keys ────────────────────────────────────────────────
   static const String _keyAccessToken = 'simkl_access_token';
+  static const String _keyClientId = 'simkl_client_id';
+  static const String _keyClientSecret = 'simkl_client_secret';
+
+  // ── Runtime credential cache ───────────────────────────────────────────
+  String? _cachedClientId;
+  String? _cachedClientSecret;
+
+  /// Get client ID: runtime storage > env var
+  Future<String> get clientId async {
+    _cachedClientId ??= await _storage.read(key: _keyClientId);
+    return _cachedClientId?.isNotEmpty == true
+        ? _cachedClientId!
+        : _envClientId;
+  }
+
+  /// Get client secret: runtime storage > env var
+  Future<String> get clientSecret async {
+    _cachedClientSecret ??= await _storage.read(key: _keyClientSecret);
+    return _cachedClientSecret?.isNotEmpty == true
+        ? _cachedClientSecret!
+        : _envClientSecret;
+  }
+
+  /// Save credentials at runtime (from settings UI)
+  Future<void> saveCredentials(String id, String secret) async {
+    await _storage.write(key: _keyClientId, value: id);
+    await _storage.write(key: _keyClientSecret, value: secret);
+    _cachedClientId = id;
+    _cachedClientSecret = secret;
+    debugPrint('[Simkl] Credentials saved');
+  }
+
+  /// Check if credentials are configured (runtime or env)
+  Future<bool> isConfiguredAsync() async {
+    final id = await clientId;
+    return id.isNotEmpty;
+  }
+
+  /// Synchronous check for backwards compat (env vars only)
+  static bool get isConfigured => _envClientId.isNotEmpty;
 
   // ── Runtime state ──────────────────────────────────────────────────────
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -40,10 +80,15 @@ class SimklService {
   /// Step 1: Request a PIN code from Simkl.
   /// Returns {"user_code": "ABCD1234", "verification_url": "https://simkl.com/pin/ABCD1234", "expires_in": 900, "interval": 5}
   Future<Map<String, dynamic>?> requestPin() async {
+    final cId = await clientId;
+    if (cId.isEmpty) {
+      debugPrint('[Simkl] Error: Client ID not configured');
+      return null;
+    }
     try {
       final resp = await http.get(
-        Uri.parse('$_baseUrl/oauth/pin?client_id=$_clientId&redirect='),
-        headers: _publicHeaders,
+        Uri.parse('$_baseUrl/oauth/pin?client_id=$cId&redirect='),
+        headers: await _publicHeadersAsync,
       );
       if (resp.statusCode == 200) {
         return json.decode(resp.body) as Map<String, dynamic>;
@@ -58,12 +103,11 @@ class SimklService {
   /// Step 2: Poll for the token after user enters the PIN on simkl.com.
   /// Returns the access token string or null if not ready/failed.
   Future<String?> pollForToken(String userCode) async {
+    final cId = await clientId;
     try {
       final resp = await http.get(
-        Uri.parse(
-          '$_baseUrl/oauth/pin/$userCode?client_id=$_clientId',
-        ),
-        headers: _publicHeaders,
+        Uri.parse('$_baseUrl/oauth/pin/$userCode?client_id=$cId'),
+        headers: await _publicHeadersAsync,
       );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
@@ -116,7 +160,7 @@ class SimklService {
     try {
       final resp = await http.get(
         Uri.parse('$_baseUrl/users/settings'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
       );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
@@ -140,7 +184,7 @@ class SimklService {
     try {
       final resp = await http.get(
         Uri.parse('$_baseUrl/sync/activities'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
       );
       _handleUnauthorized(resp.statusCode);
       if (resp.statusCode == 200) {
@@ -175,7 +219,7 @@ class SimklService {
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/add-to-list'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
       debugPrint('[Simkl] Add to list: ${resp.statusCode}');
@@ -204,7 +248,7 @@ class SimklService {
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/remove-from-list'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
       return resp.statusCode == 200;
@@ -231,7 +275,9 @@ class SimklService {
     if (imdbId != null) ids['imdb'] = imdbId;
 
     final item = {'ids': ids, 'to': 'plantowatch'};
-    final type = (mediaType == 'tv' || mediaType == 'series') ? 'shows' : 'movies';
+    final type = (mediaType == 'tv' || mediaType == 'series')
+        ? 'shows'
+        : 'movies';
     return _addToList(
       shows: type == 'shows' ? [item] : [],
       movies: type == 'movies' ? [item] : [],
@@ -251,7 +297,9 @@ class SimklService {
     if (imdbId != null) ids['imdb'] = imdbId;
 
     final item = {'ids': ids};
-    final type = (mediaType == 'tv' || mediaType == 'series') ? 'shows' : 'movies';
+    final type = (mediaType == 'tv' || mediaType == 'series')
+        ? 'shows'
+        : 'movies';
     return _removeFromList(
       shows: type == 'shows' ? [item] : [],
       movies: type == 'movies' ? [item] : [],
@@ -278,7 +326,7 @@ class SimklService {
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/history'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
       return resp.statusCode == 200 || resp.statusCode == 201;
@@ -304,7 +352,7 @@ class SimklService {
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/history/remove'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
       return resp.statusCode == 200;
@@ -326,7 +374,7 @@ class SimklService {
     try {
       final resp = await http.get(
         Uri.parse('$_baseUrl/sync/ratings'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
       );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
@@ -354,15 +402,17 @@ class SimklService {
     if (tmdbId != null) ids['tmdb'] = tmdbId;
     if (imdbId != null) ids['imdb'] = imdbId;
 
-    final type = (mediaType == 'tv' || mediaType == 'series') ? 'shows' : 'movies';
+    final type = (mediaType == 'tv' || mediaType == 'series')
+        ? 'shows'
+        : 'movies';
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/ratings'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode({
           type: [
-            {'ids': ids, 'rating': rating}
-          ]
+            {'ids': ids, 'rating': rating},
+          ],
         }),
       );
       return resp.statusCode == 200 || resp.statusCode == 201;
@@ -386,15 +436,17 @@ class SimklService {
     if (tmdbId != null) ids['tmdb'] = tmdbId;
     if (imdbId != null) ids['imdb'] = imdbId;
 
-    final type = (mediaType == 'tv' || mediaType == 'series') ? 'shows' : 'movies';
+    final type = (mediaType == 'tv' || mediaType == 'series')
+        ? 'shows'
+        : 'movies';
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/sync/ratings/remove'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode({
           type: [
-            {'ids': ids}
-          ]
+            {'ids': ids},
+          ],
         }),
       );
       return resp.statusCode == 200;
@@ -414,8 +466,13 @@ class SimklService {
     required String mediaType,
     int? season,
     int? episode,
-  }) =>
-      _scrobble('start', tmdbId: tmdbId, mediaType: mediaType, season: season, episode: episode);
+  }) => _scrobble(
+    'start',
+    tmdbId: tmdbId,
+    mediaType: mediaType,
+    season: season,
+    episode: episode,
+  );
 
   /// Pause scrobbling.
   Future<bool> scrobblePause({
@@ -423,8 +480,13 @@ class SimklService {
     required String mediaType,
     int? season,
     int? episode,
-  }) =>
-      _scrobble('pause', tmdbId: tmdbId, mediaType: mediaType, season: season, episode: episode);
+  }) => _scrobble(
+    'pause',
+    tmdbId: tmdbId,
+    mediaType: mediaType,
+    season: season,
+    episode: episode,
+  );
 
   /// Stop scrobbling (user finished watching).
   Future<bool> scrobbleStop({
@@ -432,8 +494,13 @@ class SimklService {
     required String mediaType,
     int? season,
     int? episode,
-  }) =>
-      _scrobble('stop', tmdbId: tmdbId, mediaType: mediaType, season: season, episode: episode);
+  }) => _scrobble(
+    'stop',
+    tmdbId: tmdbId,
+    mediaType: mediaType,
+    season: season,
+    episode: episode,
+  );
 
   // ═══════════════════════════════════════════════════════════════════════
   //  I M P O R T   —   W A T C H L I S T   >   M Y   L I S T
@@ -449,7 +516,7 @@ class SimklService {
       try {
         final resp = await http.get(
           Uri.parse('$_baseUrl/sync/all-items/$type/plantowatch'),
-          headers: _authHeaders(token),
+          headers: await _authHeadersAsync(token),
         );
         if (resp.statusCode != 200) continue;
 
@@ -528,13 +595,16 @@ class SimklService {
       if (force || savedAll != lastAll) {
         watchlistCount = await importWatchlistToMyList();
         episodesImported = await importWatchedEpisodes();
-        if (lastAll.isNotEmpty) await _storage.write(key: 'simkl_last_activity', value: lastAll);
+        if (lastAll.isNotEmpty)
+          await _storage.write(key: 'simkl_last_activity', value: lastAll);
       } else {
         debugPrint('[Simkl] No activity changes, skipping sync');
       }
 
       _initialSyncDone = true;
-      debugPrint('[Simkl] Smart sync done — watchlist: $watchlistCount, episodes: $episodesImported');
+      debugPrint(
+        '[Simkl] Smart sync done — watchlist: $watchlistCount, episodes: $episodesImported',
+      );
     } finally {
       _syncInProgress = null;
       completer.complete();
@@ -590,14 +660,16 @@ class SimklService {
     try {
       final resp = await http.get(
         Uri.parse('$_baseUrl/sync/all-items/shows/completed'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
       );
       if (resp.statusCode != 200) return 0;
 
       final data = json.decode(resp.body);
       final List shows = data is List
           ? data
-          : (data is Map && data.containsKey('shows') ? data['shows'] as List : []);
+          : (data is Map && data.containsKey('shows')
+                ? data['shows'] as List
+                : []);
 
       for (final raw in shows) {
         final item = raw as Map<String, dynamic>;
@@ -614,9 +686,18 @@ class SimklService {
           for (final ep in episodes) {
             final eNum = ep['number'] as int? ?? 0;
             if (eNum == 0) continue;
-            final already = await EpisodeWatchedService().isWatched(tmdbId, sNum, eNum);
+            final already = await EpisodeWatchedService().isWatched(
+              tmdbId,
+              sNum,
+              eNum,
+            );
             if (!already) {
-              await EpisodeWatchedService().setWatchedLocal(tmdbId, sNum, eNum, true);
+              await EpisodeWatchedService().setWatchedLocal(
+                tmdbId,
+                sNum,
+                eNum,
+                true,
+              );
               imported++;
             }
           }
@@ -661,17 +742,23 @@ class SimklService {
 
       shows.add({
         'ids': {'tmdb': entry.key},
-        'seasons': seasonEps.entries.map((se) => {
-          'number': se.key,
-          'episodes': se.value.map((e) => {'number': e}).toList(),
-        }).toList(),
+        'seasons': seasonEps.entries
+            .map(
+              (se) => {
+                'number': se.key,
+                'episodes': se.value.map((e) => {'number': e}).toList(),
+              },
+            )
+            .toList(),
       });
       exported += entry.value.length;
     }
 
     if (shows.isEmpty) return 0;
     final ok = await addToHistory(shows: shows);
-    debugPrint('[Simkl] Exported $exported watched episodes: ${ok ? 'success' : 'failed'}');
+    debugPrint(
+      '[Simkl] Exported $exported watched episodes: ${ok ? 'success' : 'failed'}',
+    );
     return ok ? exported : 0;
   }
 
@@ -691,16 +778,18 @@ class SimklService {
   //  I N T E R N A L   H E L P E R S
   // ═══════════════════════════════════════════════════════════════════════
 
-  Map<String, String> get _publicHeaders => {
-        'Content-Type': 'application/json',
-        'simkl-api-key': _clientId,
-      };
+  /// Async public headers using runtime credentials
+  Future<Map<String, String>> get _publicHeadersAsync async => {
+    'Content-Type': 'application/json',
+    'simkl-api-key': await clientId,
+  };
 
-  Map<String, String> _authHeaders(String token) => {
-        'Content-Type': 'application/json',
-        'simkl-api-key': _clientId,
-        'Authorization': 'Bearer $token',
-      };
+  /// Async auth headers using runtime credentials
+  Future<Map<String, String>> _authHeadersAsync(String token) async => {
+    'Content-Type': 'application/json',
+    'simkl-api-key': await clientId,
+    'Authorization': 'Bearer $token',
+  };
 
   Future<bool> _scrobble(
     String action, {
@@ -715,22 +804,19 @@ class SimklService {
     final body = <String, dynamic>{};
     if (mediaType == 'tv' && season != null && episode != null) {
       body['show'] = {
-        'ids': {'tmdb': tmdbId}
+        'ids': {'tmdb': tmdbId},
       };
-      body['episode'] = {
-        'season': season,
-        'number': episode,
-      };
+      body['episode'] = {'season': season, 'number': episode};
     } else {
       body['movie'] = {
-        'ids': {'tmdb': tmdbId}
+        'ids': {'tmdb': tmdbId},
       };
     }
 
     try {
       final resp = await http.post(
         Uri.parse('$_baseUrl/scrobble/$action'),
-        headers: _authHeaders(token),
+        headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
       _handleUnauthorized(resp.statusCode);

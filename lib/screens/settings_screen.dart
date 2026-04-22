@@ -33,34 +33,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final DebridApi _debrid = DebridApi();
   final JackettService _jackett = JackettService();
   final ProwlarrService _prowlarr = ProwlarrService();
-  
+
   bool _isStreamingMode = false;
   String _externalPlayer = 'Built-in Player';
   String _sortPreference = 'Seeders (High to Low)';
   List<Map<String, dynamic>> _installedAddons = [];
   bool _isInstalling = false;
-  
+
   bool _useDebrid = false;
   String _debridService = 'None';
   final TextEditingController _addonController = TextEditingController();
   final TextEditingController _torboxController = TextEditingController();
-  
+
   // Jackett
   final TextEditingController _jackettUrlController = TextEditingController();
-  final TextEditingController _jackettApiKeyController = TextEditingController();
+  final TextEditingController _jackettApiKeyController =
+      TextEditingController();
   bool _isTestingJackett = false;
   String? _jackettTestResult;
-  
+
   // Prowlarr
   final TextEditingController _prowlarrUrlController = TextEditingController();
-  final TextEditingController _prowlarrApiKeyController = TextEditingController();
+  final TextEditingController _prowlarrApiKeyController =
+      TextEditingController();
   bool _isTestingProwlarr = false;
   String? _prowlarrTestResult;
-  
+
   bool _isRDLoggedIn = false;
   String? _rdUserCode;
   Timer? _rdPollTimer;
-  
+
   // Trakt
   final TraktService _trakt = TraktService();
   bool _isTraktLoggedIn = false;
@@ -70,6 +72,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isTraktSyncing = false;
   String? _traktUsername;
   Map<String, dynamic>? _traktStats;
+  bool _isTraktConfigured = false;
+  final TextEditingController _traktClientIdController =
+      TextEditingController();
+  final TextEditingController _traktClientSecretController =
+      TextEditingController();
 
   // Simkl
   final SimklService _simkl = SimklService();
@@ -79,11 +86,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _simklPollTimer;
   bool _isSimklSyncing = false;
   String? _simklUsername;
+  bool _isSimklConfigured = false;
+  final TextEditingController _simklClientIdController =
+      TextEditingController();
+  final TextEditingController _simklClientSecretController =
+      TextEditingController();
 
   // MDBlist
   final MdblistService _mdblist = MdblistService();
   bool _isMdblistConfigured = false;
-  final TextEditingController _mdblistApiKeyController = TextEditingController();
+  final TextEditingController _mdblistApiKeyController =
+      TextEditingController();
   String? _mdblistUsername;
 
   bool _isCheckingUpdate = false;
@@ -121,19 +134,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final addons = await _settings.getStremioAddons();
     final torboxKey = await _debrid.getTorBoxKey();
     final rdToken = await _debrid.getRDAccessToken();
-    
+
     // Load Trakt status
     final traktLoggedIn = await _trakt.isLoggedIn();
+    final traktConfigured = await _trakt.isConfiguredAsync();
     String? traktUser;
     Map<String, dynamic>? traktStats;
     if (traktLoggedIn) {
       final profile = await _trakt.getUserProfile();
-      traktUser = profile?['user']?['username']?.toString() ?? profile?['username']?.toString();
+      traktUser =
+          profile?['user']?['username']?.toString() ??
+          profile?['username']?.toString();
       traktStats = await _trakt.getUserStats();
     }
 
     // Load Simkl status
     final simklLoggedIn = await _simkl.isLoggedIn();
+    final simklConfigured = await _simkl.isConfiguredAsync();
     String? simklUser;
     if (simklLoggedIn) {
       final profile = await _simkl.getUserProfile();
@@ -152,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Load Jackett settings
     final jackettUrl = await _settings.getJackettBaseUrl();
     final jackettKey = await _settings.getJackettApiKey();
-    
+
     // Load Prowlarr settings
     final prowlarrUrl = await _settings.getProwlarrBaseUrl();
     final prowlarrKey = await _settings.getProwlarrApiKey();
@@ -194,15 +211,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isTraktLoggedIn = traktLoggedIn;
         _traktUsername = traktUser;
         _traktStats = traktStats;
+        _isTraktConfigured = traktConfigured;
         _isSimklLoggedIn = simklLoggedIn;
         _simklUsername = simklUser;
+        _isSimklConfigured = simklConfigured;
         _isMdblistConfigured = mdblistConfigured;
         _mdblistUsername = mdblistUser;
         _mdblistApiKeyController.text = mdblistKey ?? '';
-        
+
         _jackettUrlController.text = jackettUrl ?? '';
         _jackettApiKeyController.text = jackettKey ?? '';
-        
+
         _prowlarrUrlController.text = prowlarrUrl ?? '';
         _prowlarrApiKeyController.text = prowlarrKey ?? '';
 
@@ -229,12 +248,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await _settings.saveStremioAddon(addonData);
         _addonController.clear();
         await _loadSettings();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Addon installed successfully!')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Addon installed successfully!')),
+          );
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to install addon. Check URL.')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to install addon. Check URL.'),
+            ),
+          );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isInstalling = false);
     }
@@ -243,7 +273,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _removeAddon(String baseUrl) async {
     await _settings.removeStremioAddon(baseUrl);
     await _loadSettings();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Addon removed')));
+    if (mounted)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Addon removed')));
   }
 
   @override
@@ -279,7 +312,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       _rdPollTimer?.cancel();
-      _rdPollTimer = Timer.periodic(Duration(seconds: data['interval']), (timer) async {
+      _rdPollTimer = Timer.periodic(Duration(seconds: data['interval']), (
+        timer,
+      ) async {
         final success = await _debrid.pollRDCredentials(data['device_code']);
         if (success) {
           timer.cancel();
@@ -288,7 +323,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _isRDLoggedIn = true;
           });
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Real-Debrid Login Successful!')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Real-Debrid Login Successful!')),
+            );
           }
         }
       });
@@ -308,7 +345,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isRDLoggedIn = false;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out of Real-Debrid')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Logged out of Real-Debrid')),
+      );
     }
   }
 
@@ -327,14 +366,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 floating: true,
-                title: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 32, fontFamily: 'Poppins')),
+                title: Text(
+                  'Settings',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 32,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
                 centerTitle: false,
               ),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-
                     // ── Backup & Restore ──
                     _buildExpandableSection(
                       id: 'backup',
@@ -361,7 +409,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 12),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('THEME', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'THEME',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildThemePicker(),
@@ -418,9 +474,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'How torrent results are sorted automatically.',
                           _sortPreference,
                           [
-                            'Seeders (High to Low)', 'Seeders (Low to High)',
-                            'Quality (High to Low)', 'Quality (Low to High)',
-                            'Size (High to Low)', 'Size (Low to High)',
+                            'Seeders (High to Low)',
+                            'Seeders (Low to High)',
+                            'Quality (High to Low)',
+                            'Quality (Low to High)',
+                            'Size (High to Low)',
+                            'Size (Low to High)',
                           ],
                           (val) {
                             if (val != null) {
@@ -432,7 +491,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 12),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('TORRENT ENGINE', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'TORRENT ENGINE',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         _buildFocusableDropdown(
@@ -453,17 +520,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
-                                child: Text('RAM Cache Size: $_torrentRamCacheMb MB', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  top: 8,
+                                  bottom: 4,
+                                ),
+                                child: Text(
+                                  'RAM Cache Size: $_torrentRamCacheMb MB',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
                               Slider(
                                 value: _torrentRamCacheMb.toDouble(),
-                                min: 50, max: 2048, divisions: 39,
+                                min: 50,
+                                max: 2048,
+                                divisions: 39,
                                 activeColor: Colors.deepPurpleAccent,
-                                inactiveColor: AppTheme.textDisabled.withValues(alpha: 0.15),
+                                inactiveColor: AppTheme.textDisabled.withValues(
+                                  alpha: 0.15,
+                                ),
                                 label: '$_torrentRamCacheMb MB',
-                                onChanged: (val) => setState(() => _torrentRamCacheMb = val.round()),
-                                onChangeEnd: (val) async => await _settings.setTorrentRamCacheMb(val.round()),
+                                onChanged: (val) => setState(
+                                  () => _torrentRamCacheMb = val.round(),
+                                ),
+                                onChangeEnd: (val) async => await _settings
+                                    .setTorrentRamCacheMb(val.round()),
                               ),
                             ],
                           ),
@@ -478,21 +562,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('STREMIO ADDONS', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'STREMIO ADDONS',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildAddonInput(),
                         const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('JACKETT', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'JACKETT',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildJackettConfig(),
                         const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('PROWLARR', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'PROWLARR',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildProwlarrConfig(),
@@ -539,21 +647,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('TRAKT', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'TRAKT',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildTraktSection(),
                         const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('SIMKL', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'SIMKL',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildSimklSection(),
                         const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('MDBLIST', style: TextStyle(color: AppTheme.current.primaryColor, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(
+                            'MDBLIST',
+                            style: TextStyle(
+                              color: AppTheme.current.primaryColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _buildMdblistSection(),
@@ -588,7 +720,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Center(
                       child: Text(
                         'Streame Native v1.1.5',
-                        style: TextStyle(color: AppTheme.textDisabled, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: AppTheme.textDisabled,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 100),
@@ -618,7 +755,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerHigh.withValues(alpha: isExpanded ? 0.15 : 0.08),
+          color: AppTheme.surfaceContainerHigh.withValues(
+            alpha: isExpanded ? 0.15 : 0.08,
+          ),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isExpanded
@@ -641,16 +780,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   children: [
-                    Icon(icon, size: 20, color: isExpanded ? AppTheme.current.primaryColor : AppTheme.textDisabled),
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: isExpanded
+                          ? AppTheme.current.primaryColor
+                          : AppTheme.textDisabled,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         title,
                         style: TextStyle(
-                          color: isExpanded ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          color: isExpanded
+                              ? AppTheme.textPrimary
+                              : AppTheme.textSecondary,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -661,7 +811,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: isExpanded ? AppTheme.current.primaryColor : AppTheme.textDisabled,
+                        color: isExpanded
+                            ? AppTheme.current.primaryColor
+                            : AppTheme.textDisabled,
                         size: 22,
                       ),
                     ),
@@ -679,7 +831,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               secondChild: const SizedBox.shrink(),
-              crossFadeState: isExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
               duration: const Duration(milliseconds: 200),
               sizeCurve: Curves.easeInOut,
             ),
@@ -702,7 +856,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final data = await _settings.exportAllSettings();
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
 
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
       final fileName = 'streame_settings_$timestamp.json';
 
       // Write to a temp file first, then let the user pick where to save
@@ -734,9 +892,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -759,9 +917,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       jsonStr = await File(file.path!).readAsString();
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not read file.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not read file.')));
       }
       return;
     }
@@ -773,7 +931,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2C),
-        title: Text('Import Settings', style: TextStyle(color: AppTheme.textPrimary)),
+        title: Text(
+          'Import Settings',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
         content: Text(
           'This will overwrite all your current settings, including addons, API keys, and preferences. Continue?',
           style: TextStyle(color: AppTheme.textSecondary),
@@ -785,7 +946,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Import', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Import',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -805,9 +969,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isImporting = false);
@@ -836,14 +1000,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isExporting ? null : _exportSettings,
                   icon: _isExporting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.upload_rounded, size: 20),
                   label: const Text('Export'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurpleAccent,
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -852,14 +1022,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isImporting ? null : _importSettings,
                   icon: _isImporting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.download_rounded, size: 20),
                   label: const Text('Import'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.3,
+                    ),
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -875,15 +1053,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static const Map<String, Map<String, dynamic>> _navMeta = {
-    'home':         {'icon': Icons.home,                       'label': 'Home'},
-    'discover':     {'icon': Icons.explore,                    'label': 'Discover'},
-    'search':       {'icon': Icons.search,                     'label': 'Search'},
-    'mylist':       {'icon': Icons.bookmark,                   'label': 'My List'},
-    'magnet':       {'icon': Icons.link_rounded,               'label': 'Magnet'},
+    'home': {'icon': Icons.home, 'label': 'Home'},
+    'discover': {'icon': Icons.explore, 'label': 'Discover'},
+    'search': {'icon': Icons.search, 'label': 'Search'},
+    'mylist': {'icon': Icons.bookmark, 'label': 'My List'},
+    'magnet': {'icon': Icons.link_rounded, 'label': 'Magnet'},
   };
 
   void _saveNavbarConfig() {
-    final visible = _navbarOrder.where((id) => _navbarVisible.contains(id)).toList();
+    final visible = _navbarOrder
+        .where((id) => _navbarVisible.contains(id))
+        .toList();
     _settings.setNavbarConfig(visible);
   }
 
@@ -904,10 +1084,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           buildDefaultDragHandles: false,
           itemCount: _navbarOrder.length,
           proxyDecorator: (child, index, animation) {
-            return Material(
-              color: Colors.transparent,
-              child: child,
-            );
+            return Material(color: Colors.transparent, child: child);
           },
           onReorder: (oldIndex, newIndex) {
             setState(() {
@@ -934,13 +1111,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: ListTile(
                 leading: Icon(
                   meta['icon'] as IconData,
-                  color: isVisible ? AppTheme.textPrimary : AppTheme.textDisabled,
+                  color: isVisible
+                      ? AppTheme.textPrimary
+                      : AppTheme.textDisabled,
                   size: 22,
                 ),
                 title: Text(
                   meta['label'] as String,
                   style: TextStyle(
-                    color: isVisible ? AppTheme.textPrimary : AppTheme.textDisabled,
+                    color: isVisible
+                        ? AppTheme.textPrimary
+                        : AppTheme.textDisabled,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -966,7 +1147,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       index: index,
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4),
-                        child: Icon(Icons.drag_handle, color: AppTheme.textDisabled, size: 20),
+                        child: Icon(
+                          Icons.drag_handle,
+                          color: AppTheme.textDisabled,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
@@ -981,20 +1166,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+            ),
           ),
           child: ListTile(
-            leading: const Icon(Icons.settings, color: AppTheme.primaryColor, size: 22),
+            leading: const Icon(
+              Icons.settings,
+              color: AppTheme.primaryColor,
+              size: 22,
+            ),
             title: const Text(
               'Settings',
-              style: TextStyle(color: AppTheme.primaryColor, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock_outline, color: AppTheme.textDisabled, size: 16),
+                Icon(
+                  Icons.lock_outline,
+                  color: AppTheme.textDisabled,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
-                Text('Always visible', style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+                Text(
+                  'Always visible',
+                  style: TextStyle(color: AppTheme.textDisabled, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -1009,7 +1211,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Install Stremio Addon', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Install Stremio Addon',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1019,12 +1224,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: InputDecoration(
                     hintText: 'stremio://... or https://...',
                     filled: true,
-                    fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                    fillColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.3,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -1034,38 +1244,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: AppTheme.textPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: _isInstalling 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Install', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: _isInstalling
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Install',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ],
           ),
           if (_installedAddons.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Text('INSTALLED ADDONS', style: TextStyle(color: AppTheme.textDisabled, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            const SizedBox(height: 12),
-            ..._installedAddons.map((addon) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
+            Text(
+              'INSTALLED ADDONS',
+              style: TextStyle(
+                color: AppTheme.textDisabled,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
               ),
-              child: ListTile(
-                leading: addon['icon'].toString().isNotEmpty 
-                  ? ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.network(addon['icon'], width: 32, height: 32, errorBuilder: (c,e,s) => const Icon(Icons.extension)))
-                  : const Icon(Icons.extension, color: AppTheme.primaryColor),
-                title: Text(addon['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text(addon['baseUrl'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  onPressed: () => _removeAddon(addon['baseUrl']),
+            ),
+            const SizedBox(height: 12),
+            ..._installedAddons.map(
+              (addon) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: ListTile(
+                  leading: addon['icon'].toString().isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.network(
+                            addon['icon'],
+                            width: 32,
+                            height: 32,
+                            errorBuilder: (c, e, s) =>
+                                const Icon(Icons.extension),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.extension,
+                          color: AppTheme.primaryColor,
+                        ),
+                  title: Text(
+                    addon['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  subtitle: Text(
+                    addon['baseUrl'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textDisabled,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                    ),
+                    onPressed: () => _removeAddon(addon['baseUrl']),
+                  ),
                 ),
               ),
-            )),
+            ),
           ],
         ],
       ),
@@ -1087,20 +1348,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                 foregroundColor: Colors.redAccent,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             )
           else if (_rdUserCode != null) ...[
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 children: [
                   const Text('Enter this code at real-debrid.com/device:'),
                   const SizedBox(height: 8),
-                  Text(_rdUserCode!, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 4)),
+                  Text(
+                    _rdUserCode!,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                      letterSpacing: 4,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(color: AppTheme.primaryColor, backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2)),
+                  LinearProgressIndicator(
+                    color: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.2,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1110,10 +1389,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: const Icon(Icons.login),
               label: const Text('Login with Real-Debrid'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                  alpha: 0.2,
+                ),
                 foregroundColor: AppTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
         ],
@@ -1127,7 +1410,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('API Key', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'API Key',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1138,8 +1424,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter TorBox API Key',
                     filled: true,
-                    fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    fillColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.3,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
@@ -1148,15 +1439,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () async {
                   await _debrid.saveTorBoxKey(_torboxController.text);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('TorBox API Key Saved!')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('TorBox API Key Saved!')),
+                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: AppTheme.textPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Save',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -1171,7 +1469,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Base URL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Base URL',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _jackettUrlController,
@@ -1179,13 +1480,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               hintText: 'http://localhost:9117',
               filled: true,
               fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (_) => setState(() => _jackettTestResult = null),
           ),
           const SizedBox(height: 16),
-          const Text('API Key', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'API Key',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _jackettApiKeyController,
@@ -1194,8 +1504,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               hintText: 'Enter Jackett API Key',
               filled: true,
               fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (_) => setState(() => _jackettTestResult = null),
           ),
@@ -1206,14 +1522,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ElevatedButton(
                   onPressed: _isTestingJackett ? null : _testJackettConnection,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.3,
+                    ),
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isTestingJackett
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Test Connection', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Test Connection',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1224,9 +1551,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -1249,7 +1581,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 _jackettTestResult!,
                 style: TextStyle(
-                  color: _jackettTestResult!.startsWith('✅') ? Colors.green : Colors.red,
+                  color: _jackettTestResult!.startsWith('✅')
+                      ? Colors.green
+                      : Colors.red,
                   fontSize: 13,
                 ),
               ),
@@ -1266,7 +1600,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Base URL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'Base URL',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _prowlarrUrlController,
@@ -1274,13 +1611,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               hintText: 'http://localhost:9696',
               filled: true,
               fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (_) => setState(() => _prowlarrTestResult = null),
           ),
           const SizedBox(height: 16),
-          const Text('API Key', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            'API Key',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _prowlarrApiKeyController,
@@ -1289,8 +1635,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               hintText: 'Enter Prowlarr API Key',
               filled: true,
               fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (_) => setState(() => _prowlarrTestResult = null),
           ),
@@ -1299,16 +1651,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _isTestingProwlarr ? null : _testProwlarrConnection,
+                  onPressed: _isTestingProwlarr
+                      ? null
+                      : _testProwlarrConnection,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.3,
+                    ),
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isTestingProwlarr
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Test Connection', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Test Connection',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1319,9 +1684,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: AppTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -1344,7 +1714,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 _prowlarrTestResult!,
                 style: TextStyle(
-                  color: _prowlarrTestResult!.startsWith('✅') ? Colors.green : Colors.red,
+                  color: _prowlarrTestResult!.startsWith('✅')
+                      ? Colors.green
+                      : Colors.red,
                   fontSize: 13,
                 ),
               ),
@@ -1360,7 +1732,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final apiKey = _jackettApiKeyController.text.trim();
 
     if (url.isEmpty || apiKey.isEmpty) {
-      setState(() => _jackettTestResult = '❌ Please enter both Base URL and API Key');
+      setState(
+        () => _jackettTestResult = '❌ Please enter both Base URL and API Key',
+      );
       return;
     }
 
@@ -1395,9 +1769,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _settings.setJackettApiKey(apiKey);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Jackett settings saved!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Jackett settings saved!')));
     }
   }
 
@@ -1406,7 +1780,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final apiKey = _prowlarrApiKeyController.text.trim();
 
     if (url.isEmpty || apiKey.isEmpty) {
-      setState(() => _prowlarrTestResult = '❌ Please enter both Base URL and API Key');
+      setState(
+        () => _prowlarrTestResult = '❌ Please enter both Base URL and API Key',
+      );
       return;
     }
 
@@ -1441,9 +1817,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _settings.setProwlarrApiKey(apiKey);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prowlarr settings saved!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Prowlarr settings saved!')));
     }
   }
 
@@ -1451,12 +1827,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Trakt
   // ═══════════════════════════════════════════════════════════════════════
 
-  void _startTraktLogin() async {
-    if (!TraktService.isConfigured) {
+  Future<void> _saveTraktCredentials() async {
+    final id = _traktClientIdController.text.trim();
+    final secret = _traktClientSecretController.text.trim();
+    if (id.isEmpty || secret.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Trakt credentials not configured. Set TRAKT_CLIENT_ID and TRAKT_CLIENT_SECRET environment variables and rebuild.'),
+            content: Text('Please enter both Client ID and Client Secret'),
+          ),
+        );
+      }
+      return;
+    }
+    await _trakt.saveCredentials(id, secret);
+    if (mounted) {
+      setState(() {
+        _isTraktConfigured = true;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Trakt credentials saved!')));
+    }
+  }
+
+  void _startTraktLogin() async {
+    final configured = await _trakt.isConfiguredAsync();
+    if (!configured) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Trakt credentials not configured. Enter your Client ID and Client Secret below.',
+            ),
             duration: Duration(seconds: 5),
           ),
         );
@@ -1499,13 +1902,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     _traktPollTimer?.cancel();
-    _traktPollTimer = Timer.periodic(Duration(seconds: interval), (timer) async {
+    _traktPollTimer = Timer.periodic(Duration(seconds: interval), (
+      timer,
+    ) async {
       final result = await _trakt.pollForToken(deviceCode);
       if (result == 'success') {
         timer.cancel();
         // Fetch username
         final profile = await _trakt.getUserProfile();
-        final username = profile?['user']?['username']?.toString() ?? profile?['username']?.toString();
+        final username =
+            profile?['user']?['username']?.toString() ??
+            profile?['username']?.toString();
         if (mounted) {
           setState(() {
             _traktUserCode = null;
@@ -1514,7 +1921,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _traktUsername = username;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Logged in to Trakt${username != null ? " as $username" : ""}!')),
+            SnackBar(
+              content: Text(
+                'Logged in to Trakt${username != null ? " as $username" : ""}!',
+              ),
+            ),
           );
         }
         // Auto-sync after login
@@ -1527,7 +1938,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _traktVerifyUrl = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result == 'denied' ? 'Trakt login denied' : 'Code expired, try again')),
+            SnackBar(
+              content: Text(
+                result == 'denied'
+                    ? 'Trakt login denied'
+                    : 'Code expired, try again',
+              ),
+            ),
           );
         }
       }
@@ -1555,9 +1972,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isTraktLoggedIn = false;
         _traktUsername = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged out of Trakt')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Logged out of Trakt')));
     }
   }
 
@@ -1586,9 +2003,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Trakt sync error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Trakt sync error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isTraktSyncing = false);
@@ -1610,9 +2027,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Icon(icon, color: AppTheme.primaryColor, size: 20),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppTheme.textPrimary,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+          Text(
+            label,
+            style: TextStyle(color: AppTheme.textDisabled, fontSize: 11),
+          ),
         ],
       );
     }
@@ -1666,13 +2093,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           'Connected${_traktUsername != null ? " as $_traktUsername" : ""}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                        Text('Trakt.tv', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                        Text(
+                          'Trakt.tv',
+                          style: TextStyle(
+                            color: AppTheme.textDisabled,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.sync, color: AppTheme.primaryColor, size: 18),
+                  const Icon(
+                    Icons.sync,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
                 ],
               ),
             ),
@@ -1691,7 +2131,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _isTraktSyncing ? null : _syncTrakt,
                 icon: _isTraktSyncing
                     ? const SizedBox(
-                        width: 18, height: 18,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
@@ -1700,7 +2141,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: AppTheme.textPrimary,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -1715,7 +2158,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                 foregroundColor: Colors.redAccent,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ] else if (_traktUserCode != null) ...[
@@ -1746,33 +2191,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 8),
                   SelectableText(
                     _traktVerifyUrl ?? 'https://trakt.tv/activate',
-                    style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
+                    style: TextStyle(
+                      color: AppTheme.textDisabled,
+                      fontSize: 13,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   LinearProgressIndicator(
                     color: AppTheme.primaryColor,
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.2,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Waiting for authorization...',
-                    style: TextStyle(color: AppTheme.textDisabled, fontSize: 11),
+                    style: TextStyle(
+                      color: AppTheme.textDisabled,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
             ),
           ] else ...[
             // ── Not logged in ──
+            // Credential input fields
+            TextField(
+              controller: _traktClientIdController,
+              decoration: InputDecoration(
+                labelText: 'Trakt Client ID',
+                hintText: 'Enter your Trakt Client ID',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _traktClientSecretController,
+              decoration: InputDecoration(
+                labelText: 'Trakt Client Secret',
+                hintText: 'Enter your Trakt Client Secret',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _saveTraktCredentials,
+              icon: const Icon(Icons.save),
+              label: const Text('Save Credentials'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
+                foregroundColor: AppTheme.textPrimary,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _startTraktLogin,
               icon: const Icon(Icons.login),
               label: const Text('Login with Trakt'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                  alpha: 0.2,
+                ),
                 foregroundColor: AppTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -1785,7 +2284,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Simkl
   // ═══════════════════════════════════════════════════════════════════════
 
+  Future<void> _saveSimklCredentials() async {
+    final id = _simklClientIdController.text.trim();
+    final secret = _simklClientSecretController.text.trim();
+    if (id.isEmpty || secret.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter both Client ID and Client Secret'),
+          ),
+        );
+      }
+      return;
+    }
+    await _simkl.saveCredentials(id, secret);
+    if (mounted) {
+      setState(() {
+        _isSimklConfigured = true;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Simkl credentials saved!')));
+    }
+  }
+
   void _startSimklLogin() async {
+    final configured = await _simkl.isConfiguredAsync();
+    if (!configured) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Simkl credentials not configured. Enter your Client ID and Client Secret below.',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
     final data = await _simkl.requestPin();
     if (data == null) {
       if (mounted) {
@@ -1797,7 +2334,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     final userCode = data['user_code'] as String;
-    final verifyUrl = data['verification_url']?.toString() ?? 'https://simkl.com/pin/$userCode';
+    final verifyUrl =
+        data['verification_url']?.toString() ??
+        'https://simkl.com/pin/$userCode';
     final interval = (data['interval'] as int?) ?? 5;
     final expiresIn = (data['expires_in'] as int?) ?? 900;
 
@@ -1820,7 +2359,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     _simklPollTimer?.cancel();
-    _simklPollTimer = Timer.periodic(Duration(seconds: interval), (timer) async {
+    _simklPollTimer = Timer.periodic(Duration(seconds: interval), (
+      timer,
+    ) async {
       final token = await _simkl.pollForToken(userCode);
       if (token != null) {
         timer.cancel();
@@ -1834,7 +2375,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _simklUsername = username;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Logged in to Simkl${username != null ? " as $username" : ""}!')),
+            SnackBar(
+              content: Text(
+                'Logged in to Simkl${username != null ? " as $username" : ""}!',
+              ),
+            ),
           );
         }
         _syncSimkl();
@@ -1861,9 +2406,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isSimklLoggedIn = false;
         _simklUsername = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged out of Simkl')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Logged out of Simkl')));
     }
   }
 
@@ -1891,9 +2436,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Simkl sync error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Simkl sync error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSimklSyncing = false);
@@ -1930,13 +2475,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           'Connected${_simklUsername != null ? " as $_simklUsername" : ""}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                        Text('Simkl', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                        Text(
+                          'Simkl',
+                          style: TextStyle(
+                            color: AppTheme.textDisabled,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.sync, color: AppTheme.primaryColor, size: 18),
+                  const Icon(
+                    Icons.sync,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
                 ],
               ),
             ),
@@ -1947,7 +2505,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _isSimklSyncing ? null : _syncSimkl,
                 icon: _isSimklSyncing
                     ? const SizedBox(
-                        width: 18, height: 18,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
@@ -1956,7 +2515,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: AppTheme.textPrimary,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -1969,7 +2530,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                 foregroundColor: Colors.redAccent,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ] else if (_simklUserCode != null) ...[
@@ -1999,32 +2562,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 8),
                   SelectableText(
                     _simklVerifyUrl ?? 'https://simkl.com/pin',
-                    style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
+                    style: TextStyle(
+                      color: AppTheme.textDisabled,
+                      fontSize: 13,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   LinearProgressIndicator(
                     color: AppTheme.primaryColor,
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                      alpha: 0.2,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Waiting for authorization...',
-                    style: TextStyle(color: AppTheme.textDisabled, fontSize: 11),
+                    style: TextStyle(
+                      color: AppTheme.textDisabled,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
             ),
           ] else ...[
+            // Credential input fields
+            TextField(
+              controller: _simklClientIdController,
+              decoration: InputDecoration(
+                labelText: 'Simkl Client ID',
+                hintText: 'Enter your Simkl Client ID',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _simklClientSecretController,
+              decoration: InputDecoration(
+                labelText: 'Simkl Client Secret',
+                hintText: 'Enter your Simkl Client Secret',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _saveSimklCredentials,
+              icon: const Icon(Icons.save),
+              label: const Text('Save Credentials'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
+                foregroundColor: AppTheme.textPrimary,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _startSimklLogin,
               icon: const Icon(Icons.login),
               label: const Text('Login with Simkl'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                  alpha: 0.2,
+                ),
                 foregroundColor: AppTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -2059,7 +2676,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _mdblistUsername = info['name']?.toString();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('MDBlist connected${_mdblistUsername != null ? " as $_mdblistUsername" : ""}!')),
+          SnackBar(
+            content: Text(
+              'MDBlist connected${_mdblistUsername != null ? " as $_mdblistUsername" : ""}!',
+            ),
+          ),
         );
       }
     } else {
@@ -2084,9 +2705,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _mdblistUsername = null;
         _mdblistApiKeyController.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('MDBlist API key removed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('MDBlist API key removed')));
     }
   }
 
@@ -2120,9 +2741,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           'Connected${_mdblistUsername != null ? " as $_mdblistUsername" : ""}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                        Text('MDBlist', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                        Text(
+                          'MDBlist',
+                          style: TextStyle(
+                            color: AppTheme.textDisabled,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2138,7 +2768,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                 foregroundColor: Colors.redAccent,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ] else ...[
@@ -2168,7 +2800,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: AppTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -2191,16 +2825,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => const ListsScreen(),
-              )),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ListsScreen()),
+              ),
               icon: const Icon(Icons.list_alt_rounded),
               label: const Text('Manage Lists'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: AppTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -2228,9 +2865,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: const CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
+                      child: const CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.system_update_rounded),
               label: Text(
@@ -2254,16 +2889,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  
+
   Future<void> _checkForUpdates() async {
     setState(() => _isCheckingUpdate = true);
-    
+
     try {
       final updateInfo = await _updater.checkForUpdates();
-      
+
       if (mounted) {
         setState(() => _isCheckingUpdate = false);
-        
+
         if (updateInfo != null) {
           showDialog(
             context: context,
@@ -2347,7 +2982,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     width: isSelected ? 2 : 1,
                   ),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: preset.primaryColor.withValues(alpha: 0.25), blurRadius: 8, spreadRadius: 0)]
+                      ? [
+                          BoxShadow(
+                            color: preset.primaryColor.withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Row(
@@ -2363,7 +3004,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           end: Alignment.bottomRight,
                         ),
                       ),
-                      child: Icon(preset.icon, size: 13, color: AppTheme.textPrimary),
+                      child: Icon(
+                        preset.icon,
+                        size: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -2372,14 +3017,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          color: isSelected
+                              ? AppTheme.textPrimary
+                              : AppTheme.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     if (isSelected)
-                      Icon(Icons.check_circle, size: 14, color: preset.primaryColor),
+                      Icon(
+                        Icons.check_circle,
+                        size: 14,
+                        color: preset.primaryColor,
+                      ),
                   ],
                 ),
               ),
@@ -2390,7 +3041,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildFocusableToggle(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildFocusableToggle(
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return FocusableControl(
       onTap: () => onChanged(!value),
       scaleOnFocus: 1.0, // Disable scaling
@@ -2402,9 +3058,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(fontSize: 13, color: AppTheme.textDisabled)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textDisabled,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2419,7 +3087,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildFocusableDropdown(String title, String subtitle, String value, List<String> options, ValueChanged<String?> onChanged) {
+  Widget _buildFocusableDropdown(
+    String title,
+    String subtitle,
+    String value,
+    List<String> options,
+    ValueChanged<String?> onChanged,
+  ) {
     return FocusableControl(
       onTap: () {},
       scaleOnFocus: 1.0, // Disable scaling
@@ -2431,9 +3105,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(fontSize: 13, color: AppTheme.textDisabled)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textDisabled,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2445,19 +3131,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: DropdownButton<String>(
                 value: value,
-                dropdownColor: Color.lerp(AppTheme.current.bgDark, AppTheme.current.primaryColor, 0.08),
+                dropdownColor: Color.lerp(
+                  AppTheme.current.bgDark,
+                  AppTheme.current.primaryColor,
+                  0.08,
+                ),
                 underline: const SizedBox.shrink(),
-                icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.current.primaryColor),
-                style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppTheme.current.primaryColor,
+                ),
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
                 selectedItemBuilder: (BuildContext context) {
                   return options.map<Widget>((String item) {
                     return Container(
                       alignment: Alignment.centerLeft,
-                      child: Text(item, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     );
                   }).toList();
                 },
-                items: options.map((o) => DropdownMenuItem(value: o, child: Text(o, style: TextStyle(color: AppTheme.textPrimary)))).toList(),
+                items: options
+                    .map(
+                      (o) => DropdownMenuItem(
+                        value: o,
+                        child: Text(
+                          o,
+                          style: TextStyle(color: AppTheme.textPrimary),
+                        ),
+                      ),
+                    )
+                    .toList(),
                 onChanged: onChanged,
               ),
             ),
