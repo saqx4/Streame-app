@@ -2491,6 +2491,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
               ),
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
+              memCacheWidth: 800,
               errorWidget: (context, url, error) => Container(
                 color: AppTheme.surfaceContainerHigh,
                 child: const Center(
@@ -2546,6 +2547,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                           width: 100,
                           height: 150,
                           fit: BoxFit.cover,
+                          memCacheWidth: 200,
                           errorWidget: (context, url, error) => Container(
                             width: 100,
                             height: 150,
@@ -2676,6 +2678,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     width: 240,
                     height: 350,
                     fit: BoxFit.cover,
+                    memCacheWidth: 480,
                     errorWidget: (context, url, error) => Container(
                       width: 240,
                       height: 350,
@@ -3068,6 +3071,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                                       stillPath.toString(),
                                     ),
                               fit: BoxFit.cover,
+                              memCacheWidth: 600,
                               placeholder: (_, __) =>
                                   Container(color: AppTheme.bgCard),
                               errorWidget: (_, __, ___) =>

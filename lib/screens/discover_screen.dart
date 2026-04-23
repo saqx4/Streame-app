@@ -7,6 +7,7 @@ import '../utils/app_theme.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
 import 'discover/discover_widgets.dart';
+import '../widgets/smooth_page_transition.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -489,9 +490,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
 
   void _openDetails(Movie movie) {
     if (_isStreamingMode) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
+      Navigator.push(context, SmoothPageTransition(child: StreamingDetailsScreen(movie: movie)));
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
+      Navigator.push(context, SmoothPageTransition(child: DetailsScreen(movie: movie)));
     }
   }
 

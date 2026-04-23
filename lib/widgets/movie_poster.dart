@@ -7,6 +7,7 @@ import '../screens/details_screen.dart';
 import '../screens/streaming_details_screen.dart';
 import '../services/settings_service.dart';
 import '../utils/app_theme.dart';
+import 'smooth_page_transition.dart';
 
 class MoviePoster extends StatefulWidget {
   final Movie movie;
@@ -36,8 +37,8 @@ class _MoviePosterState extends State<MoviePoster> {
         final navigator = Navigator.of(context);
         void push(bool isStreamingMode) {
           navigator.push(
-            MaterialPageRoute(
-              builder: (context) => isStreamingMode
+            SmoothPageTransition(
+              child: isStreamingMode
                   ? StreamingDetailsScreen(movie: widget.movie)
                   : DetailsScreen(movie: widget.movie),
             ),

@@ -17,6 +17,7 @@ import 'streaming_details_screen.dart';
 import 'stremio_catalog_screen.dart';
 import 'home/home_widgets.dart';
 import 'home/continue_watching.dart';
+import '../widgets/smooth_page_transition.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -472,9 +473,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   void _openDetails(Movie movie) {
     if (_isStreamingMode) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
+      Navigator.push(context, SmoothPageTransition(child: StreamingDetailsScreen(movie: movie)));
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
+      Navigator.push(context, SmoothPageTransition(child: DetailsScreen(movie: movie)));
     }
   }
 
