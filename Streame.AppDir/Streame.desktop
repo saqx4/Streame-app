@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Streame
-Comment=Stream movies, TV shows, anime and more
-Exec=Streame
-Icon=Streame
-Categories=AudioVideo;Video;Player;
-StartupWMClass=Streame
-Terminal=false

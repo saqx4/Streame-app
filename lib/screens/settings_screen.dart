@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import '../api/stremio_service.dart';
 import '../services/external_player_service.dart';
 import '../api/debrid_api.dart';
@@ -19,6 +19,7 @@ import '../services/app_updater_service.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/app_theme.dart';
 import 'lists_screen.dart';
+import 'settings/settings_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -72,7 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isTraktSyncing = false;
   String? _traktUsername;
   Map<String, dynamic>? _traktStats;
-  bool _isTraktConfigured = false;
   final TextEditingController _traktClientIdController =
       TextEditingController();
   final TextEditingController _traktClientSecretController =
@@ -86,7 +86,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _simklPollTimer;
   bool _isSimklSyncing = false;
   String? _simklUsername;
-  bool _isSimklConfigured = false;
   final TextEditingController _simklClientIdController =
       TextEditingController();
   final TextEditingController _simklClientSecretController =
@@ -137,7 +136,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Load Trakt status
     final traktLoggedIn = await _trakt.isLoggedIn();
-    final traktConfigured = await _trakt.isConfiguredAsync();
     String? traktUser;
     Map<String, dynamic>? traktStats;
     if (traktLoggedIn) {
@@ -150,7 +148,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Load Simkl status
     final simklLoggedIn = await _simkl.isLoggedIn();
-    final simklConfigured = await _simkl.isConfiguredAsync();
     String? simklUser;
     if (simklLoggedIn) {
       final profile = await _simkl.getUserProfile();
@@ -211,10 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isTraktLoggedIn = traktLoggedIn;
         _traktUsername = traktUser;
         _traktStats = traktStats;
-        _isTraktConfigured = traktConfigured;
         _isSimklLoggedIn = simklLoggedIn;
         _simklUsername = simklUser;
-        _isSimklConfigured = simklConfigured;
         _isMdblistConfigured = mdblistConfigured;
         _mdblistUsername = mdblistUser;
         _mdblistApiKeyController.text = mdblistKey ?? '';
@@ -351,9 +346,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // Track which sections are expanded
-  final Set<String> _expandedSections = {'backup'};
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -384,20 +376,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // ── Backup & Restore ──
-                    _buildExpandableSection(
-                      id: 'backup',
-                      icon: Icons.backup_rounded,
+                    ExpandableSection(
+                    icon: Icons.backup_rounded,
                       title: 'Backup & Restore',
                       children: [_buildBackupRestore()],
                     ),
 
                     // ── Appearance ──
-                    _buildExpandableSection(
-                      id: 'appearance',
-                      icon: Icons.palette_rounded,
+                    ExpandableSection(
+                    icon: Icons.palette_rounded,
                       title: 'Appearance',
                       children: [
-                        _buildFocusableToggle(
+                        FocusableToggle(
                           'Light Mode',
                           'Disables blur, glows, shadows, and animations for better FPS.',
                           _isLightMode,
@@ -425,12 +415,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Playback ──
-                    _buildExpandableSection(
-                      id: 'playback',
-                      icon: Icons.play_circle_outline_rounded,
+                    ExpandableSection(
+                    icon: Icons.play_circle_outline_rounded,
                       title: 'Playback',
                       children: [
-                        _buildFocusableToggle(
+                        FocusableToggle(
                           'Auto-Optimize Player',
                           'Automatically choose best HW decoding and video sync settings based on your device.',
                           _autoOptimize,
@@ -439,7 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             setState(() => _autoOptimize = val);
                           },
                         ),
-                        _buildFocusableToggle(
+                        FocusableToggle(
                           'Direct Streaming Mode',
                           'Use direct stream links instead of torrents by default.',
                           _isStreamingMode,
@@ -448,7 +437,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             setState(() => _isStreamingMode = val);
                           },
                         ),
-                        _buildFocusableDropdown(
+                        FocusableDropdown(
                           'Video Player',
                           'Choose which player opens videos.',
                           _externalPlayer,
@@ -464,12 +453,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Search & Torrents ──
-                    _buildExpandableSection(
-                      id: 'search',
-                      icon: Icons.search_rounded,
+                    ExpandableSection(
+                    icon: Icons.search_rounded,
                       title: 'Search & Torrents',
                       children: [
-                        _buildFocusableDropdown(
+                        FocusableDropdown(
                           'Default Sort Order',
                           'How torrent results are sorted automatically.',
                           _sortPreference,
@@ -502,7 +490,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        _buildFocusableDropdown(
+                        FocusableDropdown(
                           'Cache Type',
                           'Where torrent data is cached during streaming.',
                           _torrentCacheType == 'ram' ? 'RAM' : 'Disk',
@@ -555,9 +543,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Providers & Addons ──
-                    _buildExpandableSection(
-                      id: 'providers',
-                      icon: Icons.extension_rounded,
+                    ExpandableSection(
+                    icon: Icons.extension_rounded,
                       title: 'Providers & Addons',
                       children: [
                         Padding(
@@ -608,12 +595,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Debrid ──
-                    _buildExpandableSection(
-                      id: 'debrid',
-                      icon: Icons.cloud_download_rounded,
+                    ExpandableSection(
+                    icon: Icons.cloud_download_rounded,
                       title: 'Debrid',
                       children: [
-                        _buildFocusableToggle(
+                        FocusableToggle(
                           'Use Debrid for Streams',
                           'Resolve torrents using your debrid account.',
                           _useDebrid,
@@ -622,7 +608,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             setState(() => _useDebrid = val);
                           },
                         ),
-                        _buildFocusableDropdown(
+                        FocusableDropdown(
                           'Debrid Service',
                           'Select your preferred provider.',
                           _debridService,
@@ -640,9 +626,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Accounts & Sync ──
-                    _buildExpandableSection(
-                      id: 'accounts',
-                      icon: Icons.sync_rounded,
+                    ExpandableSection(
+                    icon: Icons.sync_rounded,
                       title: 'Accounts & Sync',
                       children: [
                         Padding(
@@ -693,25 +678,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     // ── Lists ──
-                    _buildExpandableSection(
-                      id: 'lists',
-                      icon: Icons.list_alt_rounded,
+                    ExpandableSection(
+                    icon: Icons.list_alt_rounded,
                       title: 'Lists',
                       children: [_buildListsSection()],
                     ),
 
                     // ── Navigation Bar ──
-                    _buildExpandableSection(
-                      id: 'navbar',
-                      icon: Icons.tab_rounded,
+                    ExpandableSection(
+                    icon: Icons.tab_rounded,
                       title: 'Navigation Bar',
                       children: [_buildNavbarConfig()],
                     ),
 
                     // ── App Updates ──
-                    _buildExpandableSection(
-                      id: 'updates',
-                      icon: Icons.system_update_rounded,
+                    ExpandableSection(
+                    icon: Icons.system_update_rounded,
                       title: 'App Updates',
                       children: [_buildUpdateChecker()],
                     ),
@@ -734,110 +716,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Expandable Section Tile
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildExpandableSection({
-    required String id,
-    required IconData icon,
-    required String title,
-    required List<Widget> children,
-  }) {
-    final isExpanded = _expandedSections.contains(id);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerHigh.withValues(
-            alpha: isExpanded ? 0.15 : 0.08,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isExpanded
-                ? AppTheme.current.primaryColor.withValues(alpha: 0.2)
-                : AppTheme.border,
-          ),
-        ),
-        child: Column(
-          children: [
-            // Header (always visible, tappable)
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                setState(() {
-                  if (isExpanded) {
-                    _expandedSections.remove(id);
-                  } else {
-                    _expandedSections.add(id);
-                  }
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: isExpanded
-                          ? AppTheme.current.primaryColor
-                          : AppTheme.textDisabled,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: isExpanded
-                              ? AppTheme.textPrimary
-                              : AppTheme.textSecondary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    AnimatedRotation(
-                      turns: isExpanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: isExpanded
-                            ? AppTheme.current.primaryColor
-                            : AppTheme.textDisabled,
-                        size: 22,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Content (animated)
-            AnimatedCrossFade(
-              firstChild: Padding(
-                padding: const EdgeInsets.only(left: 12, right: 12, bottom: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: children,
-                ),
-              ),
-              secondChild: const SizedBox.shrink(),
-              crossFadeState: isExpanded
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              duration: const Duration(milliseconds: 200),
-              sizeCurve: Curves.easeInOut,
-            ),
-          ],
         ),
       ),
     );
@@ -1842,9 +1720,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     await _trakt.saveCredentials(id, secret);
     if (mounted) {
-      setState(() {
-        _isTraktConfigured = true;
-      });
+      setState(() {});
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Trakt credentials saved!')));
@@ -2299,9 +2175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     await _simkl.saveCredentials(id, secret);
     if (mounted) {
-      setState(() {
-        _isSimklConfigured = true;
-      });
+      setState(() {});
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Simkl credentials saved!')));
@@ -3041,7 +2915,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildFocusableToggle(
+  Widget FocusableToggle(
     String title,
     String subtitle,
     bool value,
@@ -3087,7 +2961,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildFocusableDropdown(
+  Widget FocusableDropdown(
     String title,
     String subtitle,
     String value,

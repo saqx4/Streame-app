@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
-import '../api/torrent_stream_service.dart';
+import '../services/torrent_stream_service.dart';
 import '../utils/app_theme.dart';
 import 'player_screen.dart';
 

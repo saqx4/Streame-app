@@ -7,15 +7,15 @@ import 'package:media_kit/media_kit.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'api/settings_service.dart';
-import 'api/torrent_stream_service.dart';
+import 'services/settings_service.dart';
+import 'services/torrent_stream_service.dart';
 import 'models/movie.dart';
 import 'services/player_pool_service.dart';
 import 'utils/webview_cleanup.dart';
 import 'utils/app_theme.dart';
 import 'widgets/streame_logo.dart';
-import 'core/error/error_boundary.dart';
-import 'core/providers/service_providers.dart';
+import 'error/error_boundary.dart';
+import 'providers/service_providers.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/search_screen.dart';

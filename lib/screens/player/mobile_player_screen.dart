@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
@@ -18,15 +18,15 @@ import '../../services/watch_history_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/trakt_service.dart';
 import '../../api/simkl_service.dart';
-import '../../api/torrent_stream_service.dart';
-import '../../api/stream_extractor.dart';
+import '../../services/torrent_stream_service.dart';
+import '../../services/stream_extractor.dart';
 import '../../api/webstreamr_service.dart';
 import '../../api/stremio_service.dart';
-import '../../api/stream_providers.dart';
-import '../../api/settings_service.dart';
+import '../../providers/stream_providers.dart';
+import '../../services/settings_service.dart';
 import '../../api/debrid_api.dart';
 import '../../api/torrent_api.dart';
-import '../../api/torrent_filter.dart';
+import '../../services/torrent_filter.dart';
 import '../../api/tmdb_service.dart';
 import '../../api/introdb_service.dart';
 import '../../models/movie.dart';
@@ -34,335 +34,9 @@ import '../../models/stream_source.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
 import 'menus.dart';
+import 'mobile_glass_widgets.dart';
+import 'mobile_seekbar.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  GLASS PRIMITIVES  (mobile — press feedback only, no hover)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── _CleanContainer ──────────────────────────────────────────────────────────
-// Lightweight semi-transparent container — no gradients, no shadows.
-// Clean, modern, minimal. Used for all buttons/pills.
-class _CleanContainer extends StatelessWidget {
-  final Widget child;
-  final double radius;
-  final EdgeInsetsGeometry? padding;
-  final Color? tint;
-  final bool pressed;
-
-  const _CleanContainer({
-    required this.child,
-    this.radius = 12,
-    this.padding,
-    this.tint,
-    this.pressed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final base = tint ?? const Color(0xFF1C1C1E);
-    final fillOpacity = pressed ? 0.82 : 0.55;
-    final borderOpacity = pressed ? 0.22 : 0.10;
-
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: base.withValues(alpha: fillOpacity),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: borderOpacity),
-          width: 0.5,
-        ),
-      ),
-      child: child,
-    );
-  }
-}
-
-// ── _CleanBlurContainer ──────────────────────────────────────────────────────
-// Lightweight frosted container — used ONLY for title pill, play button,
-// and drag tooltip (at most 2-3 on screen). Minimal blur, clean look.
-class _CleanBlurContainer extends StatelessWidget {
-  final Widget child;
-  final double radius;
-  final EdgeInsetsGeometry? padding;
-
-  const _CleanBlurContainer({
-    required this.child,
-    this.radius = 12,
-    this.padding,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E).withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.10),
-              width: 0.5,
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Clean icon button — touch-friendly 44px default, smooth press animation.
-class _GlassIconButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final double size;
-  final double iconSize;
-  final Color? iconColor;
-  final bool active;
-
-  const _GlassIconButton({
-    required this.icon,
-    required this.onPressed,
-    this.size = 44,
-    this.iconSize = 20,
-    this.iconColor,
-    this.active = false,
-  });
-
-  @override
-  State<_GlassIconButton> createState() => _GlassIconButtonState();
-}
-
-class _GlassIconButtonState extends State<_GlassIconButton> {
-  bool _pressed = false;
-
-  Color get _tint {
-    if (widget.active) return const Color(0xFF7C3AED);
-    if (_pressed) return const Color(0xFF2A2A2E);
-    return const Color(0xFF1C1C1E);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onPressed,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.90 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
-        child: _CleanContainer(                          // ← clean, no blur
-          radius: widget.size / 2,
-          tint: _tint,
-          pressed: _pressed,
-          child: SizedBox(
-            width: widget.size,
-            height: widget.size,
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: widget.iconColor ??
-                  (widget.active
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.80)),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Clean pill button — used for HW badge and aspect ratio label.
-class _GlassPillButton extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-  final Color? accent;
-
-  const _GlassPillButton({
-    required this.text,
-    required this.onTap,
-    this.accent,
-  });
-
-  @override
-  State<_GlassPillButton> createState() => _GlassPillButtonState();
-}
-
-class _GlassPillButtonState extends State<_GlassPillButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
-        child: _CleanContainer(                          // ← clean, no blur
-          radius: 20,
-          tint: widget.accent ?? const Color(0xFF1C1C1E),
-          pressed: _pressed,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            widget.text,
-            style: TextStyle(
-              color: widget.accent != null
-              ? Colors.white
-              : Colors.white.withValues(alpha: _pressed ? 1.0 : 0.80),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Center play/pause button — clean, refined, with smooth press animation.
-class _GlassPlayPause extends StatefulWidget {
-  final bool isPlaying;
-  final bool isBuffering;
-  final VoidCallback onPressed;
-
-  const _GlassPlayPause({
-    required this.isPlaying,
-    required this.isBuffering,
-    required this.onPressed,
-  });
-
-  @override
-  State<_GlassPlayPause> createState() => _GlassPlayPauseState();
-}
-
-class _GlassPlayPauseState extends State<_GlassPlayPause> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.isBuffering) {
-      return _CleanBlurContainer(                     // ← blur OK, only 1 on screen
-        radius: 32,
-        child: const SizedBox(
-          width: 64,
-          height: 64,
-          child: Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                  color: Color(0xFF7C3AED), strokeWidth: 2.5),
-            ),
-          ),
-        ),
-      );
-    }
-    return GestureDetector(
-      onTap: widget.onPressed,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.90 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeInOut,
-        child: _CleanBlurContainer(                    // ← blur OK, only 1 on screen
-          radius: 32,
-          child: SizedBox(
-            width: 64,
-            height: 64,
-            child: Icon(
-              widget.isPlaying
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              size: 36,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Gradient vignette at top / bottom edges — lighter, more subtle.
-class _OverlayGradient extends StatelessWidget {
-  final bool isTop;
-  const _OverlayGradient({required this.isTop});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
-          end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0.60),
-            Colors.transparent,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  HARDWARE DECODE MODE  (3-mode cycle)
-// ─────────────────────────────────────────────────────────────────────────────
-
-enum _HwDecMode { autoSafe, autoCopy, software }
-
-extension _HwDecModeX on _HwDecMode {
-  /// The mpv property value for this mode.
-  String get mpvValue => switch (this) {
-        _HwDecMode.autoSafe => 'auto-safe',
-        _HwDecMode.autoCopy => 'auto-copy',
-        _HwDecMode.software => 'no',
-      };
-
-  /// Short label shown on the badge pill.
-  String get label => switch (this) {
-        _HwDecMode.autoSafe => 'HW+',
-        _HwDecMode.autoCopy => 'COPY',
-        _HwDecMode.software => 'SW',
-      };
-
-  String get description => switch (this) {
-        _HwDecMode.autoSafe => 'Hardware Decoding: ON (GPU, safe)',
-        _HwDecMode.autoCopy => 'Hardware Decoding: ON (copy-back)',
-        _HwDecMode.software => 'Hardware Decoding: OFF (CPU)',
-      };
-
-  _HwDecMode get next => switch (this) {
-        _HwDecMode.autoSafe => _HwDecMode.autoCopy,
-        _HwDecMode.autoCopy => _HwDecMode.software,
-        _HwDecMode.software => _HwDecMode.autoSafe,
-      };
-
-  Color get accent => switch (this) {
-        _HwDecMode.autoSafe => const Color(0xFF7C3AED),
-        _HwDecMode.autoCopy => const Color(0xFF0EA5E9),
-        _HwDecMode.software => const Color(0xFF3A3A3C),
-      };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  MOBILE PLAYER SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
 
 class MobilePlayerScreen extends StatefulWidget {
   final String mediaPath;
@@ -404,6 +78,44 @@ class MobilePlayerScreen extends StatefulWidget {
 
   @override
   State<MobilePlayerScreen> createState() => _MobilePlayerScreenState();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HARDWARE DECODE MODE  (3-mode cycle)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _HwDecMode { autoSafe, autoCopy, software }
+
+extension _HwDecModeX on _HwDecMode {
+  String get mpvValue => switch (this) {
+        _HwDecMode.autoSafe => 'auto-safe',
+        _HwDecMode.autoCopy => 'auto-copy',
+        _HwDecMode.software => 'no',
+      };
+
+  String get label => switch (this) {
+        _HwDecMode.autoSafe => 'HW+',
+        _HwDecMode.autoCopy => 'COPY',
+        _HwDecMode.software => 'SW',
+      };
+
+  String get description => switch (this) {
+        _HwDecMode.autoSafe => 'Hardware Decoding: ON (GPU, safe)',
+        _HwDecMode.autoCopy => 'Hardware Decoding: ON (copy-back)',
+        _HwDecMode.software => 'Hardware Decoding: OFF (CPU)',
+      };
+
+  _HwDecMode get next => switch (this) {
+        _HwDecMode.autoSafe => _HwDecMode.autoCopy,
+        _HwDecMode.autoCopy => _HwDecMode.software,
+        _HwDecMode.software => _HwDecMode.autoSafe,
+      };
+
+  Color get accent => switch (this) {
+        _HwDecMode.autoSafe => const Color(0xFF7C3AED),
+        _HwDecMode.autoCopy => const Color(0xFF0EA5E9),
+        _HwDecMode.software => const Color(0xFF3A3A3C),
+      };
 }
 
 class _MobilePlayerScreenState extends State<MobilePlayerScreen>
@@ -2654,7 +2366,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     opacity: _showControls ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    child: _GlassIconButton(
+                    child: GlassIconButton(
                       icon: Icons.lock_rounded,
                       onPressed: _toggleLock,
                       iconColor: const Color(0xFF7C3AED),
@@ -2668,7 +2380,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   right: 20,
                   top: 0, bottom: 0,
                   child: Center(
-                      child: _SideIndicator(
+                      child: SideIndicator(
                           icon: Icons.volume_up_rounded,
                           value: _volume / 150.0)),
                 ),
@@ -2679,7 +2391,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   left: 20,
                   top: 0, bottom: 0,
                   child: Center(
-                      child: _SideIndicator(
+                      child: SideIndicator(
                           icon: Icons.light_mode_rounded,
                           value: _brightness)),
                 ),
@@ -2770,7 +2482,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     child: AnimatedOpacity(
                       opacity: _toastMessage != null ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 200),
-                      child: _CleanContainer(
+                      child: CleanContainer(
                         radius: 20,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Text(
@@ -2825,19 +2537,19 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _GlassPillButton(
+                  GlassPillButton(
                     text: 'Retry',
                     onTap: _initPlayback,
                   ),
                   if (_currentProvider == 'arabic' && _currentSources != null && _currentSources!.isNotEmpty) ...[
                     const SizedBox(width: 12),
-                    _GlassPillButton(
+                    GlassPillButton(
                       text: 'Switch Source',
                       onTap: _showSourcesMenu,
                     ),
                   ],
                   const SizedBox(width: 12),
-                  _GlassPillButton(
+                  GlassPillButton(
                     text: 'Switch Provider',
                     onTap: _showProviderMenu,
                   ),
@@ -2858,10 +2570,10 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       // ── Gradients ────────────────────────────────────────────────────────
       const Positioned(
           top: 0, left: 0, right: 0,
-          child: _OverlayGradient(isTop: true)),
+          child: OverlayGradient(isTop: true)),
       const Positioned(
           bottom: 0, left: 0, right: 0,
-          child: _OverlayGradient(isTop: false)),
+          child: OverlayGradient(isTop: false)),
 
       // ── TOP BAR ──────────────────────────────────────────────────────────
       Positioned(
@@ -2871,7 +2583,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(children: [
-              _GlassIconButton(
+              GlassIconButton(
                 icon: Icons.arrow_back_ios_new_rounded,
                 onPressed: _exitPlayer,
                 size: btnSize, iconSize: iconSz,
@@ -2879,7 +2591,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               SizedBox(width: isPortrait ? 6 : 10),
               // Title pill
               Expanded(
-                child: _CleanBlurContainer(          // ← clean blur, only 1
+                child: CleanBlurContainer(          // ← clean blur, only 1
                   radius: 20,
                   padding: EdgeInsets.symmetric(
                       horizontal: isPortrait ? 10 : 14, vertical: 8),
@@ -2897,19 +2609,19 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               SizedBox(width: gap),
               // HW mode badge
               if (!isPortrait)
-                _GlassPillButton(
+                GlassPillButton(
                   text: _hwDecMode.label,
                   onTap: _cycleHwDec,
                   accent: _hwDecMode.accent,
                 ),
               if (!isPortrait) SizedBox(width: gap),
-              _GlassIconButton(
+              GlassIconButton(
                 icon: Icons.music_note_outlined,
                 onPressed: _showAudioMenu,
                 size: btnSize, iconSize: iconSz,
               ),
               SizedBox(width: gap),
-              _GlassIconButton(
+              GlassIconButton(
                 icon: Icons.subtitles_outlined,
                 onPressed: _showSubtitlesMenu,
                 size: btnSize, iconSize: iconSz,
@@ -2917,7 +2629,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               // Show sources button for providers with multiple sources
               if ((_currentProvider == 'amri' || _currentProvider == 'webstreamr' || _currentProvider == 'arabic') && _currentSources != null && _currentSources!.isNotEmpty) ...[
                 SizedBox(width: gap),
-                _GlassIconButton(
+                GlassIconButton(
                   icon: Icons.video_library_outlined,
                   onPressed: _showSourcesMenu,
                   size: btnSize, iconSize: iconSz,
@@ -2935,7 +2647,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           builder: (context, buffering, _) =>
               ValueListenableBuilder<bool>(
             valueListenable: _isPlayingNotifier,
-            builder: (context, playing, _) => _GlassPlayPause(
+            builder: (context, playing, _) => GlassPlayPause(
               isPlaying: playing,
               isBuffering: buffering,
               onPressed: () {
@@ -2962,7 +2674,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 children: [
                   // Left: lock / speed / loop (+ HW badge in portrait)
                   Row(children: [
-                    _GlassIconButton(
+                    GlassIconButton(
                       icon: _isLocked
                           ? Icons.lock_rounded
                           : Icons.lock_open_rounded,
@@ -2971,13 +2683,13 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       size: btnSize, iconSize: iconSz,
                     ),
                     SizedBox(width: gap),
-                    _GlassIconButton(
+                    GlassIconButton(
                       icon: Icons.screen_rotation_rounded,
                       onPressed: _toggleRotation,
                       size: btnSize, iconSize: iconSz,
                     ),
                     SizedBox(width: gap),
-                    _GlassIconButton(
+                    GlassIconButton(
                       icon: Icons.speed_outlined,
                       onPressed: () => showSpeedMenu(
                           context,
@@ -2986,7 +2698,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       size: btnSize, iconSize: iconSz,
                     ),
                     SizedBox(width: gap),
-                    _GlassIconButton(
+                    GlassIconButton(
                       icon: _loopEnabled
                           ? Icons.repeat_one_rounded
                           : Icons.repeat_rounded,
@@ -2996,7 +2708,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     ),
                     if (isPortrait) ...[
                       SizedBox(width: gap),
-                      _GlassPillButton(
+                      GlassPillButton(
                         text: _hwDecMode.label,
                         onTap: _cycleHwDec,
                         accent: _hwDecMode.accent,
@@ -3009,14 +2721,14 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     // Show provider switcher only when providers are available and not using torrent/stremio
                     if (widget.providers != null && widget.providers!.isNotEmpty && 
                         widget.magnetLink == null && widget.activeProvider != 'stremio_direct') ...[
-                      _GlassIconButton(
+                      GlassIconButton(
                         icon: Icons.swap_horiz_rounded,
                         onPressed: _isSwitchingProvider ? () {} : _showProviderMenu,
                         size: btnSize, iconSize: iconSz,
                       ),
                       SizedBox(width: gap),
                     ],
-                    _GlassIconButton(
+                    GlassIconButton(
                       icon: Icons.link_rounded,
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: widget.mediaPath));
@@ -3028,7 +2740,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     ),
                     SizedBox(width: gap),
                     // Aspect ratio pill — shows current mode
-                    _GlassPillButton(
+                    GlassPillButton(
                       text: _videoFitLabel,
                       onTap: _cycleAspectRatio,
                     ),
@@ -3064,7 +2776,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                           ValueListenableBuilder<Duration>(
                         valueListenable: _bufferedNotifier,
                         builder: (context, buffered, _) =>
-                            _MobileSeekbar(
+                            MobileSeekbar(
                           duration: duration,
                           position: position,
                           bufferedPosition: buffered,
@@ -3104,248 +2816,3 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  MOBILE SEEKBAR  — touch-friendly, no tooltip (no hover on mobile)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MobileSeekbar extends StatefulWidget {
-  final Duration duration;
-  final Duration position;
-  final Duration bufferedPosition;
-  final void Function(Duration) onSeek;
-  final VoidCallback onDragStart;
-  final VoidCallback onDragEnd;
-
-  const _MobileSeekbar({
-    required this.duration,
-    required this.position,
-    required this.bufferedPosition,
-    required this.onSeek,
-    required this.onDragStart,
-    required this.onDragEnd,
-  });
-
-  @override
-  State<_MobileSeekbar> createState() => _MobileSeekbarState();
-}
-
-class _MobileSeekbarState extends State<_MobileSeekbar> {
-  bool _isDragging = false;
-  double _dragFrac = 0.0;
-  double _trackWidth = 0.0;
-
-  static const Color _accentColor = Color(0xFF7C3AED);
-
-  double get _playFrac {
-    final total = widget.duration.inMilliseconds.toDouble();
-    if (total <= 0) return 0;
-    if (_isDragging) return _dragFrac;
-    return (widget.position.inMilliseconds / total).clamp(0.0, 1.0);
-  }
-
-  double get _bufFrac {
-    final total = widget.duration.inMilliseconds.toDouble();
-    if (total <= 0) return 0;
-    return (widget.bufferedPosition.inMilliseconds / total).clamp(0.0, 1.0);
-  }
-
-  Duration get _dragTime {
-    final total = widget.duration.inMilliseconds.toDouble();
-    return Duration(milliseconds: (_dragFrac * total).round());
-  }
-
-  double _fracFromLocal(double dx) =>
-      (dx / _trackWidth).clamp(0.0, 1.0);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragStart: (d) {
-        widget.onDragStart();
-        setState(() {
-          _isDragging = true;
-          _dragFrac = _fracFromLocal(d.localPosition.dx);
-        });
-      },
-      onHorizontalDragUpdate: (d) => setState(() {
-        _dragFrac = _fracFromLocal(d.localPosition.dx);
-      }),
-      onHorizontalDragEnd: (_) {
-        final total = widget.duration.inMilliseconds.toDouble();
-        widget.onSeek(
-            Duration(milliseconds: (_dragFrac * total).round()));
-        widget.onDragEnd();
-        setState(() => _isDragging = false);
-      },
-      onTapUp: (d) {
-        final total = widget.duration.inMilliseconds.toDouble();
-        widget.onSeek(Duration(
-            milliseconds:
-                (_fracFromLocal(d.localPosition.dx) * total).round()));
-      },
-      // 32px tall hit area — much easier to grab on touch
-      child: SizedBox(
-        height: 32,
-        child: Align(
-          alignment: Alignment.center,
-          child: LayoutBuilder(builder: (context, constraints) {
-            _trackWidth = constraints.maxWidth;
-
-            final trackH = _isDragging ? 5.0 : 2.5;
-            final thumbR = _isDragging ? 7.0 : 0.0;
-            final playPx =
-                (_playFrac * _trackWidth).clamp(0.0, _trackWidth);
-
-            return Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.centerLeft,
-              children: [
-                // Background track
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  height: trackH,
-                  width: _trackWidth,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(trackH),
-                  ),
-                ),
-                // Buffered
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: trackH,
-                  width: (_bufFrac * _trackWidth).clamp(0.0, _trackWidth),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(trackH),
-                  ),
-                ),
-                // Played — purple accent
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  curve: Curves.easeOut,
-                  height: trackH,
-                  width: playPx,
-                  decoration: BoxDecoration(
-                    color: _accentColor,
-                    borderRadius: BorderRadius.circular(trackH),
-                  ),
-                ),
-                // Thumb dot — only visible when dragging or hovering
-                if (_isDragging)
-                  Positioned(
-                    left: playPx - thumbR,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
-                      width: thumbR * 2,
-                      height: thumbR * 2,
-                      decoration: BoxDecoration(
-                        color: _accentColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _accentColor.withValues(alpha: 0.50),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                // Drag time label — floats above thumb while dragging
-                if (_isDragging &&
-                    widget.duration.inMilliseconds > 0)
-                  Positioned(
-                    left: (playPx - 36).clamp(
-                        0.0, _trackWidth - 72),
-                    top: -34,
-                    child: _CleanBlurContainer(    // ← clean blur, only while dragging
-                      radius: 8,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      child: SizedBox(
-                        width: 56,
-                        child: Text(
-                          formatDuration(_dragTime),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.visible,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  SIDE INDICATOR  (volume / brightness vertical pill)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Replaces VolumeBrightnessIndicator from shared_widgets — self-contained.
-class _SideIndicator extends StatelessWidget {
-  final IconData icon;
-  final double value; // 0.0 – 1.0
-
-  const _SideIndicator({required this.icon, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return _CleanBlurContainer(                       // ← clean blur, shown 1 at a time
-      radius: 20,
-      child: SizedBox(
-        width: 40,
-        height: 140,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Icon(icon, color: const Color(0xDDFFFFFF), size: 16),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                child: RotatedBox(
-                  quarterTurns: -1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: value.clamp(0.0, 1.0),
-                      backgroundColor: Colors.white24,
-                      color: const Color(0xFF7C3AED),
-                      minHeight: 3,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '${(value * 100).round()}',
-                style: const TextStyle(
-                    color: Color(0xDDFFFFFF),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

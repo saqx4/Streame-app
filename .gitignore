@@ -58,3 +58,9 @@ android/key.properties
 
 # Inno Setup output
 installer/windows/Output/
+
+# Build artifacts / tools (should not be in repo root)
+*.AppImage
+*.AppDir/
+appimagetool
+nuget.exe

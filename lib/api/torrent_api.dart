@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/torrent_result.dart';
-import 'local_server_service.dart';
+import '../services/local_server_service.dart';
 
 class TorrentApi {
   final LocalServerService _localServer = LocalServerService();

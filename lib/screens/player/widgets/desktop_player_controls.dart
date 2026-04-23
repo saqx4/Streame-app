@@ -341,12 +341,10 @@ class _CustomSeekBarState extends State<CustomSeekBar> {
 
   void _onTapUp(TapUpDetails details) {
     final duration = widget.player.state.duration;
-    if (duration != null) {
-      final newPosition = Duration(
-        milliseconds: (duration.inMilliseconds * _dragValue).round(),
-      );
-      widget.onSeek(newPosition);
-    }
+    final newPosition = Duration(
+      milliseconds: (duration.inMilliseconds * _dragValue).round(),
+    );
+    widget.onSeek(newPosition);
     setState(() {
       _isDragging = false;
     });
@@ -369,12 +367,10 @@ class _CustomSeekBarState extends State<CustomSeekBar> {
 
   void _onDragEnd(DragEndDetails details) {
     final duration = widget.player.state.duration;
-    if (duration != null) {
-      final newPosition = Duration(
-        milliseconds: (duration.inMilliseconds * _dragValue).round(),
-      );
-      widget.onSeek(newPosition);
-    }
+    final newPosition = Duration(
+      milliseconds: (duration.inMilliseconds * _dragValue).round(),
+    );
+    widget.onSeek(newPosition);
     setState(() {
       _isDragging = false;
     });

@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import 'android_player_launcher.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import '../services/my_list_service.dart';
 import '../api/tmdb_api.dart';
 import '../screens/details_screen.dart';
 import '../screens/streaming_details_screen.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import '../utils/app_theme.dart';
 
 class MoviePoster extends StatefulWidget {

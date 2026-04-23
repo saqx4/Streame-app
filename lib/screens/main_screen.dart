@@ -10,10 +10,10 @@ import 'my_list_screen.dart';
 import 'settings_screen.dart';
 import 'magnet_player_screen.dart';
 import '../utils/app_theme.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import '../services/app_updater_service.dart';
 import '../widgets/update_dialog.dart';
-import '../core/providers/service_providers.dart';
+import '../providers/service_providers.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});

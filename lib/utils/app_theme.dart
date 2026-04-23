@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  DESIGN TOKENS — spacing, radius, durations, elevations

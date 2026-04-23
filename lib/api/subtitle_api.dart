@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'settings_service.dart';
+import '../services/settings_service.dart';
 import 'stremio_service.dart';
 
 class SubtitleApi {

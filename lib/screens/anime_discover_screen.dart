@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/anime_service.dart';
 import '../utils/app_theme.dart';
-import 'anime_screen.dart';
+import 'anime/anime_widgets.dart';
 import 'anime_details_screen.dart';
 
 class AnimeDiscoverScreen extends StatefulWidget {

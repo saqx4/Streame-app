@@ -1,13 +1,12 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../api/tmdb_api.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import '../models/movie.dart';
-import '../services/my_list_service.dart';
 import '../utils/app_theme.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
+import 'discover/discover_widgets.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -186,7 +185,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
     showDialog(
       context: context,
       barrierColor: Colors.black54,
-      builder: (context) => _CompactFilterDialog(
+      builder: (context) => CompactFilterDialog(
         title: 'Content Type',
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -216,7 +215,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return _CompactFilterDialog(
+            return CompactFilterDialog(
               title: 'Select Genres',
               maxHeight: 400,
               child: Column(
@@ -284,7 +283,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return _CompactFilterDialog(
+            return CompactFilterDialog(
               title: 'Select Years',
               maxHeight: 400,
               child: Column(
@@ -349,7 +348,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final languages = _languageMap.keys.toList();
-            return _CompactFilterDialog(
+            return CompactFilterDialog(
               title: 'Select Language',
               maxHeight: 400,
               child: Column(
@@ -426,7 +425,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
         double localRating = _minRating;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return _CompactFilterDialog(
+            return CompactFilterDialog(
               title: 'Minimum Rating',
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -514,11 +513,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _FilterButton(label: "Type: $_selectedType", onTap: _showTypeMenu, isActive: true),
-                        _FilterButton(label: "Genres", onTap: _showGenreMenu, isActive: _selectedGenreNames.isNotEmpty),
-                        _FilterButton(label: "Year", onTap: _showYearMenu, isActive: _selectedYears.isNotEmpty),
-                        _FilterButton(label: "Rating", onTap: _showRatingMenu, isActive: _minRating > 0),
-                        _FilterButton(label: _selectedLanguage != null ? "Lang: ${_languageMap.entries.firstWhere((e) => e.value == _selectedLanguage, orElse: () => MapEntry(_selectedLanguage!, _selectedLanguage!)).key}" : "Language", onTap: _showLanguageMenu, isActive: _selectedLanguage != null),
+                        FilterButton(label: "Type: $_selectedType", onTap: _showTypeMenu, isActive: true),
+                        FilterButton(label: "Genres", onTap: _showGenreMenu, isActive: _selectedGenreNames.isNotEmpty),
+                        FilterButton(label: "Year", onTap: _showYearMenu, isActive: _selectedYears.isNotEmpty),
+                        FilterButton(label: "Rating", onTap: _showRatingMenu, isActive: _minRating > 0),
+                        FilterButton(label: _selectedLanguage != null ? "Lang: ${_languageMap.entries.firstWhere((e) => e.value == _selectedLanguage, orElse: () => MapEntry(_selectedLanguage!, _selectedLanguage!)).key}" : "Language", onTap: _showLanguageMenu, isActive: _selectedLanguage != null),
                       ],
                     ),
                   ),
@@ -545,7 +544,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                     itemCount: _movies.length,
                     itemBuilder: (context, index) {
                       final movie = _movies[index];
-                      return _DiscoverCard(movie: movie, onTap: () => _openDetails(movie));
+                      return DiscoverCard(movie: movie, onTap: () => _openDetails(movie));
                     },
                   ),
           ),
@@ -573,210 +572,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool isActive;
-
-  const _FilterButton({required this.label, required this.onTap, this.isActive = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ActionChip(
-        label: Text(label),
-        onPressed: onTap,
-        backgroundColor: isActive ? AppTheme.current.primaryColor : AppTheme.surfaceContainerHigh,
-        labelStyle: TextStyle(color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.normal),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
-}
-
-class _CompactFilterDialog extends StatelessWidget {
-  final String title;
-  final Widget child;
-  final double? maxHeight;
-
-  const _CompactFilterDialog({required this.title, required this.child, this.maxHeight});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 32),
-        constraints: BoxConstraints(maxWidth: 380, maxHeight: maxHeight ?? 500),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: AppTheme.isLightMode
-              ? _buildDialogBody(context)
-              : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                  child: _buildDialogBody(context),
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDialogBody(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border),
-          boxShadow: AppTheme.isLightMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 30, spreadRadius: -5)],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title, style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: AppTheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(AppRadius.sm)),
-                    child: Icon(Icons.close, color: AppTheme.textSecondary, size: 18),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Flexible(child: child),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DiscoverCard extends StatelessWidget {
-  final Movie movie;
-  final VoidCallback onTap;
-
-  const _DiscoverCard({required this.movie, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(movie.posterPath) : '';
-
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.md,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: AppTheme.isLightMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
-              )
-            else
-              Center(child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              )),
-            
-            // Rating Badge
-            Positioned(
-              top: 8, right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.overlay.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 10),
-                    const SizedBox(width: 4),
-                    Text(movie.voteAverage.toStringAsFixed(1), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  ],
-                ),
-              ),
-            ),
-
-            // My List add/remove button
-            Positioned(
-              top: 8, left: 8,
-              child: _AddToMyListButton(movie: movie),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AddToMyListButton extends StatelessWidget {
-  final Movie movie;
-  const _AddToMyListButton({required this.movie});
-
-  @override
-  Widget build(BuildContext context) {
-    final uid = MyListService.movieId(movie.id, movie.mediaType);
-    return ValueListenableBuilder<int>(
-      valueListenable: MyListService.changeNotifier,
-      builder: (context, _, _) {
-        final inList = MyListService().contains(uid);
-        return GestureDetector(
-          onTap: () async {
-            final added = await MyListService().toggleMovie(
-              tmdbId: movie.id,
-              imdbId: movie.imdbId,
-              title: movie.title,
-              posterPath: movie.posterPath,
-              mediaType: movie.mediaType,
-              voteAverage: movie.voteAverage,
-              releaseDate: movie.releaseDate,
-            );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(added ? 'Added to My List' : 'Removed from My List'),
-                duration: const Duration(seconds: 1),
-              ));
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppTheme.overlay.withValues(alpha: 0.6),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              inList ? Icons.bookmark : Icons.add,
-              size: 16,
-              color: inList ? AppTheme.current.primaryColor : AppTheme.textSecondary,
-            ),
-          ),
-        );
-      },
     );
   }
 }

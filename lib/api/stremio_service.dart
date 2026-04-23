@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'settings_service.dart';
+import '../services/settings_service.dart';
 
 class StremioService {
   static final StremioService _instance = StremioService._internal();

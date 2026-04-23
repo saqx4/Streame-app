@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/my_list_service.dart';
 import '../api/tmdb_api.dart';
-import '../api/settings_service.dart';
+import '../services/settings_service.dart';
 import '../models/movie.dart';
 import '../utils/app_theme.dart';
 import 'details_screen.dart';
