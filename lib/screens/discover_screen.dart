@@ -23,6 +23,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   List<Movie> _movies = [];
   bool _isLoading = false;
   int _currentPage = 1;
+
+  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  bool _isStreamingMode = false;
   
   // Filters
   String _selectedType = "Movies"; // Movies, TV Shows, All
@@ -76,6 +79,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   @override
   void initState() {
     super.initState();
+    // Cache streaming mode once so _openDetails() is synchronous
+    SettingsService().isStreamingModeEnabled().then((v) {
+      if (mounted) _isStreamingMode = v;
+    });
+
     _loadGenres();
     _loadData();
   }
@@ -479,13 +487,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
     );
   }
 
-  Future<void> _openDetails(Movie movie) async {
-    final settings = SettingsService();
-    final isStreaming = await settings.isStreamingModeEnabled();
-    
-    if (!mounted) return;
-
-    if (isStreaming) {
+  void _openDetails(Movie movie) {
+    if (_isStreamingMode) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
     } else {
       Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
@@ -551,6 +554,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                   )
                 : GridView.builder(
                     controller: _scrollController,
+                    cacheExtent: 800,
                     padding: const EdgeInsets.all(16),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,

@@ -148,13 +148,16 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     loadAtmosphere(url.startsWith('http') ? url : TmdbApi.getImageUrl(url));
     _checkHistory();
     _loadSortPreference();
-    _checkIndexerConfiguration();
     _loadWatchedEpisodes();
     _fetchDetails();
-    _fetchExternalRatings();
-    _fetchUserTraktRating();
-    _fetchUserSimklRating();
-    _fetchTraktCollectionStatus();
+    // Defer non-essential fetches to after the first frame for faster initial paint
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIndexerConfiguration();
+      _fetchExternalRatings();
+      _fetchUserTraktRating();
+      _fetchUserSimklRating();
+      _fetchTraktCollectionStatus();
+    });
   }
 
   @override
@@ -2087,10 +2090,30 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
     final url = _imageUrl(
       _movie.backdropPath.isNotEmpty ? _movie.backdropPath : _movie.posterPath,
     );
-    return buildAtmosphereBackdrop(
-      imageUrl: url,
-      genres: _movie.genres,
-      blurSigma: 12,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          memCacheWidth: 800,
+          errorWidget: (c, u, e) => Container(color: const Color(0xFF05050A)),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                (atmosphereColors?.dominant ?? const Color(0xFF05050A)).withValues(alpha: 0.5),
+                const Color(0xFF05050A).withValues(alpha: 0.8),
+                const Color(0xFF05050A),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

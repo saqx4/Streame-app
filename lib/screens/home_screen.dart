@@ -42,6 +42,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Timer? _heroTimer;
   int _heroIndex = 0;
 
+  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  bool _isStreamingMode = false;
+
   // Hero logo cache: movieId -> logo URL
   final Map<int, String> _heroLogos = {};
 
@@ -71,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _trendingTvFuture = _api.getTrendingTv();
     _topRatedTvFuture = _api.getTopRatedTv();
     _airingTodayTvFuture = _api.getAiringTodayTv();
+
+    // Cache streaming mode once so _openDetails() is synchronous
+    SettingsService().isStreamingModeEnabled().then((v) {
+      if (mounted) _isStreamingMode = v;
+    });
 
     _startHeroTimer();
     _loadStremioCatalogs();
@@ -462,16 +470,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Future<void> _openDetails(Movie movie) async {
-    final settings = SettingsService();
-    final isStreaming = await settings.isStreamingModeEnabled();
-    
-    if (!mounted) return;
-
-    if (isStreaming) {
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
+  void _openDetails(Movie movie) {
+    if (_isStreamingMode) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => StreamingDetailsScreen(movie: movie)));
     } else {
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsScreen(movie: movie)));
     }
   }
 
@@ -776,6 +779,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         : TmdbApi.getImageUrl(movie.posterPath),
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
+                    memCacheWidth: 800,
                   ),
                   // Bottom fade gradient
                   Container(decoration: BoxDecoration(gradient: AppTheme.bottomFade(0.35))),

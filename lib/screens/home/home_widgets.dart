@@ -393,14 +393,16 @@ class MovieCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (imageUrl.isNotEmpty)
-                  CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 640,
-                    placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                    errorWidget: (_, __, ___) => Container(
-                      color: AppTheme.surfaceContainer,
-                      child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
+                  RepaintBoundary(
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 640,
+                      placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                      errorWidget: (_, __, ___) => Container(
+                        color: AppTheme.surfaceContainer,
+                        child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
+                      ),
                     ),
                   )
                 else

@@ -21,6 +21,9 @@ class _MoviePosterState extends State<MoviePoster> {
   bool _isHovered = false;
   bool _isFocused = false;
 
+  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  static bool? _cachedStreamingMode;
+
   @override
   Widget build(BuildContext context) {
     final bool isActive = _isHovered || _isFocused;
@@ -29,10 +32,9 @@ class _MoviePosterState extends State<MoviePoster> {
     return InkWell(
       onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
       onHover: (isHovering) => setState(() => _isHovered = isHovering),
-      onTap: () async {
+      onTap: () {
         final navigator = Navigator.of(context);
-        final isStreamingMode = await SettingsService().isStreamingModeEnabled();
-        if (mounted) {
+        void push(bool isStreamingMode) {
           navigator.push(
             MaterialPageRoute(
               builder: (context) => isStreamingMode
@@ -40,6 +42,15 @@ class _MoviePosterState extends State<MoviePoster> {
                   : DetailsScreen(movie: widget.movie),
             ),
           );
+        }
+
+        if (_cachedStreamingMode != null) {
+          push(_cachedStreamingMode!);
+        } else {
+          SettingsService().isStreamingModeEnabled().then((v) {
+            _cachedStreamingMode = v;
+            if (mounted) push(v);
+          });
         }
       },
       splashColor: primary.withValues(alpha: 0.12),

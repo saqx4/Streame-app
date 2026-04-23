@@ -233,8 +233,8 @@ class _ModernSideRailState extends State<_ModernSideRail> {
       onEnter: (_) => setState(() => _isExpanded = true),
       onExit: (_) => setState(() => _isExpanded = false),
       child: AnimatedContainer(
-        duration: AppDurations.normal,
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
         clipBehavior: Clip.hardEdge,
         width: _isExpanded ? expandedWidth : collapsedWidth,
         decoration: BoxDecoration(
@@ -277,7 +277,7 @@ class _ModernSideRailState extends State<_ModernSideRail> {
 
   Widget _buildBranding() {
     return AnimatedContainer(
-      duration: AppDurations.normal,
+      duration: const Duration(milliseconds: 350),
       padding: EdgeInsets.all(_isExpanded ? 10 : 10),
       decoration: BoxDecoration(
         color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
@@ -291,7 +291,8 @@ class _ModernSideRailState extends State<_ModernSideRail> {
             child: Padding(
               padding: const EdgeInsets.only(left: 6),
               child: AnimatedOpacity(
-                duration: AppDurations.fast,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOutCubic,
                 opacity: _isExpanded ? 1.0 : 0.0,
                 child: Text(
                   'STREAME',
@@ -327,7 +328,8 @@ class _ModernSideRailState extends State<_ModernSideRail> {
         borderRadius: AppRadius.md,
         glowColor: activeColor,
         child: AnimatedContainer(
-          duration: AppDurations.fast,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOutCubic,
           height: 48,
           decoration: BoxDecoration(
             color: isSelected ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
@@ -338,7 +340,8 @@ class _ModernSideRailState extends State<_ModernSideRail> {
               const SizedBox(width: 4),
               // Active indicator bar
               AnimatedContainer(
-                duration: AppDurations.fast,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOutCubic,
                 width: 3,
                 height: isSelected ? 24 : 0,
                 decoration: BoxDecoration(
@@ -356,7 +359,8 @@ class _ModernSideRailState extends State<_ModernSideRail> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: AnimatedOpacity(
-                    duration: AppDurations.fast,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOutCubic,
                     opacity: _isExpanded ? 1.0 : 0.0,
                     child: Text(
                       meta['label'] as String,
