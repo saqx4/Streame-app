@@ -21,10 +21,10 @@ import '../../api/debrid_api.dart';
 import '../../api/torrent_api.dart';
 import '../../services/torrent_filter.dart';
 import '../../services/settings_service.dart';
-import '../../utils/app_theme.dart';
 import '../../services/watch_history_service.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
+import 'player_design.dart';
 
 /// Simplified desktop player screen inspired by Stremio's minimal approach.
 /// Focus on core playback functionality with minimal UI overhead.
@@ -161,7 +161,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
       ),
     );
 
-    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
 
     // Subscribe to streams
     _positionSub = _player.stream.position.listen((pos) {
@@ -220,7 +220,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
     windowManager.removeListener(this);
 
     _hideTimer?.cancel();
@@ -572,44 +572,6 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     );
   }
 
-  Widget _buildControlButton({
-    IconData? icon,
-    String? label,
-    Color? iconColor,
-    VoidCallback? onPressed,
-    String? tooltip,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: icon != null
-                ? Icon(
-                    icon,
-                    size: 20,
-                    color: iconColor ?? Colors.white70,
-                  )
-                : Text(
-                    label ?? '',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildSubtitleTile({
     required String title,
@@ -1364,61 +1326,107 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     _startHideTimer();
   }
 
-  bool _handleKeyEvent(KeyEvent event) {
+  /// Global hardware keyboard handler — reliable regardless of focus.
+  bool _hardwareKeyHandler(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (!mounted) return false;
     _onMouseMove();
 
     final key = event.logicalKey;
     final shift = HardwareKeyboard.instance.isShiftPressed;
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
 
-    if (key == LogicalKeyboardKey.space) {
-      debugPrint('[Player] Spacebar pressed, toggling play/pause');
+    // Play / Pause
+    if (key == LogicalKeyboardKey.space || key == LogicalKeyboardKey.keyK) {
       _togglePlayPause();
       return true;
-    } else if (key == LogicalKeyboardKey.arrowRight) {
-      _seek(Duration(seconds: shift ? 30 : 10));
+    }
+    // Seek forward
+    if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyL) {
+      final secs = ctrl ? 60 : (shift ? 30 : 10);
+      _seek(Duration(seconds: secs));
       return true;
-    } else if (key == LogicalKeyboardKey.arrowLeft) {
-      _seek(Duration(seconds: shift ? -30 : -10));
+    }
+    // Seek backward
+    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyJ) {
+      final secs = ctrl ? -60 : (shift ? -30 : -10);
+      _seek(Duration(seconds: secs));
       return true;
-    } else if (key == LogicalKeyboardKey.arrowUp) {
+    }
+    // Volume up
+    if (key == LogicalKeyboardKey.arrowUp) {
       _setVolume((_volume + 5).clamp(0, 150));
       return true;
-    } else if (key == LogicalKeyboardKey.arrowDown) {
+    }
+    // Volume down
+    if (key == LogicalKeyboardKey.arrowDown) {
       _setVolume((_volume - 5).clamp(0, 150));
       return true;
-    } else if (key == LogicalKeyboardKey.keyF) {
+    }
+    // Fullscreen
+    if (key == LogicalKeyboardKey.keyF) {
       _toggleFullscreen();
       return true;
-    } else if (key == LogicalKeyboardKey.escape) {
-      if (_isFullscreen) _toggleFullscreen();
+    }
+    // Escape — exit fullscreen or close player
+    if (key == LogicalKeyboardKey.escape) {
+      if (_isFullscreen) {
+        _toggleFullscreen();
+      } else {
+        Navigator.of(context).pop();
+      }
       return true;
-    } else if (key == LogicalKeyboardKey.keyM) {
+    }
+    // Mute toggle
+    if (key == LogicalKeyboardKey.keyM) {
       _setVolume(_volume > 0 ? 0 : 100);
       return true;
-    } else if (key == LogicalKeyboardKey.keyL) {
-      _seek(const Duration(seconds: 10));
-      return true;
-    } else if (key == LogicalKeyboardKey.keyJ) {
-      _seek(const Duration(seconds: -10));
-      return true;
-    } else if (key == LogicalKeyboardKey.keyK) {
-      _togglePlayPause();
-      return true;
-    } else if (key == LogicalKeyboardKey.bracketLeft) {
+    }
+    // Subtitle delay
+    if (key == LogicalKeyboardKey.bracketLeft) {
       _adjustSubtitleDelay(-50);
       return true;
-    } else if (key == LogicalKeyboardKey.bracketRight) {
+    }
+    if (key == LogicalKeyboardKey.bracketRight) {
       _adjustSubtitleDelay(50);
       return true;
-    } else if (key == LogicalKeyboardKey.keyA) {
+    }
+    // Cycle audio / subtitle tracks
+    if (key == LogicalKeyboardKey.keyA) {
       _cycleAudioTrack();
       return true;
-    } else if (key == LogicalKeyboardKey.keyS) {
+    }
+    if (key == LogicalKeyboardKey.keyS) {
       _cycleSubtitleTrack();
       return true;
     }
+    // Number keys 0-9 → seek to 0%-90%
+    if (key == LogicalKeyboardKey.digit0) { _seekToPercent(0); return true; }
+    if (key == LogicalKeyboardKey.digit1) { _seekToPercent(10); return true; }
+    if (key == LogicalKeyboardKey.digit2) { _seekToPercent(20); return true; }
+    if (key == LogicalKeyboardKey.digit3) { _seekToPercent(30); return true; }
+    if (key == LogicalKeyboardKey.digit4) { _seekToPercent(40); return true; }
+    if (key == LogicalKeyboardKey.digit5) { _seekToPercent(50); return true; }
+    if (key == LogicalKeyboardKey.digit6) { _seekToPercent(60); return true; }
+    if (key == LogicalKeyboardKey.digit7) { _seekToPercent(70); return true; }
+    if (key == LogicalKeyboardKey.digit8) { _seekToPercent(80); return true; }
+    if (key == LogicalKeyboardKey.digit9) { _seekToPercent(90); return true; }
+    // Frame step
+    if (key == LogicalKeyboardKey.comma) {
+      _player.seek(_position - const Duration(milliseconds: 41));
+      return true;
+    }
+    if (key == LogicalKeyboardKey.period) {
+      _player.seek(_position + const Duration(milliseconds: 41));
+      return true;
+    }
     return false;
+  }
+
+  void _seekToPercent(int pct) {
+    if (_duration.inMilliseconds <= 0) return;
+    final target = Duration(milliseconds: (_duration.inMilliseconds * pct / 100).round());
+    _player.seek(target);
   }
 
   void _cycleAudioTrack() {
@@ -1498,12 +1506,8 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
         autofocus: true,
         canRequestFocus: true,
         descendantsAreFocusable: false,
-        onKeyEvent: (node, event) {
-          if ((event is KeyDownEvent || event is KeyRepeatEvent) && _handleKeyEvent(event)) {
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
+        // Keyboard handled globally via HardwareKeyboard in initState;
+        // Focus node kept for focus-scope management only.
         child: MouseRegion(
           onHover: (_) => _onMouseMove(),
           cursor: _showControls ? SystemMouseCursors.basic : SystemMouseCursors.none,
@@ -1676,317 +1680,175 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
             curve: Curves.easeOut,
             child: IgnorePointer(
               ignoring: !_showControls,
-              child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
+              child: Stack(children: [
+                // Gradients
+                const PlayerTopGradient(height: 90),
+                const PlayerBottomGradient(height: 160),
+
+                // ── TOP BAR ──────────────────────────────────────────────
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Row(children: [
+                        PlayerBtn(
+                          icon: Icons.arrow_back_rounded,
+                          onPressed: () => Navigator.of(context).pop(),
+                          size: 38, iconSize: 20,
+                          tooltip: 'Back',
+                        ),
+                        const SizedBox(width: 12),
+                        if (widget.selectedSeason != null && widget.selectedEpisode != null)
+                          PlayerPill(
+                            text: 'S${widget.selectedSeason} E${widget.selectedEpisode}',
+                            fontSize: 11,
+                          ),
+                        if (widget.selectedSeason != null && widget.selectedEpisode != null)
+                          const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        PlayerBtn(icon: Icons.subtitles_outlined, onPressed: _showSubtitlesMenu, size: 34, iconSize: 17, tooltip: 'Subtitles'),
+                        const SizedBox(width: 4),
+                        PlayerBtn(icon: Icons.audiotrack_outlined, onPressed: _showAudioMenu, size: 34, iconSize: 17, tooltip: 'Audio'),
+                        if (widget.sources != null && widget.sources!.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          PlayerBtn(icon: Icons.playlist_play_rounded, onPressed: _showSourcesMenu, size: 34, iconSize: 17, tooltip: 'Sources'),
+                        ],
+                        const SizedBox(width: 4),
+                        PlayerPill(text: _videoFitLabel, onTap: _cycleAspectRatio, fontSize: 10),
+                        const SizedBox(width: 4),
+                        PlayerPill(text: '${_playbackSpeed}x', onTap: _showSpeedMenu, fontSize: 10),
+                        const SizedBox(width: 4),
+                        PlayerBtn(
+                          icon: _isLooping ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                          onPressed: _toggleLoop,
+                          active: _isLooping,
+                          size: 34, iconSize: 17,
+                          tooltip: 'Loop',
+                        ),
+                        const SizedBox(width: 4),
+                        PlayerBtn(icon: Icons.access_time_rounded, onPressed: _showSubtitleDelayMenu, size: 34, iconSize: 17, tooltip: 'Sub Delay'),
+                        const SizedBox(width: 4),
+                        PlayerBtn(
+                          icon: _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                          onPressed: _toggleFullscreen,
+                          size: 34, iconSize: 17,
+                          tooltip: 'Fullscreen',
+                        ),
+                      ]),
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Top bar
-                      SafeArea(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.8),
-                                Colors.transparent,
-                              ],
-                            ),
+                ),
+
+                // ── BOTTOM SECTION ────────────────────────────────────────
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        // Seekbar
+                        SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                            activeTrackColor: const Color(0xFF7C3AED),
+                            inactiveTrackColor: Colors.white24,
+                            thumbColor: const Color(0xFF7C3AED),
+                            overlayColor: const Color(0xFF7C3AED).withValues(alpha: 0.2),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white12,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.arrow_back_rounded, size: 22),
-                                  color: Colors.white,
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  tooltip: 'Back',
-                                  padding: const EdgeInsets.all(8),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              if (widget.selectedSeason != null && widget.selectedEpisode != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.current.primaryColor.withValues(alpha: 0.25),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.5), width: 1),
-                                  ),
-                                  child: Text(
-                                    'S${widget.selectedSeason} E${widget.selectedEpisode}',
-                                    style: TextStyle(
-                                      color: AppTheme.current.primaryColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              if (widget.selectedSeason != null && widget.selectedEpisode != null)
-                                const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  widget.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.3,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                          child: Slider(
+                            value: _duration.inMilliseconds > 0
+                                ? _position.inMilliseconds / _duration.inMilliseconds
+                                : 0,
+                            onChanged: _onSeek,
+                          ),
+                        ),
+
+                        // Time + controls row
+                        Row(
+                          children: [
+                            PlayerTimeLabel(text: formatDuration(_position), align: TextAlign.right),
+                            const SizedBox(width: 4),
+                            Text('/', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+                            const SizedBox(width: 4),
+                            PlayerTimeLabel(text: formatDuration(_duration)),
+
+                            const Spacer(),
+
+                            // Skip segment
+                            if (_activeSkipLabel != null)
+                              PlayerSkipChip(label: _activeSkipLabel!, onTap: _performSkip),
+
+                            // Next episode
+                            if (_isNextEpisodeAvailable) ...[
                               const SizedBox(width: 8),
-                              _buildControlButton(
-                                icon: Icons.subtitles_outlined,
-                                onPressed: _showSubtitlesMenu,
-                                tooltip: 'Subtitles',
-                              ),
-                              _buildControlButton(
-                                icon: Icons.audiotrack_outlined,
-                                onPressed: _showAudioMenu,
-                                tooltip: 'Audio',
-                              ),
-                              if (widget.sources != null && widget.sources!.isNotEmpty)
-                                _buildControlButton(
-                                  icon: Icons.playlist_play_rounded,
-                                  onPressed: _showSourcesMenu,
-                                  tooltip: 'Sources',
-                                ),
-                              _buildControlButton(
-                                icon: Icons.crop_rotate_rounded,
-                                label: _videoFitLabel,
-                                onPressed: _cycleAspectRatio,
-                                tooltip: 'Aspect Ratio',
-                              ),
-                              _buildControlButton(
-                                label: '${_playbackSpeed}x',
-                                onPressed: _showSpeedMenu,
-                                tooltip: 'Speed',
-                              ),
-                              _buildControlButton(
-                                icon: _isLooping ? Icons.repeat_one_rounded : Icons.repeat_rounded,
-                                iconColor: _isLooping ? const Color(0xFF7C3AED) : null,
-                                onPressed: _toggleLoop,
-                                tooltip: 'Loop',
-                              ),
-                              _buildControlButton(
-                                icon: Icons.access_time_rounded,
-                                onPressed: _showSubtitleDelayMenu,
-                                tooltip: 'Subtitle Delay',
-                              ),
-                              _buildControlButton(
-                                icon: _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                                onPressed: _toggleFullscreen,
-                                tooltip: 'Fullscreen',
-                              ),
+                              PlayerNextChip(isLoading: _isLoadingNextEp, onTap: _nextEpisode),
                             ],
-                          ),
-                        ),
-                      ),
 
-                      // Bottom controls
-                      SafeArea(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.85),
-                                Colors.transparent,
-                              ],
+                            const SizedBox(width: 8),
+
+                            // Play/Pause
+                            PlayerBtn(
+                              icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              onPressed: _togglePlayPause,
+                              size: 40, iconSize: 22,
                             ),
-                          ),
-                          child: Column(
-                            children: [
-                              // Seekbar
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                child: SliderTheme(
-                                  data: SliderThemeData(
-                                    trackHeight: 5,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                                    activeTrackColor: const Color(0xFF7C3AED),
-                                    inactiveTrackColor: Colors.white24,
-                                    thumbColor: const Color(0xFF7C3AED),
-                                    overlayColor: const Color(0xFF7C3AED).withValues(alpha: 0.2),
-                                  ),
-                                  child: Slider(
-                                    value: _duration.inMilliseconds > 0
-                                        ? _position.inMilliseconds / _duration.inMilliseconds
-                                        : 0,
-                                    onChanged: _onSeek,
-                                  ),
+
+                            const SizedBox(width: 8),
+
+                            // Volume
+                            SizedBox(
+                              width: 100,
+                              child: SliderTheme(
+                                data: SliderThemeData(
+                                  trackHeight: 3,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                                  activeTrackColor: Colors.white70,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.white,
+                                  overlayColor: Colors.white.withValues(alpha: 0.2),
+                                ),
+                                child: Slider(
+                                  value: _volume,
+                                  max: 150,
+                                  onChanged: _setVolume,
                                 ),
                               ),
+                            ),
 
-                              // Time and controls
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    // Time
-                                    Text(
-                                      '${formatDuration(_position)} / ${formatDuration(_duration)}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                    const Spacer(),
+                            const SizedBox(width: 8),
 
-                                    // Skip button (IntroDB)
-                                    if (_activeSkipLabel != null)
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [Color(0xFF7C3AED), Color(0xFF9D4EDD)],
-                                          ),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: ElevatedButton(
-                                          onPressed: _performSkip,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.transparent,
-                                            shadowColor: Colors.transparent,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _activeSkipLabel!,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                    if (_isNextEpisodeAvailable) ...[
-                                      const SizedBox(width: 12),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [Color(0xFF7C3AED), Color(0xFF9D4EDD)],
-                                          ),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: ElevatedButton.icon(
-                                          onPressed: _isLoadingNextEp ? null : _nextEpisode,
-                                          icon: _isLoadingNextEp
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    color: Colors.white,
-                                                  ),
-                                                )
-                                              : const Icon(Icons.skip_next_rounded, size: 18),
-                                          label: Text(_isLoadingNextEp ? 'Loading...' : 'Next'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.transparent,
-                                            shadowColor: Colors.transparent,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-
-                                    const SizedBox(width: 12),
-
-                                    // Play/Pause
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.15),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: IconButton(
-                                        icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                                        iconSize: 28,
-                                        color: Colors.white,
-                                        onPressed: _togglePlayPause,
-                                        padding: const EdgeInsets.all(12),
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 16),
-
-                                    // Volume
-                                    SizedBox(
-                                      width: 110,
-                                      child: SliderTheme(
-                                        data: SliderThemeData(
-                                          trackHeight: 3,
-                                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                                          activeTrackColor: Colors.white70,
-                                          inactiveTrackColor: Colors.white24,
-                                          thumbColor: Colors.white,
-                                          overlayColor: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                        child: Slider(
-                                          value: _volume,
-                                          max: 150,
-                                          onChanged: _setVolume,
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 12),
-
-                                    // Fullscreen
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white10,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: IconButton(
-                                        icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, size: 22),
-                                        color: Colors.white,
-                                        onPressed: _toggleFullscreen,
-                                        padding: const EdgeInsets.all(8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                            // Fullscreen
+                            PlayerBtn(
+                              icon: _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                              onPressed: _toggleFullscreen,
+                              size: 34, iconSize: 17,
+                              tooltip: 'Fullscreen',
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ]),
+                    ),
                   ),
                 ),
-              ),
+              ]),
             ),
+          ),
           ],
         ),
       ),

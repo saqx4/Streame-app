@@ -34,8 +34,8 @@ import '../../models/stream_source.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
 import 'menus.dart';
-import 'mobile_glass_widgets.dart';
-import 'mobile_seekbar.dart';
+import 'player_design.dart';
+import 'mobile_seekbar.dart' hide SideIndicator;
 
 
 class MobilePlayerScreen extends StatefulWidget {
@@ -2366,10 +2366,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     opacity: _showControls ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    child: GlassIconButton(
+                    child: PlayerBtn(
                       icon: Icons.lock_rounded,
                       onPressed: _toggleLock,
-                      iconColor: const Color(0xFF7C3AED),
+                      active: true,
+                      color: const Color(0xFF7C3AED),
                     ),
                   ),
                 ),
@@ -2401,34 +2402,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 Positioned(
                   bottom: _showNextEpButton ? 170 : 120,
                   right: 16,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _performSkip,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Text(
-                            _activeSkipLabel!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.skip_next_rounded,
-                              color: Colors.white, size: 18),
-                        ]),
-                      ),
-                    ),
-                  ),
+                  child: PlayerSkipChip(label: _activeSkipLabel!, onTap: _performSkip),
                 ),
 
               // ── 8. Next Episode Overlay ──────────────────────────────
@@ -2436,41 +2410,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 Positioned(
                   bottom: 120,
                   right: 16,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _isLoadingNextEp ? null : _nextEpisode,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          if (_isLoadingNextEp)
-                            const SizedBox(
-                              width: 16, height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                            )
-                          else
-                            const Text(
-                              'Next Episode',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.arrow_forward_rounded,
-                              color: Colors.white, size: 18),
-                        ]),
-                      ),
-                    ),
-                  ),
+                  child: PlayerNextChip(isLoading: _isLoadingNextEp, onTap: _nextEpisode),
                 ),
 
               // ── 8.5 Inline Toast ──────────────────────────────────────────
@@ -2482,18 +2422,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     child: AnimatedOpacity(
                       opacity: _toastMessage != null ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 200),
-                      child: CleanContainer(
-                        radius: 20,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text(
-                          _toastMessage!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                      child: PlayerToast(message: _toastMessage!),
                     ),
                   ),
                 ),
@@ -2507,58 +2436,50 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               );
               }
 
-              Widget _buildEmbeddedError() {
-              return Container(
-              color: Colors.black.withValues(alpha: 0.6),
-              child: Center(
-              child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-              const SizedBox(height: 16),
-              const Text(
+  Widget _buildEmbeddedError() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 16),
+            const Text(
               'Playback Failed',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
+            ),
+            const SizedBox(height: 8),
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
                 _errorMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GlassPillButton(
-                    text: 'Retry',
-                    onTap: _initPlayback,
-                  ),
-                  if (_currentProvider == 'arabic' && _currentSources != null && _currentSources!.isNotEmpty) ...[
-                    const SizedBox(width: 12),
-                    GlassPillButton(
-                      text: 'Switch Source',
-                      onTap: _showSourcesMenu,
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayerPill(text: 'Retry', onTap: _initPlayback),
+                if (_currentProvider == 'arabic' && _currentSources != null && _currentSources!.isNotEmpty) ...[
                   const SizedBox(width: 12),
-                  GlassPillButton(
-                    text: 'Switch Provider',
-                    onTap: _showProviderMenu,
-                  ),
+                  PlayerPill(text: 'Switch Source', onTap: _showSourcesMenu),
                 ],
-              ),              ],
-              ),
-              ),
-              );
-              }
+                const SizedBox(width: 12),
+                PlayerPill(text: 'Switch Provider', onTap: _showProviderMenu),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildControlsOverlay() {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
@@ -2568,71 +2489,63 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
     return Stack(children: [
       // ── Gradients ────────────────────────────────────────────────────────
-      const Positioned(
-          top: 0, left: 0, right: 0,
-          child: OverlayGradient(isTop: true)),
-      const Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: OverlayGradient(isTop: false)),
+      const PlayerTopGradient(),
+      const PlayerBottomGradient(height: 140),
 
       // ── TOP BAR ──────────────────────────────────────────────────────────
       Positioned(
         top: 0, left: 0, right: 0,
         child: SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(children: [
-              GlassIconButton(
+              PlayerBtn(
                 icon: Icons.arrow_back_ios_new_rounded,
                 onPressed: _exitPlayer,
                 size: btnSize, iconSize: iconSz,
+                tooltip: 'Back',
               ),
-              SizedBox(width: isPortrait ? 6 : 10),
-              // Title pill
+              SizedBox(width: isPortrait ? 8 : 12),
               Expanded(
-                child: CleanBlurContainer(          // ← clean blur, only 1
-                  radius: 20,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: isPortrait ? 10 : 14, vertical: 8),
-                  child: Text(
-                    widget.title,
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.90),
-                        fontSize: isPortrait ? 12 : 13,
-                        fontWeight: FontWeight.w500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                child: Text(
+                  widget.title,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: isPortrait ? 13 : 15,
+                      fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(width: gap),
-              // HW mode badge
-              if (!isPortrait)
-                GlassPillButton(
+              if (!isPortrait) ...[
+                SizedBox(width: gap),
+                PlayerPill(
                   text: _hwDecMode.label,
                   onTap: _cycleHwDec,
                   accent: _hwDecMode.accent,
                 ),
-              if (!isPortrait) SizedBox(width: gap),
-              GlassIconButton(
+              ],
+              SizedBox(width: gap),
+              PlayerBtn(
                 icon: Icons.music_note_outlined,
                 onPressed: _showAudioMenu,
                 size: btnSize, iconSize: iconSz,
+                tooltip: 'Audio',
               ),
               SizedBox(width: gap),
-              GlassIconButton(
+              PlayerBtn(
                 icon: Icons.subtitles_outlined,
                 onPressed: _showSubtitlesMenu,
                 size: btnSize, iconSize: iconSz,
+                tooltip: 'Subtitles',
               ),
-              // Show sources button for providers with multiple sources
               if ((_currentProvider == 'amri' || _currentProvider == 'webstreamr' || _currentProvider == 'arabic') && _currentSources != null && _currentSources!.isNotEmpty) ...[
                 SizedBox(width: gap),
-                GlassIconButton(
+                PlayerBtn(
                   icon: Icons.video_library_outlined,
                   onPressed: _showSourcesMenu,
                   size: btnSize, iconSize: iconSz,
+                  tooltip: 'Sources',
                 ),
               ],
             ]),
@@ -2647,7 +2560,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           builder: (context, buffering, _) =>
               ValueListenableBuilder<bool>(
             valueListenable: _isPlayingNotifier,
-            builder: (context, playing, _) => GlassPlayPause(
+            builder: (context, playing, _) => PlayerPlayPause(
               isPlaying: playing,
               isBuffering: buffering,
               onPressed: () {
@@ -2664,108 +2577,16 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         bottom: 0, left: 0, right: 0,
         child: SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child:
-                Column(mainAxisSize: MainAxisSize.min, children: [
-              // ── Icon row ─────────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Left: lock / speed / loop (+ HW badge in portrait)
-                  Row(children: [
-                    GlassIconButton(
-                      icon: _isLocked
-                          ? Icons.lock_rounded
-                          : Icons.lock_open_rounded,
-                      onPressed: _toggleLock,
-                      active: _isLocked,
-                      size: btnSize, iconSize: iconSz,
-                    ),
-                    SizedBox(width: gap),
-                    GlassIconButton(
-                      icon: Icons.screen_rotation_rounded,
-                      onPressed: _toggleRotation,
-                      size: btnSize, iconSize: iconSz,
-                    ),
-                    SizedBox(width: gap),
-                    GlassIconButton(
-                      icon: Icons.speed_outlined,
-                      onPressed: () => showSpeedMenu(
-                          context,
-                          _player.state.rate,
-                          (s) => _player.setRate(s)),
-                      size: btnSize, iconSize: iconSz,
-                    ),
-                    SizedBox(width: gap),
-                    GlassIconButton(
-                      icon: _loopEnabled
-                          ? Icons.repeat_one_rounded
-                          : Icons.repeat_rounded,
-                      onPressed: _toggleLoop,
-                      active: _loopEnabled,
-                      size: btnSize, iconSize: iconSz,
-                    ),
-                    if (isPortrait) ...[
-                      SizedBox(width: gap),
-                      GlassPillButton(
-                        text: _hwDecMode.label,
-                        onTap: _cycleHwDec,
-                        accent: _hwDecMode.accent,
-                      ),
-                    ],
-                  ]),
-
-                  // Right: copy URL / subtitle settings / aspect ratio / provider switcher
-                  Row(children: [
-                    // Show provider switcher only when providers are available and not using torrent/stremio
-                    if (widget.providers != null && widget.providers!.isNotEmpty && 
-                        widget.magnetLink == null && widget.activeProvider != 'stremio_direct') ...[
-                      GlassIconButton(
-                        icon: Icons.swap_horiz_rounded,
-                        onPressed: _isSwitchingProvider ? () {} : _showProviderMenu,
-                        size: btnSize, iconSize: iconSz,
-                      ),
-                      SizedBox(width: gap),
-                    ],
-                    GlassIconButton(
-                      icon: Icons.link_rounded,
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: widget.mediaPath));
-                        if (mounted) {
-                          _showPlayerToast('URL copied to clipboard');
-                        }
-                      },
-                      size: btnSize, iconSize: iconSz,
-                    ),
-                    SizedBox(width: gap),
-                    // Aspect ratio pill — shows current mode
-                    GlassPillButton(
-                      text: _videoFitLabel,
-                      onTap: _cycleAspectRatio,
-                    ),
-                  ]),
-                ],
-              ),
-              const SizedBox(height: 8),
-
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
               // ── Seekbar row ───────────────────────────────────────────
               Row(children: [
                 ValueListenableBuilder<Duration>(
                   valueListenable: _positionNotifier,
-                  builder: (context, pos, _) => SizedBox(
-                    width: 56,
-                    child: Text(
-                      formatDuration(pos),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontFamily: 'monospace'),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
+                  builder: (context, pos, _) =>
+                      PlayerTimeLabel(text: formatDuration(pos), align: TextAlign.right),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: ValueListenableBuilder<Duration>(
                     valueListenable: _durationNotifier,
@@ -2791,21 +2612,76 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 ValueListenableBuilder<Duration>(
                   valueListenable: _durationNotifier,
-                  builder: (context, dur, _) => SizedBox(
-                    width: 56,
-                    child: Text(
-                      formatDuration(dur),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontFamily: 'monospace'),
-                    ),
-                  ),
+                  builder: (context, dur, _) =>
+                      PlayerTimeLabel(text: formatDuration(dur)),
                 ),
               ]),
+              const SizedBox(height: 6),
+
+              // ── Controls row ──────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left
+                  Row(children: [
+                    PlayerBtn(
+                      icon: _isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                      onPressed: _toggleLock,
+                      active: _isLocked,
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    SizedBox(width: gap),
+                    PlayerBtn(
+                      icon: Icons.screen_rotation_rounded,
+                      onPressed: _toggleRotation,
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    SizedBox(width: gap),
+                    PlayerBtn(
+                      icon: Icons.speed_outlined,
+                      onPressed: () => showSpeedMenu(context, _player.state.rate, (s) => _player.setRate(s)),
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    SizedBox(width: gap),
+                    PlayerBtn(
+                      icon: _loopEnabled ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                      onPressed: _toggleLoop,
+                      active: _loopEnabled,
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    if (isPortrait) ...[
+                      SizedBox(width: gap),
+                      PlayerPill(text: _hwDecMode.label, onTap: _cycleHwDec, accent: _hwDecMode.accent),
+                    ],
+                  ]),
+
+                  // Right
+                  Row(children: [
+                    if (widget.providers != null && widget.providers!.isNotEmpty &&
+                        widget.magnetLink == null && widget.activeProvider != 'stremio_direct') ...[
+                      PlayerBtn(
+                        icon: Icons.swap_horiz_rounded,
+                        onPressed: _isSwitchingProvider ? () {} : _showProviderMenu,
+                        size: btnSize, iconSize: iconSz,
+                      ),
+                      SizedBox(width: gap),
+                    ],
+                    PlayerBtn(
+                      icon: Icons.link_rounded,
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: widget.mediaPath));
+                        if (mounted) _showPlayerToast('URL copied');
+                      },
+                      size: btnSize, iconSize: iconSz,
+                    ),
+                    SizedBox(width: gap),
+                    PlayerPill(text: _videoFitLabel, onTap: _cycleAspectRatio),
+                  ]),
+                ],
+              ),
             ]),
           ),
         ),

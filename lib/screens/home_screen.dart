@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -607,6 +608,25 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
   }
 
+  Future<void> _refreshData() async {
+    setState(() {
+      _trendingFuture = _api.getTrending().then((movies) {
+        _fetchHeroLogos(movies.take(5).toList());
+        return movies;
+      });
+      _popularFuture = _api.getPopular();
+      _topRatedFuture = _api.getTopRated();
+      _nowPlayingFuture = _api.getNowPlaying();
+      _trendingTvFuture = _api.getTrendingTv();
+      _topRatedTvFuture = _api.getTopRatedTv();
+      _airingTodayTvFuture = _api.getAiringTodayTv();
+    });
+    _loadStremioCatalogs();
+    _loadTraktRecommendations();
+    _loadTraktCalendar();
+    _loadTraktCalendarMovies();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -619,6 +639,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             cacheExtent: 1000, // Increased for smoother scrolling
             physics: const BouncingScrollPhysics(),
             slivers: [
+          // Pull-to-refresh
+          CupertinoSliverRefreshControl(
+            onRefresh: _refreshData,
+          ),
           // Hero
           SliverToBoxAdapter(
             child: RepaintBoundary(

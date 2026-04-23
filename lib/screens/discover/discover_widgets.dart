@@ -118,11 +118,15 @@ class DiscoverCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+              Hero(
+                tag: 'movie-poster-${movie.id}',
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 320,
+                  placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                  errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+                ),
               )
             else
               Center(child: Padding(

@@ -531,7 +531,24 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
             child: _isLoading 
               ? Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor))
               : _movies.isEmpty 
-                ? Center(child: Text("No results found", style: TextStyle(color: AppTheme.textSecondary)))
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.explore_outlined, size: 80, color: AppTheme.textDisabled.withValues(alpha: 0.2)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No results found',
+                          style: TextStyle(color: AppTheme.textDisabled, fontSize: 18),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Try adjusting your filters or changing the page',
+                          style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  )
                 : GridView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),

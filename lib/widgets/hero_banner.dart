@@ -63,6 +63,7 @@ class _HeroBannerState extends State<HeroBanner> {
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
+                      memCacheWidth: 800,
                       placeholder: (_, __) => Container(color: AppTheme.bgDark),
                       errorWidget: (_, __, ___) => Container(color: AppTheme.bgDark),
                     ),

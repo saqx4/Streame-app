@@ -41,6 +41,23 @@ class AppElevations {
   static const double level4 = 16.0;
 }
 
+class AppFontSize {
+  static const double caption = 10.0;
+  static const double overline = 11.0;
+  static const double bodySm = 12.0;
+  static const double body = 14.0;
+  static const double bodyLg = 16.0;
+  static const double title = 18.0;
+  static const double headline = 22.0;
+  static const double display = 28.0;
+}
+
+/// Scales a design-token font size by the user's system text scaler.
+/// Usage: fontSize: scaledFontSize(context, AppFontSize.body)
+double scaledFontSize(BuildContext context, double base) {
+  return MediaQuery.textScalerOf(context).scale(base);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  THEME PRESET — full color palette per theme
 // ═══════════════════════════════════════════════════════════════════════════

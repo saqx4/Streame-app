@@ -1,5 +1,4 @@
-﻿import 'dart:ui';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'utils.dart' show formatDuration;
 
 class GlassSeekbar extends StatefulWidget {

@@ -9,7 +9,6 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'services/settings_service.dart';
 import 'services/torrent_stream_service.dart';
-import 'models/movie.dart';
 import 'services/player_pool_service.dart';
 import 'utils/webview_cleanup.dart';
 import 'utils/app_theme.dart';
@@ -18,8 +17,6 @@ import 'error/error_boundary.dart';
 import 'providers/service_providers.dart';
 
 import 'screens/main_screen.dart';
-import 'screens/search_screen.dart';
-import 'screens/discover_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -207,16 +204,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
 
     _updateProgress(0.3, 'Starting services...');
 
-    debugPrint('[Boot] Step 2: Initializing services in parallel...');
-    final api = ref.read(tmdbApiProvider);
+    debugPrint('[Boot] Step 2: Starting essential services...');
     final torrentStream = ref.read(torrentStreamServiceProvider);
     final localServer = ref.read(localServerServiceProvider);
-    
-    debugPrint('[Boot]   - Starting TorrentStream engine...');
-    debugPrint('[Boot]   - Starting LocalServer...');
-    debugPrint('[Boot]   - Fetching TMDB data (trending, popular, top rated, now playing)...');
-    
-    final results = await Future.wait([
+
+    // Start only essential playback services — TMDB data loads in HomeScreen
+    await Future.wait([
       torrentStream.start().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -225,58 +218,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
         },
       ).catchError((e, st) {
         debugPrint('[Boot] ✗ TorrentStream error: $e');
-        debugPrint('[Boot] Stack trace: $st');
         return Future.value(false);
       }),
       localServer.start().catchError((e) {
         debugPrint('[Boot] ✗ LocalServer error: $e');
         return Future.value(null);
       }),
-      api.getTrending().catchError((e) {
-        debugPrint('[Boot] ✗ TMDB trending error: $e');
-        return Future.value(<Movie>[]);
-      }),
-      api.getPopular().catchError((e) {
-        debugPrint('[Boot] ✗ TMDB popular error: $e');
-        return Future.value(<Movie>[]);
-      }),
-      api.getTopRated().catchError((e) {
-        debugPrint('[Boot] ✗ TMDB top rated error: $e');
-        return Future.value(<Movie>[]);
-      }),
-      api.getNowPlaying().catchError((e) {
-        debugPrint('[Boot] ✗ TMDB now playing error: $e');
-        return Future.value(<Movie>[]);
-      }),
     ]);
 
-    _updateProgress(0.7, 'Loading content...');
+    debugPrint('[Boot]   TorrentStream: ✓ started');
+    debugPrint('[Boot]   LocalServer: ✓ started');
 
-    debugPrint('[Boot] Step 3: Service initialization results:');
-    final torrentEngineReady = (results[0] as bool?) == true;
-    // LocalServer returns void, just check if it completed without throwing
-    debugPrint('[Boot]   TorrentStream: ${torrentEngineReady ? "✓ READY" : "✗ FAILED"}');
-    debugPrint('[Boot]   LocalServer: ✓ READY');
-    
-    final trendingList = results[2] as List;
-    final popularList = results[3] as List;
-    final topRatedList = results[4] as List;
-    final nowPlayingList = results[5] as List;
-    
-    debugPrint('[Boot]   TMDB Trending: ${trendingList.isNotEmpty ? "✓ ${trendingList.length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Popular: ${popularList.isNotEmpty ? "✓ ${popularList.length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Top Rated: ${topRatedList.isNotEmpty ? "✓ ${topRatedList.length} items" : "✗ Empty"}');
-    debugPrint('[Boot]   TMDB Now Playing: ${nowPlayingList.isNotEmpty ? "✓ ${nowPlayingList.length} items" : "✗ Empty"}');
-
-    _updateProgress(0.9, 'Preparing interface...');
-
-    debugPrint('[Boot] Step 4: Pre-warming screens...');
-    // ignore: unused_local_variable
-    const warmupSearch = SearchScreen();
-    // ignore: unused_local_variable
-    const warmupDiscover = DiscoverScreen();
-    debugPrint('[Boot] ✓ Screens pre-warmed');
-    
     _updateProgress(1.0, 'Ready!');
     
     if (mounted) {

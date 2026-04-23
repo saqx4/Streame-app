@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../api/tmdb_api.dart';
 import '../api/stremio_service.dart';
 import '../services/settings_service.dart';
@@ -56,15 +57,42 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
   /// True while at least one provider hasn't responded yet.
   bool _isSearching = false;
 
-  @override
-  bool get wantKeepAlive => true;
+  /// Search history (last 10 queries)
+  static const _searchHistoryKey = 'search_history';
+  List<String> _searchHistory = [];
 
   @override
   void initState() {
     super.initState();
     _loadProviders();
+    _loadSearchHistory();
     MainScreen.stremioSearchNotifier.addListener(_onExternalSearch);
   }
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(_searchHistoryKey) ?? [];
+    if (mounted) setState(() => _searchHistory = stored);
+  }
+
+  Future<void> _addToSearchHistory(String query) async {
+    if (query.trim().isEmpty) return;
+    _searchHistory = [query, ..._searchHistory.where((q) => q != query)];
+    if (_searchHistory.length > 10) _searchHistory = _searchHistory.sublist(0, 10);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_searchHistoryKey, _searchHistory);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _clearSearchHistory() async {
+    _searchHistory = [];
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_searchHistoryKey);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<void> _loadProviders() async {
     final catalogs = await _stremio.getAllCatalogs();
@@ -110,6 +138,7 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      _addToSearchHistory(query);
       _performUnifiedSearch(query);
     });
   }
@@ -439,15 +468,62 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
   }
 
   Widget _buildEmpty() {
+    if (_query.isEmpty && _searchHistory.isNotEmpty) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 32, 16, 8),
+            child: Row(
+              children: [
+                Text('Recent Searches', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _clearSearchHistory,
+                  child: Text('Clear All', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _searchHistory.length,
+              itemBuilder: (context, index) {
+                final query = _searchHistory[index];
+                return ListTile(
+                  leading: Icon(Icons.history, color: AppTheme.textDisabled, size: 20),
+                  title: Text(query, style: TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
+                  trailing: Icon(Icons.north_west, color: AppTheme.textDisabled, size: 16),
+                  onTap: () {
+                    _controller.text = query;
+                    _onSearchChanged(query);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search, size: 80, color: AppTheme.textDisabled.withValues(alpha: 0.1)),
+          Icon(
+            _query.isEmpty ? Icons.search : Icons.movie_filter_outlined,
+            size: 80,
+            color: AppTheme.textDisabled.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
             _query.isEmpty ? "Search for your favorite content" : "No results found",
-            style: TextStyle(color: AppTheme.textDisabled),
+            style: TextStyle(color: AppTheme.textDisabled, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _query.isEmpty
+                ? "Movies, shows, anime — find it all here"
+                : "Try different keywords or check the spelling",
+            style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
           ),
         ],
       ),

@@ -25,6 +25,22 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
   int? _streamingIndex;
 
   @override
+  void initState() {
+    super.initState();
+    _autoDetectMagnetClipboard();
+  }
+
+  Future<void> _autoDetectMagnetClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim() ?? '';
+      if (text.startsWith('magnet:')) {
+        _magnetController.text = text;
+      }
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     _magnetController.dispose();
     super.dispose();

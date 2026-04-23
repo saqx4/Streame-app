@@ -140,7 +140,7 @@ class _MovieSectionState extends State<MovieSection> {
                           widget.title,
                           style: TextStyle(
                             color: AppTheme.textPrimary,
-                            fontSize: 20,
+                            fontSize: scaledFontSize(context, 20),
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.3,
                           ),
@@ -281,7 +281,7 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.title, style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                    Text(widget.title, style: TextStyle(color: AppTheme.textPrimary, fontSize: scaledFontSize(context, 20), fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                     const SizedBox(height: 4),
                     Container(
                       height: 2.5,
@@ -396,6 +396,7 @@ class MovieCard extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: imageUrl,
                     fit: BoxFit.cover,
+                    memCacheWidth: 640,
                     placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
                     errorWidget: (_, __, ___) => Container(
                       color: AppTheme.surfaceContainer,
@@ -626,6 +627,7 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
                     child: CachedNetworkImage(
                       imageUrl: addonIcon,
                       width: 20, height: 20,
+                      memCacheWidth: 40,
                       errorWidget: (_, _, _) => const Icon(Icons.extension, size: 20, color: AppTheme.primaryColor),
                     ),
                   ),
@@ -648,7 +650,7 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
                   children: [
                     Text(
                       catalogName,
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                      style: TextStyle(color: Colors.white, fontSize: scaledFontSize(context, 20), fontWeight: FontWeight.w800, letterSpacing: -0.3),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -779,6 +781,7 @@ class StremioCatalogCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
+                memCacheWidth: 320,
                 placeholder: (_, _) => Container(color: AppTheme.bgCard),
                 errorWidget: (_, _, _) => Container(
                   color: AppTheme.bgCard,

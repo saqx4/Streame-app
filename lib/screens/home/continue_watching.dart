@@ -500,7 +500,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
                           "Continue Watching",
                           style: TextStyle(
                             color: AppTheme.textPrimary,
-                            fontSize: 20,
+                            fontSize: scaledFontSize(context, 20),
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.3,
                           ),

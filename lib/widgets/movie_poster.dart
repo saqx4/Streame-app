@@ -74,17 +74,20 @@ class _MoviePosterState extends State<MoviePoster> {
               fit: StackFit.expand,
               children: [
                 // Poster image
-                CachedNetworkImage(
-                  imageUrl: TmdbApi.getImageUrl(widget.movie.posterPath),
-                  fit: BoxFit.cover,
-                  memCacheWidth: 320,
-                  placeholder: (_, __) => Container(
-                    color: AppTheme.surfaceContainer,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: primary.withValues(alpha: 0.3))),
-                  ),
-                  errorWidget: (_, __, ___) => Container(
-                    color: AppTheme.surfaceContainer,
-                    child: Icon(Icons.movie_outlined, color: AppTheme.textDisabled, size: 32),
+                Hero(
+                  tag: 'movie-poster-${widget.movie.id}',
+                  child: CachedNetworkImage(
+                    imageUrl: TmdbApi.getImageUrl(widget.movie.posterPath),
+                    fit: BoxFit.cover,
+                    memCacheWidth: 320,
+                    placeholder: (_, __) => Container(
+                      color: AppTheme.surfaceContainer,
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: primary.withValues(alpha: 0.3))),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: AppTheme.surfaceContainer,
+                      child: Icon(Icons.movie_outlined, color: AppTheme.textDisabled, size: 32),
+                    ),
                   ),
                 ),
 

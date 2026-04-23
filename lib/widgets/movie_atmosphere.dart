@@ -126,6 +126,7 @@ class _KenBurnsBackdropState extends State<KenBurnsBackdrop> with SingleTickerPr
             imageUrl: widget.imageUrl,
             fit: BoxFit.cover,
             alignment: Alignment.topCenter,
+            memCacheWidth: 800,
             errorWidget: (c, u, e) => Container(color: const Color(0xFF05050A)),
           ),
         ),

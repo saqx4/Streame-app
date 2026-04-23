@@ -2516,25 +2516,28 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: _imageUrl(_movie.posterPath),
-                        width: 100,
-                        height: 150,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Container(
+                      child: Hero(
+                        tag: 'movie-poster-${_movie.id}',
+                        child: CachedNetworkImage(
+                          imageUrl: _imageUrl(_movie.posterPath),
                           width: 100,
                           height: 150,
-                          color: AppTheme.surfaceContainerHigh,
-                          child: const Icon(
-                            Icons.broken_image,
-                            size: 32,
-                            color: Colors.grey,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Container(
+                            width: 100,
+                            height: 150,
+                            color: AppTheme.surfaceContainerHigh,
+                            child: const Icon(
+                              Icons.broken_image,
+                              size: 32,
+                              color: Colors.grey,
+                            ),
                           ),
-                        ),
-                        placeholder: (context, url) => Container(
-                          width: 100,
-                          height: 150,
-                          color: AppTheme.surfaceContainerHigh,
+                          placeholder: (context, url) => Container(
+                            width: 100,
+                            height: 150,
+                            color: AppTheme.surfaceContainerHigh,
+                          ),
                         ),
                       ),
                     ),
@@ -2549,7 +2552,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
                       Text(
                         _movie.title,
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: scaledFontSize(context, 24),
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimary,
                           height: 1.1,
@@ -2675,7 +2678,7 @@ class _DetailsScreenState extends State<DetailsScreen> with AtmosphereMixin {
         Text(
           _movie.title,
           style: TextStyle(
-            fontSize: 32,
+            fontSize: scaledFontSize(context, 32),
             fontWeight: FontWeight.bold,
             color: AppTheme.textPrimary,
             height: 1.1,

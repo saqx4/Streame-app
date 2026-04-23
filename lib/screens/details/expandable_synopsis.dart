@@ -25,7 +25,7 @@ class _ExpandableSynopsisState extends State<ExpandableSynopsis> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 13.5,
+              fontSize: scaledFontSize(context, 13.5),
               height: 1.6,
             ),
           ),
@@ -33,7 +33,7 @@ class _ExpandableSynopsisState extends State<ExpandableSynopsis> {
             widget.text,
             style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 13.5,
+              fontSize: scaledFontSize(context, 13.5),
               height: 1.6,
             ),
           ),
@@ -48,7 +48,7 @@ class _ExpandableSynopsisState extends State<ExpandableSynopsis> {
             _expanded ? 'Show less' : 'Show more',
             style: TextStyle(
               color: AppTheme.primaryColor.withValues(alpha: 0.9),
-              fontSize: 12,
+              fontSize: scaledFontSize(context, 12),
               fontWeight: FontWeight.w600,
             ),
           ),
