@@ -1400,21 +1400,21 @@ class _DesktopPlayerScreenState extends State<DesktopPlayerScreen>
               _subRow('Delay', Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(
                   icon: const Icon(Icons.remove, color: Colors.white70, size: 20),
-                  onPressed: () {
+                  onPressed: () async {
                     final v = _subtitleDelay - 0.1;
                     setDialog(() => _subtitleDelay = double.parse(v.toStringAsFixed(1)));
                     if (_player.platform is NativePlayer) {
-                      (_player.platform as NativePlayer).setProperty('sub-delay', _subtitleDelay.toString());
+                      await (_player.platform as NativePlayer).setProperty('sub-delay', '${_subtitleDelay}s');
                     }
                   },
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white70, size: 20),
-                  onPressed: () {
+                  onPressed: () async {
                     final v = _subtitleDelay + 0.1;
                     setDialog(() => _subtitleDelay = double.parse(v.toStringAsFixed(1)));
                     if (_player.platform is NativePlayer) {
-                      (_player.platform as NativePlayer).setProperty('sub-delay', _subtitleDelay.toString());
+                      await (_player.platform as NativePlayer).setProperty('sub-delay', '${_subtitleDelay}s');
                     }
                   },
                 ),

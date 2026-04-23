@@ -881,8 +881,8 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // Pause playback on cache underrun instead of stuttering through it.
     // This is the single most important setting for smooth torrent/stream playback.
     await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
-    await mpv.setProperty('cache-pause-wait', '3');        // wait up to 3s for buffer to recover
-    await mpv.setProperty('cache-pause-done', '0.5');      // resume when buffer has 0.5s ahead
+    await mpv.setProperty('cache-pause-wait', '8');        // wait up to 8s for buffer to recover
+    await mpv.setProperty('cache-pause-done', '3');        // resume when buffer has 3s ahead
 
     // We supply our own URL — no yt-dlp needed.
     await mpv.setProperty('ytdl', 'no');
@@ -1398,11 +1398,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                         IconButton(
                           icon: const Icon(Icons.remove, color: Colors.white70, size: 20),
                           visualDensity: VisualDensity.compact,
-                          onPressed: () {
+                          onPressed: () async {
                             final v = _subtitleDelay - 0.1;
                             setDialog(() => _subtitleDelay = double.parse(v.toStringAsFixed(1)));
                             if (_player.platform is NativePlayer) {
-                              (_player.platform as NativePlayer).setProperty('sub-delay', _subtitleDelay.toString());
+                              await (_player.platform as NativePlayer).setProperty('sub-delay', '${_subtitleDelay}s');
                             }
                           },
                         ),
@@ -1415,11 +1415,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                         IconButton(
                           icon: const Icon(Icons.add, color: Colors.white70, size: 20),
                           visualDensity: VisualDensity.compact,
-                          onPressed: () {
+                          onPressed: () async {
                             final v = _subtitleDelay + 0.1;
                             setDialog(() => _subtitleDelay = double.parse(v.toStringAsFixed(1)));
                             if (_player.platform is NativePlayer) {
-                              (_player.platform as NativePlayer).setProperty('sub-delay', _subtitleDelay.toString());
+                              await (_player.platform as NativePlayer).setProperty('sub-delay', '${_subtitleDelay}s');
                             }
                           },
                         ),

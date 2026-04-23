@@ -261,6 +261,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     await mpv.setProperty('cache-secs', '300');
     await mpv.setProperty('demuxer-max-bytes', '1GiB');
     await mpv.setProperty('demuxer-readahead-secs', '300');
+    await mpv.setProperty('demuxer-max-back-bytes', '200MiB');
     await mpv.setProperty('cache-pause-initial', 'yes');
     await mpv.setProperty('cache-pause-wait', '15');
     await mpv.setProperty('cache-pause-done', '5');
@@ -1254,7 +1255,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     setState(() => _subtitleDelayMs += ms);
     if (_player.platform is NativePlayer) {
       final mpv = _player.platform as NativePlayer;
-      await mpv.setProperty('sub-delay', '${_subtitleDelayMs}ms');
+      await mpv.setProperty('sub-delay', '${_subtitleDelayMs / 1000}');
     }
   }
 
