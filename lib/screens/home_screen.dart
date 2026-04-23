@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Timer? _heroTimer;
   int _heroIndex = 0;
 
-  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  // Cached streaming mode —- avoids async SharedPreferences read before Navigator.push
   bool _isStreamingMode = false;
 
   // Hero logo cache: movieId -> logo URL

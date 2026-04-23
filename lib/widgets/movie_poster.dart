@@ -22,7 +22,7 @@ class _MoviePosterState extends State<MoviePoster> {
   bool _isHovered = false;
   bool _isFocused = false;
 
-  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  // Cached streaming mode -— avoids async SharedPreferences read before Navigator.push
   static bool? _cachedStreamingMode;
 
   @override

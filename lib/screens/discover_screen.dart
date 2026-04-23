@@ -25,7 +25,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   bool _isLoading = false;
   int _currentPage = 1;
 
-  // Cached streaming mode — avoids async SharedPreferences read before Navigator.push
+  // Cached streaming mode —- avoids async SharedPreferences read before Navigator.push
   bool _isStreamingMode = false;
   
   // Filters

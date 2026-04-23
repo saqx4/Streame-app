@@ -26,4 +26,5 @@ class SmoothPageTransition extends PageRouteBuilder {
             );
           },
         );
-}
+}   
+//end
