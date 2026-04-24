@@ -2456,27 +2456,26 @@ class _DesktopSeekbarState extends State<_DesktopSeekbar> {
         if (!_dragging) setState(() => _hovering = false);
       },
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onHorizontalDragStart: (_) {
-          _dragging = true;
-          _dragValue = widget.position;
-        },
-        onHorizontalDragUpdate: (details) {
+      child: Listener(
+        onPointerDown: (event) {
           final box = context.findRenderObject() as RenderBox;
-          final localX = details.localPosition.dx;
-          final fraction = (localX / box.size.width).clamp(0.0, 1.0);
+          final fraction = (event.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+          setState(() {
+            _dragging = true;
+            _dragValue = fraction;
+          });
+          widget.onSeek(fraction);
+        },
+        onPointerMove: (event) {
+          if (!_dragging) return;
+          final box = context.findRenderObject() as RenderBox;
+          final fraction = (event.localPosition.dx / box.size.width).clamp(0.0, 1.0);
           setState(() => _dragValue = fraction);
           widget.onSeek(fraction);
         },
-        onHorizontalDragEnd: (_) {
+        onPointerUp: (_) {
           _dragging = false;
           if (!_hovering) setState(() {});
-        },
-        onTapUp: (details) {
-          final box = context.findRenderObject() as RenderBox;
-          final localX = details.localPosition.dx;
-          final fraction = (localX / box.size.width).clamp(0.0, 1.0);
-          widget.onSeek(fraction);
         },
         child: SizedBox(
           height: showThumb ? 20 : 14,
