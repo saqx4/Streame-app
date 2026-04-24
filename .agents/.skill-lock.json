@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "skills": {
+    "flutter-expert": {
+      "source": "xfstudio/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/xfstudio/skills.git",
+      "skillFolderHash": "",
+      "installedAt": "2026-04-24T12:13:11.861Z",
+      "updatedAt": "2026-04-24T12:13:11.861Z"
+    }
+  },
+  "dismissed": {}
+}
