@@ -4,7 +4,7 @@
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #define MyAppName      "Streame"
-#define MyAppVersion   "1.1.6"
+#define MyAppVersion   "2.0.0"
 #define MyAppPublisher "Streame"
 #define MyAppExeName   "Streame.exe"
 #define MyAppURL       "https://github.com/saqx4/Streame-app"
