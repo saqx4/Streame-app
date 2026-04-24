@@ -126,6 +126,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   bool _isLoadingNextEp = false;
   bool _nearEndOfEpisode = false;
   bool _markedAsWatched = false;
+  bool _startPropertySet = false;
   Duration _lastKnownPosition = Duration.zero;
   bool _historySaved = false;
   List<Map<String, dynamic>> _externalSubtitles = [];
@@ -359,10 +360,12 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     // ── Volume ─────────────────────────────────────────────────────────────
     await mpv.setProperty('volume-max', '150');
 
-    // Resume position
+    // Resume position — only set for the initial open, then clear it
+    // so reconnects don't reset to the original start position.
     if (widget.startPosition != null) {
       final secs = widget.startPosition!.inMilliseconds / 1000.0;
       await mpv.setProperty('start', '+${secs.toStringAsFixed(3)}');
+      _startPropertySet = true;
     }
   }
 
@@ -393,14 +396,26 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     final savedPos = _lastKnownPosition;
     _hasErrorNotifier.value = false;
     _errorMessageNotifier.value = '';
+
+    // Clear the MPV 'start' property before re-opening so it doesn't
+    // force-seek back to the original startPosition on reconnects.
+    if (_startPropertySet && _player.platform is NativePlayer) {
+      try {
+        final mpv = _player.platform as NativePlayer;
+        await mpv.setProperty('start', 'none');
+      } catch (_) {}
+      _startPropertySet = false;
+    }
+
     try {
       await _player.open(
         Media(url, httpHeaders: headers ?? widget.headers),
       );
       // Restore playback position after re-opening the stream
       if (savedPos.inSeconds > 0) {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 800));
         await _player.seek(savedPos);
+        debugPrint('[Player] Restored position to ${savedPos.inSeconds}s after reconnect');
       }
       // Give the player a moment to validate the source
       await Future.delayed(const Duration(seconds: 3));
@@ -1411,18 +1426,6 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     _isRetrying = true;
     _isRetryingNotifier.value = true;
     _stallRetryCount++;
-
-    // Check if 6 minutes have passed since playback started
-    final elapsed = _playbackStartTime != null
-        ? DateTime.now().difference(_playbackStartTime!)
-        : Duration.zero;
-    if (elapsed.inSeconds >= 360) {
-      debugPrint('[Player] 6 minutes elapsed, giving up');
-      _isRetrying = false; _isRetryingNotifier.value = false;
-      _hasErrorNotifier.value = true;
-      _errorMessageNotifier.value = 'Failed to play: No working source found after 6 minutes';
-      return;
-    }
 
     // Try seek +1s first
     _player.seek(_positionNotifier.value + const Duration(seconds: 1));
