@@ -22,6 +22,9 @@ import '../../api/torrent_api.dart';
 import '../../services/torrent_filter.dart';
 import '../../services/settings_service.dart';
 import '../../services/watch_history_service.dart';
+import '../../api/trakt_service.dart';
+import '../../api/simkl_service.dart';
+import '../../services/episode_watched_service.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
 import 'player_design.dart';
@@ -70,8 +73,7 @@ class SimpleDesktopPlayerScreen extends StatefulWidget {
   State<SimpleDesktopPlayerScreen> createState() => _SimpleDesktopPlayerScreenState();
 }
 
-class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
-    with WindowListener {
+class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> with WidgetsBindingObserver, WindowListener {
   // Player
   late final Player _player;
   late final VideoController _controller;
@@ -123,7 +125,9 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
   int _currentFallbackSourceIndex = 0;
   bool _isLoadingNextEp = false;
   bool _nearEndOfEpisode = false;
+  bool _markedAsWatched = false;
   Duration _lastKnownPosition = Duration.zero;
+  bool _historySaved = false;
   List<Map<String, dynamic>> _externalSubtitles = [];
   IntroDbResponse? _introDbData;
   DateTime? _playbackStartTime;
@@ -152,7 +156,9 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    windowManager.setPreventClose(true);
 
     // Create player with minimal configuration
     _player = Player(
@@ -175,9 +181,10 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     _positionSub = _player.stream.position.listen((pos) {
       if (!mounted) return;
       if (pos.inMilliseconds > 0) _lastKnownPosition = pos;
-      _saveProgress(pos);
+      _debouncedSave(pos);
       _updateActiveSkipSegment(pos);
       _checkNearEndOfEpisode(pos);
+      _checkAutoMarkWatched(pos);
       // Throttle UI updates to 250ms to avoid rebuild storms
       if ((pos - _lastThrottledPosition).abs() >= _positionThrottleInterval) {
         _lastThrottledPosition = pos;
@@ -246,6 +253,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
     windowManager.removeListener(this);
+    WidgetsBinding.instance.removeObserver(this);
 
     _hideTimer?.cancel();
     _autoPlayTimer?.cancel();
@@ -280,6 +288,10 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     _isRetryingNotifier.dispose();
     _isFullscreenNotifier.dispose();
     _showNetSpeedNotifier.dispose();
+
+    // Save progress immediately before stopping player.
+    // This ensures the exact last position is always persisted.
+    _saveProgress(_lastKnownPosition);
 
     // Stop playback immediately to prevent audio lingering after navigating away.
     // _player.dispose() is async and can take seconds — stopping first
@@ -435,30 +447,169 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
     }
   }
 
-  void _saveProgress(Duration pos) {
+  void _saveProgress(Duration pos, {bool isBgPause = false}) {
+    if (widget.movie == null) return;
+    if (pos.inMilliseconds < 10000) return;
+    if (_durationNotifier.value.inMilliseconds == 0) return;
+    if (_historySaved && !isBgPause) return;
+
+    final posMs = pos.inMilliseconds;
+    final durMs = _durationNotifier.value.inMilliseconds;
+
+    // Determine method & sourceId — same logic as mobile player
+    final isTorrent = widget.magnetLink != null;
+    final isStremioDirect = widget.activeProvider == 'stremio_direct';
+    final String method;
+    final String sourceId;
+    if (isTorrent) {
+      method = 'torrent';
+      sourceId = widget.magnetLink!;
+    } else if (isStremioDirect) {
+      method = 'stremio_direct';
+      sourceId = widget.mediaPath;
+    } else if (widget.activeProvider == 'amri') {
+      method = 'amri';
+      sourceId = widget.mediaPath;
+    } else if (widget.activeProvider != null) {
+      method = 'stream';
+      sourceId = widget.activeProvider!;
+    } else {
+      method = 'amri';
+      sourceId = widget.mediaPath;
+    }
+
+    WatchHistoryService().saveProgress(
+      tmdbId: widget.movie!.id,
+      imdbId: widget.movie!.imdbId,
+      title: widget.title,
+      posterPath: widget.movie?.posterPath ?? '',
+      method: method,
+      sourceId: sourceId,
+      position: posMs,
+      duration: durMs,
+      season: widget.selectedSeason,
+      episode: widget.selectedEpisode,
+      episodeTitle: widget.selectedEpisode != null
+          ? 'Episode ${widget.selectedEpisode}'
+          : null,
+      magnetLink: widget.magnetLink,
+      fileIndex: widget.fileIndex,
+      streamUrl: isStremioDirect ? widget.mediaPath : null,
+      stremioId: widget.stremioId,
+      stremioAddonBaseUrl: widget.stremioAddonBaseUrl,
+      stremioType: widget.movie!.mediaType == 'tv' ? 'series' : 'movie',
+      mediaType: widget.movie!.mediaType,
+    );
+
+    // Trakt + Simkl scrobble
+    final progressPercent = durMs > 0 ? (posMs / durMs * 100) : 0.0;
+    if (isBgPause) {
+      TraktService().scrobblePause(
+        tmdbId: widget.movie!.id,
+        mediaType: widget.movie!.mediaType,
+        season: widget.selectedSeason,
+        episode: widget.selectedEpisode,
+        progressPercent: progressPercent,
+      );
+    } else {
+      _historySaved = true;
+      TraktService().scrobbleStop(
+        tmdbId: widget.movie!.id,
+        mediaType: widget.movie!.mediaType,
+        season: widget.selectedSeason,
+        episode: widget.selectedEpisode,
+        progressPercent: progressPercent,
+      );
+      SimklService().scrobbleStop(
+        tmdbId: widget.movie!.id,
+        mediaType: widget.movie!.mediaType,
+        season: widget.selectedSeason,
+        episode: widget.selectedEpisode,
+      );
+    }
+  }
+
+  /// Periodic debounced save — only saves every 5 seconds during playback.
+  /// Immediate saves happen on close/pause via _saveProgress directly.
+  void _debouncedSave(Duration pos) {
     if (widget.movie == null) return;
     if (pos.inMilliseconds < 10000) return;
     if (_durationNotifier.value.inMilliseconds == 0) return;
 
-    // Debounce: only save every 5 seconds
     _watchHistorySaveTimer?.cancel();
     _watchHistorySaveTimer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
+      // Only save position to history (no Trakt scrobble — that's on close)
+      final posMs = pos.inMilliseconds;
+      final durMs = _durationNotifier.value.inMilliseconds;
+      final isTorrent = widget.magnetLink != null;
+      final isStremioDirect = widget.activeProvider == 'stremio_direct';
+      final String method;
+      final String sourceId;
+      if (isTorrent) {
+        method = 'torrent';
+        sourceId = widget.magnetLink!;
+      } else if (isStremioDirect) {
+        method = 'stremio_direct';
+        sourceId = widget.mediaPath;
+      } else if (widget.activeProvider == 'amri') {
+        method = 'amri';
+        sourceId = widget.mediaPath;
+      } else if (widget.activeProvider != null) {
+        method = 'stream';
+        sourceId = widget.activeProvider!;
+      } else {
+        method = 'amri';
+        sourceId = widget.mediaPath;
+      }
       WatchHistoryService().saveProgress(
         tmdbId: widget.movie!.id,
+        imdbId: widget.movie!.imdbId,
         title: widget.title,
         posterPath: widget.movie?.posterPath ?? '',
-        method: widget.magnetLink != null ? 'torrent' : 'stream',
-        sourceId: widget.magnetLink ?? widget.mediaPath,
-        position: pos.inMilliseconds,
-        duration: _durationNotifier.value.inMilliseconds,
+        method: method,
+        sourceId: sourceId,
+        position: posMs,
+        duration: durMs,
         season: widget.selectedSeason,
         episode: widget.selectedEpisode,
-        mediaType: widget.movie!.mediaType,
+        episodeTitle: widget.selectedEpisode != null
+            ? 'Episode ${widget.selectedEpisode}'
+            : null,
         magnetLink: widget.magnetLink,
         fileIndex: widget.fileIndex,
+        streamUrl: isStremioDirect ? widget.mediaPath : null,
+        stremioId: widget.stremioId,
+        stremioAddonBaseUrl: widget.stremioAddonBaseUrl,
+        stremioType: widget.movie!.mediaType == 'tv' ? 'series' : 'movie',
+        mediaType: widget.movie!.mediaType,
       );
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _saveProgress(_positionNotifier.value, isBgPause: true);
+    } else if (state == AppLifecycleState.resumed) {
+      _historySaved = false;
+      if (widget.movie != null && _isPlayingNotifier.value) {
+        final pos = _positionNotifier.value.inMilliseconds;
+        final dur = _durationNotifier.value.inMilliseconds;
+        final pct = dur > 0 ? (pos / dur * 100) : 0.0;
+        TraktService().scrobbleStart(
+          tmdbId: widget.movie!.id,
+          mediaType: widget.movie!.mediaType,
+          season: widget.selectedSeason,
+          episode: widget.selectedEpisode,
+          progressPercent: pct,
+        );
+      }
+    }
   }
 
   Future<void> _fetchSubtitles() async {
@@ -995,6 +1146,35 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen>
         _startAutoPlayCountdown();
       }
     }
+  }
+
+  void _checkAutoMarkWatched(Duration pos) {
+    if (_markedAsWatched) return;
+    if (widget.movie == null) return;
+    final durMs = _durationNotifier.value.inMilliseconds;
+    if (durMs == 0) return;
+    final progress = pos.inMilliseconds / durMs;
+    if (progress < 0.90) return;
+
+    _markedAsWatched = true;
+
+    // Mark episode as watched locally
+    if (widget.selectedSeason != null && widget.selectedEpisode != null) {
+      EpisodeWatchedService().setWatched(
+        widget.movie!.id,
+        widget.selectedSeason!,
+        widget.selectedEpisode!,
+        true,
+      );
+    }
+
+    // Remove from Continue Watching
+    final uniqueId = widget.selectedSeason != null && widget.selectedEpisode != null
+        ? '${widget.movie!.id}_S${widget.selectedSeason}_E${widget.selectedEpisode}'
+        : '${widget.movie!.id}';
+    WatchHistoryService().removeItem(uniqueId);
+
+    debugPrint('[Player] Auto-marked as watched: ${widget.title} ($uniqueId) at ${(progress * 100).round()}%');
   }
 
   void _startAutoPlayCountdown() {

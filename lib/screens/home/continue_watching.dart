@@ -664,6 +664,29 @@ class HistoryCard extends StatelessWidget {
               child: _buildCWPlayButton(),
             ),
 
+            // Top-left: progress percentage badge
+            if (progress > 0)
+              Positioned(
+                top: 6, left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgDark.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${(progress * 100).round()}%',
+                    style: TextStyle(
+                      color: progress > 0.9
+                          ? Colors.greenAccent
+                          : AppTheme.current.primaryColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+
             // Top-right actions
             Positioned(
               top: 6, right: 6,
@@ -741,9 +764,11 @@ class HistoryCard extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: AppTheme.border,
-                      color: AppTheme.current.primaryColor,
-                      minHeight: 3,
+                      backgroundColor: Colors.white24,
+                      color: progress > 0.9
+                          ? Colors.greenAccent
+                          : AppTheme.current.primaryColor,
+                      minHeight: 4,
                     ),
                   ),
                 ],

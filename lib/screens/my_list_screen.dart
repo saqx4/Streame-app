@@ -19,24 +19,72 @@ class _MyListScreenState extends State<MyListScreen> {
   final MyListService _myList = MyListService();
   final TmdbApi _api = TmdbApi();
   List<Map<String, dynamic>> _items = [];
+  String _sortMode = 'recent'; // 'recent', 'title', 'rating'
+  String _filterMode = 'all'; // 'all', 'movie', 'tv'
 
   @override
   void initState() {
     super.initState();
-    _items = _myList.items;
+    _items = _applySortAndFilter(_myList.items);
     MyListService.changeNotifier.addListener(_onListChanged);
   }
 
   void _onListChanged() {
     if (mounted) {
-      setState(() => _items = _myList.items);
+      setState(() => _items = _applySortAndFilter(_myList.items));
     }
+  }
+
+  List<Map<String, dynamic>> _applySortAndFilter(List<Map<String, dynamic>> items) {
+    // Filter
+    var filtered = items;
+    if (_filterMode == 'movie') {
+      filtered = items.where((i) => i['mediaType'] == 'movie').toList();
+    } else if (_filterMode == 'tv') {
+      filtered = items.where((i) => i['mediaType'] == 'tv' || i['mediaType'] == 'series').toList();
+    }
+    // Sort
+    final sorted = List<Map<String, dynamic>>.from(filtered);
+    if (_sortMode == 'title') {
+      sorted.sort((a, b) => (a['title'] ?? '').toString().toLowerCase().compareTo((b['title'] ?? '').toString().toLowerCase()));
+    } else if (_sortMode == 'rating') {
+      sorted.sort((a, b) => ((b['voteAverage'] as num?)?.toDouble() ?? 0).compareTo((a['voteAverage'] as num?)?.toDouble() ?? 0));
+    } else {
+      // 'recent' — items are already in add-order from MyListService
+    }
+    return sorted;
   }
 
   @override
   void dispose() {
     MyListService.changeNotifier.removeListener(_onListChanged);
     super.dispose();
+  }
+
+  Widget _buildFilterChip(String label, String mode) {
+    final active = _filterMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _filterMode = mode;
+        _items = _applySortAndFilter(_myList.items);
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: active ? AppTheme.primaryColor : AppTheme.border, width: 1),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? AppTheme.primaryColor : AppTheme.textSecondary,
+            fontSize: 12,
+            fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openItem(Map<String, dynamic> item) async {
@@ -134,6 +182,39 @@ class _MyListScreenState extends State<MyListScreen> {
                 ),
               ],
             ),
+            actions: [
+              // Filter chips
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildFilterChip('All', 'all'),
+                    const SizedBox(width: 4),
+                    _buildFilterChip('Movies', 'movie'),
+                    const SizedBox(width: 4),
+                    _buildFilterChip('TV', 'tv'),
+                  ],
+                ),
+              ),
+              // Sort dropdown
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PopupMenuButton<String>(
+                  icon: Icon(Icons.sort_rounded, color: AppTheme.textSecondary),
+                  tooltip: 'Sort',
+                  onSelected: (val) => setState(() {
+                    _sortMode = val;
+                    _items = _applySortAndFilter(_myList.items);
+                  }),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: 'recent', child: Text('Recently Added${_sortMode == 'recent' ? ' ✓' : ''}')),
+                    PopupMenuItem(value: 'title', child: Text('Title A-Z${_sortMode == 'title' ? ' ✓' : ''}')),
+                    PopupMenuItem(value: 'rating', child: Text('Top Rated${_sortMode == 'rating' ? ' ✓' : ''}')),
+                  ],
+                ),
+              ),
+            ],
           ),
 
           // Empty state

@@ -722,10 +722,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   size: 20,
                 ),
                 onPressed: () async {
-                  setState(() {
-                    _isFullscreen = !_isFullscreen;
-                  });
-                  await WindowManager.instance.setFullScreen(_isFullscreen);
+                  final isFull = await windowManager.isFullScreen();
+                  if (!isFull && await windowManager.isMaximized()) {
+                    await windowManager.unmaximize();
+                  }
+                  await windowManager.setFullScreen(!isFull);
+                  if (mounted) setState(() => _isFullscreen = !isFull);
                 },
                 tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
                 padding: const EdgeInsets.all(8),
