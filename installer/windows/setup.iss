@@ -7,7 +7,7 @@
 #define MyAppVersion   "2.0.1"
 #define MyAppPublisher "Streame"
 #define MyAppExeName   "Streame.exe"
-#define MyAppURL       "https://github.com/saqx4/Streame-app"
+#define MyAppURL       "https://github.com/streame0/Streame/"
 
 [Setup]
 AppId={{B8F7E3A1-9C4D-4E5F-A2B1-6D8E9F0C1A3B}

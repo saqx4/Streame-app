@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/app_updater_service.dart';
 import '../../utils/app_theme.dart';
 import '../../widgets/update_dialog.dart';
@@ -95,6 +96,26 @@ class _UpdateSectionState extends State<UpdateSection> {
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: AppTheme.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => launchUrl(Uri.parse('https://github.com/streame0/Streame/releases')),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: const Text(
+                'View Releases on GitHub',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.textSecondary,
+                side: BorderSide(color: AppTheme.border),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
