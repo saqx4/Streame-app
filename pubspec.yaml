@@ -2,7 +2,7 @@ name: streame
 description: "Streame shared screens library."
 publish_to: 'none'
 
-version: 2.0.2+21
+version: 2.1.0+21
 
 environment:
   sdk: ^3.11.0
@@ -23,7 +23,7 @@ dependencies:
   url_launcher: ^6.3.1
   flutter_riverpod: ^2.6.1
   media_kit: ^1.2.6
-  media_kit_video: ^2.0.2
+  media_kit_video: ^2.0.1
   connectivity_plus: ^7.0.0
   window_manager: ^0.5.1
   libtorrent_flutter: 1.7.8

@@ -4,7 +4,7 @@
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #define MyAppName      "Streame"
-#define MyAppVersion   "2.0.2"
+#define MyAppVersion   "2.1.0"
 #define MyAppPublisher "Streame"
 #define MyAppExeName   "Streame.exe"
 #define MyAppURL       "https://github.com/streame0/Streame/"
@@ -19,7 +19,7 @@ AppSupportURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=..\..\windows\runner\resources\app_icon.ico
+SetupIconFile=..\..\packages\desktop\windows\runner\resources\app_icon.ico
 OutputDir=Output
 OutputBaseFilename=Streame-Windows-Setup
 Compression=lzma2/ultra64
@@ -36,7 +36,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\packages\desktop\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
 ; Clean up old files that might conflict with new version

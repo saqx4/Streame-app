@@ -8,7 +8,7 @@
 
 **Streame** is a cross-platform streaming media app built with Flutter. It lets users discover, browse, and stream movies & TV shows from multiple sources: direct web streams, torrent-based playback (via libtorrent), Stremio addon catalogs, and debrid services (Real-Debrid). It targets **Android, iOS, Windows, Linux, and macOS** from a single codebase.
 
-- **Version:** 2.0.2+21
+- **Version:** 2.1.0+21
 - **SDK:** Dart ^3.11.0
 - **License:** GPL-2.0
 - **State Management:** Riverpod (`flutter_riverpod`)

@@ -15,7 +15,7 @@ dependencies:
   carousel_slider: ^5.1.2
   path: ^1.9.1
   media_kit: ^1.2.6
-  media_kit_video: ^2.0.2
+  media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
   window_manager: ^0.5.1
   flutter_inappwebview: ^6.1.5
@@ -39,8 +39,8 @@ dependencies:
   google_fonts: ^8.0.2
   shimmer: ^3.0.0
   visibility_detector: ^0.4.0+2
-  smooth_page_indicator: ^2.0.2
-  transparent_image: ^2.0.2
+  smooth_page_indicator: ^1.1.0
+  transparent_image: ^2.0.1
   xml: ^6.5.0
   archive: ^4.0.4
   package_info_plus: ^9.0.0

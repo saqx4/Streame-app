@@ -2,7 +2,7 @@ name: streame_mobile
 description: "Streame mobile app — Android + iOS."
 publish_to: 'none'
 
-version: 2.0.2+21
+version: 2.1.0+22
 
 environment:
   sdk: ^3.11.0
@@ -16,26 +16,27 @@ dependencies:
   streame_core:
     path: ../core
 
-  flutter_inappwebview: ^6.1.5
-  shared_preferences: ^2.5.2
-  media_kit: ^1.2.6
-  media_kit_video: ^2.0.2
-  media_kit_libs_video: ^1.0.7
+  flutter_inappwebview: ^6.0.0
+  shared_preferences: ^2.3.0  # Downgraded to a safer stable
+  media_kit: ^1.1.0
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.0
   connectivity_plus: ^7.0.0
-  app_links: ^6.3.3
-  url_launcher: ^6.3.1
-  android_intent_plus: ^5.1.0
-  flutter_secure_storage: ^9.2.4
-  flutter_riverpod: ^2.6.1
-  permission_handler: ^11.3.1
+  app_links: ^6.0.0
+  audio_session: ^0.1.21
+  url_launcher: ^6.2.0
+  android_intent_plus: ^5.0.0
+  flutter_secure_storage: ^9.0.0
+  flutter_riverpod: ^2.5.0
+  permission_handler: ^11.0.0
   package_info_plus: ^9.0.0
-  ota_update: ^7.1.0
+  ota_update: ^7.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.3
+  flutter_lints: ^4.0.0 # Standard stable for this SDK range
+  flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   android: true
@@ -44,7 +45,6 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/icon/
     - .env
