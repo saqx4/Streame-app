@@ -44,27 +44,25 @@ void main() async {
   // Desktop window setup
   await windowManager.ensureInitialized();
 
-  double? winX, winY, winW, winH;
+  double? winW, winH;
   try {
     final prefs = await SharedPreferences.getInstance();
-    winX = prefs.getDouble('win_x');
-    winY = prefs.getDouble('win_y');
     winW = prefs.getDouble('win_w');
     winH = prefs.getDouble('win_h');
   } catch (_) {}
 
+  final effectiveW = ((winW != null && winW >= 900) ? winW : 1600).toDouble();
+  final effectiveH = ((winH != null && winH >= 600) ? winH : 1000).toDouble();
+
   WindowOptions windowOptions = WindowOptions(
-    size: Size(winW ?? 1600, winH ?? 1000),
-    center: winX == null,
-    backgroundColor: Colors.transparent,
+    size: Size(effectiveW, effectiveH),
+    center: true, // Always center to prevent off-screen positioning
+    backgroundColor: Colors.black, // Use opaque background instead of transparent
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    if (winX != null && winY != null) {
-      await windowManager.setPosition(Offset(winX, winY));
-    }
     await windowManager.show();
     await windowManager.focus();
   });
