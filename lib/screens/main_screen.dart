@@ -161,15 +161,20 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
     final isMobile = PlatformInfo.isMobile(context);
     final isTv = PlatformInfo.isTv(context);
+
+    final isTabletLandscape =
+        isMobile && mq.orientation == Orientation.landscape && mq.size.width >= 840;
+    final showSideRail = !isMobile || isTabletLandscape;
 
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
       extendBody: true,
       body: Row(
         children: [
-          if (!isMobile) _GlassSideRail(
+          if (showSideRail) _GlassSideRail(
             visibleIds: _visibleIds,
             selectedIndex: _selectedIndex,
             navMeta: _navMeta,
@@ -184,7 +189,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           ),
         ],
       ),
-      bottomNavigationBar: isMobile ? _FloatingBottomNav(
+      bottomNavigationBar: (isMobile && !isTabletLandscape) ? _FloatingBottomNav(
         visibleIds: _visibleIds,
         selectedIndex: _selectedIndex,
         navMeta: _navMeta,
@@ -218,39 +223,34 @@ class _GlassSideRail extends StatefulWidget {
 }
 
 class _GlassSideRailState extends State<_GlassSideRail> {
-  bool _isExpanded = false;
-
-  bool get _isTv => widget.isTv;
-  bool get _showExpanded => _isTv || _isExpanded;
+  int? _hoveredIndex;
 
   @override
   Widget build(BuildContext context) {
-    const collapsedWidth = 72.0;
-    const expandedWidth = 220.0;
+    final width = MediaQuery.of(context).size.width;
+    final railWidth = width >= 1200 ? 80.0 : 68.0;
 
-    Widget rail = ClipRRect(
+    return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: GlassColors.blur, sigmaY: GlassColors.blur),
-        child: AnimatedContainer(
-          duration: AppDurations.slow,
-          curve: AnimationPresets.smoothInOut,
+        child: Container(
           clipBehavior: Clip.hardEdge,
-          width: _showExpanded ? expandedWidth : collapsedWidth,
+          width: railWidth,
           decoration: BoxDecoration(
             color: AppTheme.surfaceDim.withValues(alpha: 0.85),
             border: Border(right: BorderSide(color: AppTheme.borderStrong.withValues(alpha: 0.15), width: 0.5)),
           ),
           child: Column(
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: _buildBranding(),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Expanded(
                 child: ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: _showExpanded ? 12 : 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: widget.visibleIds.length,
                   itemBuilder: (context, index) {
                     final id = widget.visibleIds[index];
@@ -271,55 +271,18 @@ class _GlassSideRailState extends State<_GlassSideRail> {
         ),
       ),
     );
-
-    // TV: no MouseRegion (D-pad doesn't trigger hover), always expanded
-    if (_isTv) return rail;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isExpanded = true),
-      onExit: (_) => setState(() => _isExpanded = false),
-      child: rail,
-    );
   }
 
   Widget _buildBranding() {
     final primary = AppTheme.current.primaryColor;
-    return AnimatedContainer(
-      duration: AppDurations.slow,
-      curve: AnimationPresets.smoothInOut,
-      padding: const EdgeInsets.all(10),
+    return Container(
+      padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
         color: primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: primary.withValues(alpha: 0.12), width: 0.5),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.play_arrow_rounded, color: primary, size: 28),
-          Flexible(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: AnimatedOpacity(
-                duration: AppDurations.normal,
-                curve: AnimationPresets.smoothInOut,
-                opacity: _showExpanded ? 1.0 : 0.0,
-                child: Text(
-                  'STREAME',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
-                    color: primary,
-                  ),
-                  overflow: TextOverflow.clip,
-                  maxLines: 1,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: Icon(Icons.play_arrow_rounded, color: primary, size: 26),
     );
   }
 
@@ -330,63 +293,52 @@ class _GlassSideRailState extends State<_GlassSideRail> {
     required int index,
   }) {
     final primary = AppTheme.current.primaryColor;
+    final isHovered = _hoveredIndex == index;
+    final hoverBg = AppTheme.borderStrong.withValues(alpha: 0.10);
+    final selectedBg = primary.withValues(alpha: 0.16);
+    final borderColor = AppTheme.borderStrong.withValues(alpha: 0.16);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: FocusableControl(
-        onTap: () => widget.onItemTapped(index),
-        borderRadius: AppRadius.md,
-        glowColor: primary,
-        child: AnimatedContainer(
-          duration: AppDurations.normal,
-          curve: AnimationPresets.smoothInOut,
-          height: 48,
-          decoration: BoxDecoration(
-            color: isSelected ? primary.withValues(alpha: 0.12) : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 4),
-              // Animated pill indicator
-              AnimatedContainer(
-                duration: AppDurations.normal,
-                curve: AnimationPresets.smoothInOut,
-                width: 3,
-                height: isSelected ? 28 : 0,
-                decoration: BoxDecoration(
-                  color: isSelected ? primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(2),
-                  boxShadow: isSelected ? [AppShadows.primary(0.3)] : null,
-                ),
+      child: Tooltip(
+        message: meta['label'] as String,
+        waitDuration: const Duration(milliseconds: 350),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hoveredIndex = index),
+          onExit: (_) => setState(() {
+            if (_hoveredIndex == index) _hoveredIndex = null;
+          }),
+          child: FocusableControl(
+            onTap: () => widget.onItemTapped(index),
+            borderRadius: AppRadius.md,
+            glowColor: primary,
+            child: AnimatedContainer(
+              duration: AppDurations.normal,
+              curve: AnimationPresets.smoothInOut,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? selectedBg
+                    : (isHovered ? hoverBg : Colors.transparent),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: isSelected
+                    ? Border.all(color: primary.withValues(alpha: 0.18), width: 0.5)
+                    : (isHovered ? Border.all(color: borderColor, width: 0.5) : null),
               ),
-              const SizedBox(width: 12),
-              Icon(
-                isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
-                color: isSelected ? primary : AppTheme.textDisabled,
-                size: 22,
-              ),
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: AnimatedOpacity(
-                    duration: AppDurations.normal,
-                    curve: AnimationPresets.smoothInOut,
-                    opacity: _showExpanded ? 1.0 : 0.0,
-                    child: Text(
-                      meta['label'] as String,
-                      overflow: TextOverflow.clip,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-                      ),
-                    ),
+              child: Align(
+                alignment: Alignment.center,
+                child: AnimatedScale(
+                  duration: AppDurations.normal,
+                  curve: AnimationPresets.smoothInOut,
+                  scale: (isSelected || isHovered) ? 1.06 : 1.0,
+                  child: Icon(
+                    isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
+                    color: isSelected ? primary : (isHovered ? AppTheme.textSecondary : AppTheme.textDisabled),
+                    size: 23,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
