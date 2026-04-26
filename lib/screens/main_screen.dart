@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +10,12 @@ import 'search_screen.dart';
 import 'my_list_screen.dart';
 import 'settings_screen.dart';
 import 'magnet_player_screen.dart';
-import '../utils/app_theme.dart';
-import '../services/settings_service.dart';
-import '../services/app_updater_service.dart';
-import '../widgets/update_dialog.dart';
-import '../providers/service_providers.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/services/app_updater_service.dart';
+import 'package:streame_core/widgets/update_dialog.dart';
+import 'package:streame_core/providers/service_providers.dart';
+import 'package:streame_core/utils/device_detector.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -89,12 +91,10 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     final visible = await settings.getNavbarConfig();
     if (!mounted) return;
     setState(() {
-      // Remember which screen we're currently on
       final currentId = _selectedIndex < _visibleIds.length
           ? _visibleIds[_selectedIndex]
           : null;
       _visibleIds = [...visible, 'settings'];
-      // Try to stay on the same screen after reorder/hide
       if (currentId != null) {
         final newIndex = _visibleIds.indexOf(currentId);
         if (newIndex >= 0) {
@@ -112,22 +112,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     _loadNavbarConfig();
   }
 
-  /// Rotation on MediaTek/Transsion can cause a multi-second frame storm.
-  /// Two-timer strategy:
-  ///   1. Debounced timer (1.5s): resets on every metrics change, fires
-  ///      after the storm quiets down.
-  ///   2. Safety timer (4s): fires once after the FIRST metrics change—
-  ///      never cancelled—so even if the storm outlasts the debounce,
-  ///      a clean rebuild is guaranteed.
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    // Debounced: fires 1.5s after the LAST metrics change.
     _metricsDebounce?.cancel();
     _metricsDebounce = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() {});
     });
-    // Safety: fires 4s after the FIRST metrics change. Never cancelled.
     _metricsSafety ??= Timer(const Duration(seconds: 4), () {
       _metricsSafety = null;
       if (mounted) setState(() {});
@@ -138,10 +129,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
-      // Only re-apply immersive mode; do NOT reset preferred orientations
-      // here — it interferes with the player's orientation lock when the
-      // player is pushed on top of this screen.
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      // TV: keep system bars visible for leanback; mobile: immersive
+      final isTv = PlatformInfo.isTv(context);
+      SystemChrome.setEnabledSystemUIMode(
+        isTv ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+      );
     }
   }
 
@@ -156,7 +148,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     setState(() => _selectedIndex = index);
   }
 
-
   @override
   void dispose() {
     _metricsDebounce?.cancel();
@@ -169,18 +160,20 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
+    final isMobile = PlatformInfo.isMobile(context);
+    final isTv = PlatformInfo.isTv(context);
 
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
+      extendBody: true,
       body: Row(
         children: [
-          if (!isMobile) _ModernSideRail(
+          if (!isMobile) _GlassSideRail(
             visibleIds: _visibleIds,
             selectedIndex: _selectedIndex,
             navMeta: _navMeta,
             onItemTapped: _onItemTapped,
+            isTv: isTv,
           ),
           Expanded(
             child: IndexedStack(
@@ -190,7 +183,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           ),
         ],
       ),
-      bottomNavigationBar: isMobile ? _ModernBottomNav(
+      bottomNavigationBar: isMobile ? _FloatingBottomNav(
         visibleIds: _visibleIds,
         selectedIndex: _selectedIndex,
         navMeta: _navMeta,
@@ -201,106 +194,122 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MODERN SIDE RAIL — collapsible, hover-to-expand (Netflix/OSN+ style)
+//  GLASS SIDE RAIL — adaptive, glassmorphic, animated pill indicator
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _ModernSideRail extends StatefulWidget {
+class _GlassSideRail extends StatefulWidget {
   final List<String> visibleIds;
   final int selectedIndex;
   final Map<String, Map<String, dynamic>> navMeta;
   final ValueChanged<int> onItemTapped;
+  final bool isTv;
 
-  const _ModernSideRail({
+  const _GlassSideRail({
     required this.visibleIds,
     required this.selectedIndex,
     required this.navMeta,
     required this.onItemTapped,
+    this.isTv = false,
   });
 
   @override
-  State<_ModernSideRail> createState() => _ModernSideRailState();
+  State<_GlassSideRail> createState() => _GlassSideRailState();
 }
 
-class _ModernSideRailState extends State<_ModernSideRail> {
+class _GlassSideRailState extends State<_GlassSideRail> {
   bool _isExpanded = false;
+
+  bool get _isTv => widget.isTv;
+  bool get _showExpanded => _isTv || _isExpanded;
 
   @override
   Widget build(BuildContext context) {
     const collapsedWidth = 72.0;
-    const expandedWidth = 200.0;
+    const expandedWidth = 220.0;
+
+    Widget rail = ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: GlassColors.blur, sigmaY: GlassColors.blur),
+        child: AnimatedContainer(
+          duration: AppDurations.slow,
+          curve: AnimationPresets.smoothInOut,
+          clipBehavior: Clip.hardEdge,
+          width: _showExpanded ? expandedWidth : collapsedWidth,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceDim.withValues(alpha: 0.85),
+            border: Border(right: BorderSide(color: AppTheme.borderStrong.withValues(alpha: 0.15), width: 0.5)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: _buildBranding(),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: _showExpanded ? 12 : 10),
+                  itemCount: widget.visibleIds.length,
+                  itemBuilder: (context, index) {
+                    final id = widget.visibleIds[index];
+                    final meta = widget.navMeta[id]!;
+                    final isSelected = widget.selectedIndex == index;
+                    return _buildNavItem(
+                      id: id,
+                      meta: meta,
+                      isSelected: isSelected,
+                      index: index,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // TV: no MouseRegion (D-pad doesn't trigger hover), always expanded
+    if (_isTv) return rail;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isExpanded = true),
       onExit: (_) => setState(() => _isExpanded = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOutCubic,
-        clipBehavior: Clip.hardEdge,
-        width: _isExpanded ? expandedWidth : collapsedWidth,
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceDim,
-          border: Border(right: BorderSide(color: AppTheme.border, width: 1)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 24),
-            // App branding
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: _buildBranding(),
-            ),
-            const SizedBox(height: 8),
-            // Nav items
-            Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 12 : 10),
-                itemCount: widget.visibleIds.length,
-                itemBuilder: (context, index) {
-                  final id = widget.visibleIds[index];
-                  final meta = widget.navMeta[id]!;
-                  final isSelected = widget.selectedIndex == index;
-                  return _buildNavItem(
-                    id: id,
-                    meta: meta,
-                    isSelected: isSelected,
-                    index: index,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+      child: rail,
     );
   }
 
   Widget _buildBranding() {
+    final primary = AppTheme.current.primaryColor;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 350),
-      padding: EdgeInsets.all(_isExpanded ? 10 : 10),
+      duration: AppDurations.slow,
+      curve: AnimationPresets.smoothInOut,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
+        color: primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: primary.withValues(alpha: 0.12), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.play_arrow_rounded, color: AppTheme.current.primaryColor, size: 28),
+          Icon(Icons.play_arrow_rounded, color: primary, size: 28),
           Flexible(
             child: Padding(
               padding: const EdgeInsets.only(left: 6),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOutCubic,
-                opacity: _isExpanded ? 1.0 : 0.0,
+                duration: AppDurations.normal,
+                curve: AnimationPresets.smoothInOut,
+                opacity: _showExpanded ? 1.0 : 0.0,
                 child: Text(
                   'STREAME',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2,
-                    color: AppTheme.current.primaryColor,
+                    color: primary,
                   ),
                   overflow: TextOverflow.clip,
                   maxLines: 1,
@@ -319,49 +328,50 @@ class _ModernSideRailState extends State<_ModernSideRail> {
     required bool isSelected,
     required int index,
   }) {
-    final activeColor = AppTheme.current.primaryColor;
+    final primary = AppTheme.current.primaryColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: FocusableControl(
         onTap: () => widget.onItemTapped(index),
         borderRadius: AppRadius.md,
-        glowColor: activeColor,
+        glowColor: primary,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOutCubic,
+          duration: AppDurations.normal,
+          curve: AnimationPresets.smoothInOut,
           height: 48,
           decoration: BoxDecoration(
-            color: isSelected ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
+            color: isSelected ? primary.withValues(alpha: 0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Row(
             children: [
               const SizedBox(width: 4),
-              // Active indicator bar
+              // Animated pill indicator
               AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOutCubic,
+                duration: AppDurations.normal,
+                curve: AnimationPresets.smoothInOut,
                 width: 3,
-                height: isSelected ? 24 : 0,
+                height: isSelected ? 28 : 0,
                 decoration: BoxDecoration(
-                  color: isSelected ? activeColor : Colors.transparent,
+                  color: isSelected ? primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(2),
+                  boxShadow: isSelected ? [AppShadows.primary(0.3)] : null,
                 ),
               ),
               const SizedBox(width: 12),
               Icon(
                 isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
-                color: isSelected ? activeColor : AppTheme.textDisabled,
+                color: isSelected ? primary : AppTheme.textDisabled,
                 size: 22,
               ),
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOutCubic,
-                    opacity: _isExpanded ? 1.0 : 0.0,
+                    duration: AppDurations.normal,
+                    curve: AnimationPresets.smoothInOut,
+                    opacity: _showExpanded ? 1.0 : 0.0,
                     child: Text(
                       meta['label'] as String,
                       overflow: TextOverflow.clip,
@@ -384,16 +394,16 @@ class _ModernSideRailState extends State<_ModernSideRail> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MODERN BOTTOM NAV — pill indicator, clean icons (mobile)
+//  FLOATING BOTTOM NAV — glassmorphic pill bar with backdrop blur (mobile)
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _ModernBottomNav extends StatelessWidget {
+class _FloatingBottomNav extends StatelessWidget {
   final List<String> visibleIds;
   final int selectedIndex;
   final Map<String, Map<String, dynamic>> navMeta;
   final ValueChanged<int> onItemTapped;
 
-  const _ModernBottomNav({
+  const _FloatingBottomNav({
     required this.visibleIds,
     required this.selectedIndex,
     required this.navMeta,
@@ -402,63 +412,75 @@ class _ModernBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = AppTheme.current.primaryColor;
+    final primary = AppTheme.current.primaryColor;
 
-    return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDim,
-        border: Border(top: BorderSide(color: AppTheme.border, width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(visibleIds.length, (index) {
-          final id = visibleIds[index];
-          final meta = navMeta[id]!;
-          final isSelected = selectedIndex == index;
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onItemTapped(index),
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Active pill indicator
-                  AnimatedContainer(
-                    duration: AppDurations.fast,
-                    width: isSelected ? 24 : 0,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: isSelected ? activeColor : Colors.transparent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Icon(
-                    isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
-                    color: isSelected ? activeColor : AppTheme.textDisabled,
-                    size: 22,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    meta['label'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected ? AppTheme.textPrimary : AppTheme.textDisabled,
-                      letterSpacing: isSelected ? 0.3 : 0,
-                    ),
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: GlassColors.blur, sigmaY: GlassColors.blur),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceDim.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(AppRadius.xxl),
+              border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.15), width: 0.5),
+              boxShadow: [AppShadows.medium],
             ),
-          );
-        }),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(visibleIds.length, (index) {
+                final id = visibleIds[index];
+                final meta = navMeta[id]!;
+                final isSelected = selectedIndex == index;
+
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => onItemTapped(index),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Active pill indicator
+                        AnimatedContainer(
+                          duration: AppDurations.normal,
+                          curve: AnimationPresets.smoothInOut,
+                          width: isSelected ? 24 : 0,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: isSelected ? primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(2),
+                            boxShadow: isSelected ? [AppShadows.primary(0.3)] : null,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Icon(
+                          isSelected ? meta['active'] as IconData : meta['icon'] as IconData,
+                          color: isSelected ? primary : AppTheme.textDisabled,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          meta['label'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected ? AppTheme.textPrimary : AppTheme.textDisabled,
+                            letterSpacing: isSelected ? 0.3 : 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
-

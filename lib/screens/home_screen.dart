@@ -1,23 +1,26 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import '../api/tmdb_api.dart';
-import '../services/settings_service.dart';
-import '../api/stremio_service.dart';
-import '../api/trakt_service.dart';
-import '../api/simkl_service.dart';
-import '../models/movie.dart';
-import '../utils/app_theme.dart';
-import '../widgets/my_list_button.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/simkl_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/utils/device_detector.dart';
+import 'package:streame_core/widgets/my_list_button.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
 import 'stremio_catalog_screen.dart';
 import 'home/home_widgets.dart';
 import 'home/continue_watching.dart';
-import '../widgets/smooth_page_transition.dart';
+import 'package:streame_core/widgets/hero_banner.dart';
+import 'package:streame_core/widgets/smooth_page_transition.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -210,14 +213,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 18),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.15), width: 0.5),
                 ),
                 child: const Icon(Icons.calendar_month_rounded, color: AppTheme.primaryColor, size: 20),
               ),
@@ -226,10 +230,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Upcoming Schedule',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -297,34 +301,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   decoration: BoxDecoration(
                     color: AppTheme.bgCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                    border: Border.all(color: AppTheme.border, width: 0.5),
                     boxShadow: AppTheme.isLightMode ? null : [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6)),
+                      BoxShadow(color: AppTheme.overlay, blurRadius: 12, offset: const Offset(0, 6)),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(showTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 4),
                       Text('S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}',
                         style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
                       if (epTitle.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(epTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                       ],
                       const Spacer(),
                       Flexible(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.access_time_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                            Icon(Icons.access_time_rounded, size: 13, color: AppTheme.textDisabled),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(dateLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                                style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                             ),
                           ],
                         ),
@@ -364,10 +368,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Upcoming Movies',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -432,30 +436,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   decoration: BoxDecoration(
                     color: AppTheme.bgCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                    border: Border.all(color: AppTheme.border, width: 0.5),
                     boxShadow: AppTheme.isLightMode ? null : [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6)),
+                      BoxShadow(color: AppTheme.overlay, blurRadius: 12, offset: const Offset(0, 6)),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
                       if (year != null) ...[
                         const SizedBox(height: 4),
-                        Text('$year', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                        Text('$year', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                       ],
                       const Spacer(),
                       Flexible(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.calendar_today_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                            Icon(Icons.calendar_today_rounded, size: 13, color: AppTheme.textDisabled),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(dateLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                                style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
                             ),
                           ],
                         ),
@@ -634,6 +638,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final isTv = PlatformInfo.isTv(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppTheme.bgDark,
@@ -656,17 +661,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return _buildHeroShimmer();
                   }
-                  return _buildHeroCarousel(snapshot.data!.take(5).toList());
+                  return HeroBanner(
+                    movies: snapshot.data!.take(5).toList(),
+                    logoUrls: _heroLogos,
+                    onMovieTap: _openDetails,
+                  );
                 },
               ),
             ),
           ),
           // Continue Watching
-          const SliverToBoxAdapter(child: RepaintBoundary(child: ContinueWatchingSection())),
+          SliverToBoxAdapter(child: RepaintBoundary(child: ContinueWatchingSection())),
           // Trending
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Trending Now', icon: Icons.local_fire_department_rounded, future: _trendingFuture, onMovieTap: _openDetails))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Trending Now', icon: Icons.local_fire_department_rounded, future: _trendingFuture, onMovieTap: _openDetails, isTv: isTv))),
           // Popular
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Popular', icon: Icons.movie_filter_rounded, future: _popularFuture, onMovieTap: _openDetails, isPortrait: true, showRank: true))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Popular', icon: Icons.movie_filter_rounded, future: _popularFuture, onMovieTap: _openDetails, isPortrait: true, showRank: true, isTv: isTv))),
           // Stremio Addon Catalogs
           if (_catalogsLoaded)
             ..._stremioCatalogs.map((cat) {
@@ -685,13 +694,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               );
             }),
           // Top Rated
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Top Rated', icon: Icons.star_rounded, future: _topRatedFuture, onMovieTap: _openDetails))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Top Rated', icon: Icons.star_rounded, future: _topRatedFuture, onMovieTap: _openDetails, isTv: isTv))),
           // Trending TV Shows
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Trending TV Shows', icon: Icons.tv_rounded, future: _trendingTvFuture, onMovieTap: _openDetails, isPortrait: true))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Trending TV Shows', icon: Icons.tv_rounded, future: _trendingTvFuture, onMovieTap: _openDetails, isPortrait: true, isTv: isTv))),
           // Top Rated TV Shows
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Top Rated TV Shows', icon: Icons.emoji_events_rounded, future: _topRatedTvFuture, onMovieTap: _openDetails, isPortrait: true))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'Top Rated TV Shows', icon: Icons.emoji_events_rounded, future: _topRatedTvFuture, onMovieTap: _openDetails, isPortrait: true, isTv: isTv))),
           // New Releases TV Shows (Airing Today)
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'New Releases TV', icon: Icons.live_tv_rounded, future: _airingTodayTvFuture, onMovieTap: _openDetails, isPortrait: true))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'New Releases TV', icon: Icons.live_tv_rounded, future: _airingTodayTvFuture, onMovieTap: _openDetails, isPortrait: true, isTv: isTv))),
           // Trakt Recommendations
           if (_traktRecommendations.isNotEmpty)
             SliverToBoxAdapter(child: RepaintBoundary(child: StaticMovieSection(title: 'Recommended for You', icon: Icons.recommend_rounded, movies: _traktRecommendations, onMovieTap: _openDetails))),
@@ -702,42 +711,43 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           if (_traktCalendarMovies.isNotEmpty)
             SliverToBoxAdapter(child: RepaintBoundary(child: _buildTraktCalendarMoviesSection())),
           // New Releases
-          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'New Releases', icon: Icons.new_releases_rounded, future: _nowPlayingFuture, onMovieTap: _openDetails, isPortrait: true))),
+          SliverToBoxAdapter(child: RepaintBoundary(child: MovieSection(title: 'New Releases', icon: Icons.new_releases_rounded, future: _nowPlayingFuture, onMovieTap: _openDetails, isPortrait: true, isTv: isTv))),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-          // Fullscreen button
-          Positioned(
-            top: 16,
-            right: 16,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.overlay.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: IconButton(
-                icon: Icon(
-                  _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                  color: AppTheme.textPrimary,
-                  size: 20,
+          // Fullscreen button (desktop only — window_manager not available on Android TV)
+          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.overlay.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                onPressed: () async {
-                  final isFull = await windowManager.isFullScreen();
-                  if (!isFull && await windowManager.isMaximized()) {
-                    await windowManager.unmaximize();
-                  }
-                  await windowManager.setFullScreen(!isFull);
-                  if (mounted) setState(() => _isFullscreen = !isFull);
-                },
-                tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
+                child: IconButton(
+                  icon: Icon(
+                    _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                    color: AppTheme.textPrimary,
+                    size: 20,
+                  ),
+                  onPressed: () async {
+                    final isFull = await windowManager.isFullScreen();
+                    if (!isFull && await windowManager.isMaximized()) {
+                      await windowManager.unmaximize();
+                    }
+                    await windowManager.setFullScreen(!isFull);
+                    if (mounted) setState(() => _isFullscreen = !isFull);
+                  },
+                  tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -752,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Shimmer.fromColors(
         baseColor: AppTheme.shimmerBase,
         highlightColor: AppTheme.shimmerHighlight,
-        child: Container(color: Colors.white),
+        child: Container(color: AppTheme.shimmerBase),
       ),
     );
   }
@@ -990,15 +1000,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.play_arrow_rounded, color: Colors.black, size: 24),
-            SizedBox(width: 8),
-            Text('Play', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+            Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 24),
+            const SizedBox(width: 8),
+            Text('Play', style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -1039,8 +1049,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         height: 1.0,
         letterSpacing: -1.0,
         shadows: AppTheme.isLightMode ? null : [
-          const Shadow(color: Colors.black, blurRadius: 40),
-          Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 80),
+          Shadow(color: AppTheme.bgDark, blurRadius: 40),
+          Shadow(color: AppTheme.bgDark.withValues(alpha: 0.5), blurRadius: 80),
         ],
       ),
       maxLines: 2,

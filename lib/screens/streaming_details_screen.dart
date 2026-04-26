@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/device_detector.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/movie.dart';
-import '../api/tmdb_api.dart';
-import '../services/stream_extractor.dart';
-import '../api/stremio_service.dart';
-import '../providers/stream_providers.dart';
-import '../api/webstreamr_service.dart';
-import '../widgets/loading_overlay.dart';
-import '../services/episode_watched_service.dart';
-import '../widgets/movie_atmosphere.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/services/stream_extractor.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/providers/stream_services.dart';
+import 'package:streame_core/api/webstreamr_service.dart';
+import 'package:streame_core/widgets/loading_overlay.dart';
+import 'package:streame_core/services/episode_watched_service.dart';
+import 'package:streame_core/widgets/movie_atmosphere.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'player_screen.dart';
 import 'streaming/streaming_widgets.dart';
 
@@ -345,6 +347,12 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
       );
     }
 
+    final isTv = PlatformInfo.isTv(context);
+
+    if (isTv) {
+      return _buildTvLayout();
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
 
@@ -457,15 +465,15 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
   }
 
   Widget _buildPoster() {
+    final isMobile = PlatformInfo.isMobile(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
     final posterWidth = isMobile ? screenWidth * 0.5 : 180.0;
     final posterHeight = posterWidth * 1.5;
     
     return wrapPosterGlow(
       width: posterWidth,
       height: posterHeight,
-      borderRadius: 12,
+      borderRadius: AppRadius.card,
       genres: _movie.genres,
       child: Hero(
         tag: 'movie-poster-${_movie.id}',
@@ -473,10 +481,11 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
           width: posterWidth,
           height: posterHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            boxShadow: [AppShadows.strong],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.card),
             child: CachedNetworkImage(
               imageUrl: TmdbApi.getImageUrl(_movie.posterPath),
               fit: BoxFit.cover,
@@ -584,9 +593,9 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.12), width: 0.5),
                 ),
                 child: Text(
                   genre,
@@ -631,13 +640,9 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
                     gradient: const LinearGradient(
                       colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadius.card),
                     boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1565C0).withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
+                      AppShadows.primary(0.4),
                     ],
                   ),
                   child: Row(
@@ -1040,4 +1045,385 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
       ],
     );
   }
-}
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  TV LAYOUT — leanback-style two-panel layout
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTvLayout() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: Stack(
+        children: [
+          // Fixed background
+          Positioned.fill(
+            child: _buildFixedBackground(),
+          ),
+          // Two-panel layout
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left panel — poster + info + action
+              SizedBox(
+                width: 550,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(48, 48, 32, 48),
+                  child: _buildTvLeftPanel(),
+                ),
+              ),
+              Container(width: 0.5, color: Colors.white.withValues(alpha: 0.1)),
+              // Right panel — episodes + similar + details
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(48, 48, 48, 48),
+                  child: _buildTvRightPanel(),
+                ),
+              ),
+            ],
+          ),
+          // Back button (top-left)
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTvLeftPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Poster (larger for TV: 300x440)
+        Hero(
+          tag: 'movie-poster-${_movie.id}',
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              boxShadow: [AppShadows.strong],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              child: CachedNetworkImage(
+                imageUrl: TmdbApi.getImageUrl(_movie.posterPath),
+                width: 300,
+                height: 440,
+                fit: BoxFit.cover,
+                memCacheWidth: 600,
+                errorWidget: (context, url, error) => Container(
+                  width: 300,
+                  height: 440,
+                  color: const Color(0xFF1A1A1A),
+                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Title
+        Text(
+          _movie.title,
+          style: GoogleFonts.montserrat(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Meta row
+        Row(
+          children: [
+            Text(
+              _movie.releaseDate.isNotEmpty ? _movie.releaseDate.substring(0, 4) : 'N/A',
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            const SizedBox(width: 8),
+            const Text('·', style: TextStyle(color: Colors.white70)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF1565C0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    _movie.voteAverage.toStringAsFixed(1),
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            if (_movie.runtime > 0) ...[
+              const SizedBox(width: 8),
+              const Text('·', style: TextStyle(color: Colors.white70)),
+              const SizedBox(width: 8),
+              Text('${_movie.runtime}m', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Genre chips
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _movie.genres.take(5).map((genre) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.12), width: 0.5),
+              ),
+              child: Text(genre, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 24),
+        // Synopsis
+        Text(
+          'About',
+          style: GoogleFonts.montserrat(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _movie.overview.isNotEmpty ? _movie.overview : 'No synopsis available.',
+          style: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        // Play button
+        _buildTvPlayButton(),
+      ],
+    );
+  }
+
+  Widget _buildTvPlayButton() {
+    return Container(
+      width: 300,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        boxShadow: [AppShadows.primary(0.4)],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _startExtraction,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isExtracting)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                )
+              else
+                const Icon(Icons.play_arrow, color: Colors.white, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                _isExtracting ? (_statusMessage ?? 'Loading...') : 'Play Now',
+                style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTvRightPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Episodes section (TV shows only)
+        if (_movie.mediaType == 'tv') ...[
+          Text(
+            'Episodes',
+            style: GoogleFonts.montserrat(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildTvSeasonSelector(),
+          const SizedBox(height: 16),
+          _buildTvEpisodeList(),
+          const SizedBox(height: 32),
+        ],
+        // Similar content
+        if (_similarContent.isNotEmpty) ...[
+          Text(
+            'More Like This',
+            style: GoogleFonts.montserrat(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 250,
+            child: ListView.builder(
+              controller: _similarScrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: _similarContent.length,
+              itemBuilder: (context, index) {
+                final movie = _similarContent[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: SimilarMovieCard(movie: movie),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+        // Screenshots
+        if (_movie.screenshots.isNotEmpty) ...[
+          Text(
+            'Screenshots',
+            style: GoogleFonts.montserrat(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: ListView.builder(
+              controller: _screenshotsScrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: _movie.screenshots.take(10).length,
+              itemBuilder: (context, index) {
+                final screenshot = _movie.screenshots[index];
+                return Container(
+                  width: 320,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: TmdbApi.getStillUrl(screenshot),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+        // Details
+        _buildDetailsSection(),
+      ],
+    );
+  }
+
+  Widget _buildTvSeasonSelector() {
+    return SizedBox(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _movie.numberOfSeasons,
+        itemBuilder: (context, index) {
+          final seasonNum = index + 1;
+          final isSelected = _selectedSeason == seasonNum;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: SeasonChip(
+              seasonNumber: seasonNum,
+              isSelected: isSelected,
+              onTap: () => _fetchSeason(seasonNum),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTvEpisodeList() {
+    if (_isLoadingSeason) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF1565C0)));
+    }
+    if (_seasonData == null || _seasonData!['episodes'] == null) {
+      return const SizedBox.shrink();
+    }
+
+    final episodes = _seasonData!['episodes'] as List;
+    return SizedBox(
+      height: 190,
+      child: ListView.separated(
+        controller: _episodeScrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: episodes.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final episode = episodes[index];
+          final epNum = episode['episode_number'] as int;
+          final title = (episode['name'] ?? 'Episode $epNum').toString();
+          final still = episode['still_path'] as String?;
+          final isSelected = _selectedEpisode == epNum;
+          final isWatched = _watchedEpisodes.contains('${_movie.id}_S${_selectedSeason}_E$epNum');
+
+          return HorizontalEpisodeCard(
+            epNum: epNum,
+            title: title,
+            stillPath: still,
+            isSelected: isSelected,
+            isWatched: isWatched,
+            onToggleWatched: () => _toggleEpisodeWatched(_selectedSeason, epNum),
+            onTap: () {
+              setState(() => _selectedEpisode = epNum);
+              _startExtraction();
+            },
+          );
+        },
+      ),
+    );
+  }
+}
