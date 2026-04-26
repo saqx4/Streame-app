@@ -38,6 +38,8 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
   String? _selectedGenre;
   String _searchQuery = '';
   String _filterType = 'all'; // 'all', 'movie', 'series'
+  bool _isSidebarCollapsed = false;
+  bool _sidebarInitDone = false;
 
   @override
   void initState() {
@@ -48,6 +50,17 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
       _searchQuery = widget.initialSearch!;
     }
     _loadCatalogs();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_sidebarInitDone) return;
+    final width = MediaQuery.of(context).size.width;
+    if (width > 900 && width < 1200) {
+      _isSidebarCollapsed = true;
+    }
+    _sidebarInitDone = true;
   }
 
   @override
@@ -281,8 +294,10 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
     return Row(
       children: [
         // Left sidebar — catalog list
-        Container(
-          width: 300,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          width: _isSidebarCollapsed ? 64 : 300,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
@@ -294,7 +309,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
           child: Column(
             children: [
               _buildSidebarHeader(),
-              _buildTypeFilter(),
+              if (!_isSidebarCollapsed) _buildTypeFilter(),
               Expanded(child: _buildCatalogList()),
             ],
           ),
@@ -307,7 +322,12 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
 
   Widget _buildSidebarHeader() {
     return Container(
-      padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 16),
+      padding: EdgeInsets.fromLTRB(
+        _isSidebarCollapsed ? 12 : 20,
+        MediaQuery.of(context).padding.top + 16,
+        _isSidebarCollapsed ? 12 : 20,
+        16,
+      ),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: GlassColors.borderSubtle)),
       ),
@@ -323,9 +343,25 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
               onPressed: () => Navigator.pop(context),
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text('Catalogs', style: TextStyle(color: AppTheme.textPrimary, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+          if (!_isSidebarCollapsed) const SizedBox(width: 14),
+          if (!_isSidebarCollapsed)
+            Expanded(
+              child: Text('Catalogs', style: TextStyle(color: AppTheme.textPrimary, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+            ),
+          if (!_isSidebarCollapsed) const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: GlassColors.surfaceSubtle,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isSidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                color: AppTheme.textSecondary,
+                size: 18,
+              ),
+              onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+            ),
           ),
         ],
       ),
@@ -424,6 +460,31 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         _selectedCatalog!['addonBaseUrl'] == cat['addonBaseUrl'] &&
         _selectedCatalog!['catalogId'] == cat['catalogId'] &&
         _selectedCatalog!['catalogType'] == cat['catalogType'];
+
+    if (_isSidebarCollapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        child: Tooltip(
+          message: cat['catalogName'],
+          child: Material(
+            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              onTap: () => _selectCatalog(cat),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
+                  size: 20,
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textDisabled,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
