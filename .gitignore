@@ -27,6 +27,7 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -49,6 +50,17 @@ packages/tv/android/app/release
 
 # Package build directories
 packages/*/build/
+packages/*/.dart_tool/
+packages/*/.gradle/
+packages/*/.flutter-plugins
+packages/*/.flutter-plugins-dependencies
+packages/*/android/.gradle/
+packages/*/android/local.properties
+packages/*/android/gradlew
+packages/*/android/gradlew.bat
+packages/*/android/gradle/wrapper/gradle-wrapper.jar
+packages/*/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+packages/*/.env
 
 # Android signing
 packages/mobile/android/release.keystore
