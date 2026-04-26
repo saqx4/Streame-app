@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../services/app_updater_service.dart';
-import '../../utils/app_theme.dart';
-import '../../widgets/update_dialog.dart';
+import 'package:streame_core/services/app_updater_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/widgets/update_dialog.dart';
 
 class UpdateSection extends StatefulWidget {
   const UpdateSection({super.key});

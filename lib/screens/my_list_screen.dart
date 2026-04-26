@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../services/my_list_service.dart';
-import '../api/tmdb_api.dart';
-import '../services/settings_service.dart';
-import '../models/movie.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/services/my_list_service.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
 
@@ -63,6 +63,7 @@ class _MyListScreenState extends State<MyListScreen> {
 
   Widget _buildFilterChip(String label, String mode) {
     final active = _filterMode == mode;
+    final primary = AppTheme.current.primaryColor;
     return GestureDetector(
       onTap: () => setState(() {
         _filterMode = mode;
@@ -71,14 +72,14 @@ class _MyListScreenState extends State<MyListScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: active ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+          color: active ? primary.withValues(alpha: 0.15) : GlassColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: active ? AppTheme.primaryColor : AppTheme.border, width: 1),
+          border: Border.all(color: active ? primary.withValues(alpha: 0.3) : GlassColors.borderSubtle, width: 0.5),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? AppTheme.primaryColor : AppTheme.textSecondary,
+            color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
             fontSize: 12,
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -330,13 +331,13 @@ class _MyListCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 12,
+      borderRadius: AppRadius.card,
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          boxShadow: AppTheme.isLightMode ? null : [AppShadows.medium],
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -377,8 +378,9 @@ class _MyListCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.bgDark.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

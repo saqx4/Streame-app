@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../widgets/my_list_button.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/widgets/my_list_button.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class StremioCatalogCard extends StatelessWidget {
   final Map<String, dynamic> item;

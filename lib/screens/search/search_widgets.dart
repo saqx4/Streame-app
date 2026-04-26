@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../api/tmdb_api.dart';
-import '../../widgets/my_list_button.dart';
-import '../../models/movie.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/widgets/my_list_button.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 
 class ScrollableSlider extends StatefulWidget {
@@ -11,12 +12,14 @@ class ScrollableSlider extends StatefulWidget {
   final int itemCount;
   final double cardWidth;
   final IndexedWidgetBuilder itemBuilder;
+  final bool isTv;
 
-  const ScrollableSlider({super.key, 
+  const ScrollableSlider({super.key,
     required this.height,
     required this.itemCount,
     required this.cardWidth,
     required this.itemBuilder,
+    this.isTv = false,
   });
 
   @override
@@ -64,6 +67,9 @@ class _ScrollableSliderState extends State<ScrollableSlider> {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = widget.isTv ? 24.0 : 16.0;
+    final itemSpacing = widget.isTv ? 16.0 : 12.0;
+
     return SizedBox(
       height: widget.height,
       child: Stack(
@@ -72,9 +78,9 @@ class _ScrollableSliderState extends State<ScrollableSlider> {
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             itemCount: widget.itemCount,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => SizedBox(width: itemSpacing),
             itemBuilder: widget.itemBuilder,
           ),
           // Left arrow
@@ -131,14 +137,21 @@ class ArrowButton extends StatelessWidget {
             ],
           ),
         ),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
-            shape: BoxShape.circle,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: GlassColors.surfaceSubtle,
+                shape: BoxShape.circle,
+                border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
+              ),
+              child: Icon(icon, color: AppTheme.textSecondary, size: 18),
+            ),
           ),
-          child: Icon(icon, color: AppTheme.textSecondary, size: 18),
         ),
       ),
     );
@@ -161,12 +174,16 @@ class SearchCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: AppRadius.md,
+      borderRadius: AppRadius.card,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+          boxShadow: AppTheme.isLightMode ? null : [
+            AppShadows.strong,
+            AppShadows.glow(0.08),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -178,8 +195,8 @@ class SearchCard extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
-                  errorWidget: (_, _, _) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+                  placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                  errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
                 ),
               )
             else
@@ -194,8 +211,9 @@ class SearchCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.overlay.withValues(alpha: 0.7),
+                    color: AppTheme.bgDark.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
                   ),
                   child: Text(movie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
                 ),
@@ -247,12 +265,16 @@ class StremioSearchCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: AppRadius.md,
+      borderRadius: AppRadius.card,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+          boxShadow: AppTheme.isLightMode ? null : [
+            AppShadows.strong,
+            AppShadows.glow(0.08),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -262,8 +284,8 @@ class StremioSearchCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, _, _) => Center(
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                errorWidget: (_, __, ___) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
@@ -295,8 +317,9 @@ class StremioSearchCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.overlay.withValues(alpha: 0.7),
+                    color: AppTheme.bgDark.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

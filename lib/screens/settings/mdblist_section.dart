@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../api/mdblist_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/mdblist_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class MdblistSection extends StatefulWidget {
   const MdblistSection({super.key});

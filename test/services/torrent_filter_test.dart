@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:streame/services/torrent_filter.dart';
-import 'package:streame/models/torrent_result.dart';
+import 'package:streame_core/services/torrent_filter.dart';
+import 'package:streame_core/models/torrent_result.dart';
 
 void main() {
   group('TorrentFilter.normalizeTitle', () {

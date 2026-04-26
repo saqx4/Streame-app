@@ -1,10 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../api/tmdb_api.dart';
-import '../../widgets/my_list_button.dart';
-import '../../models/movie.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/widgets/my_list_button.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class FilterButton extends StatelessWidget {
   final String label;
@@ -15,14 +15,18 @@ class FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: ActionChip(
         label: Text(label),
         onPressed: onTap,
-        backgroundColor: isActive ? AppTheme.current.primaryColor : AppTheme.surfaceContainerHigh,
-        labelStyle: TextStyle(color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.normal),
-        side: BorderSide.none,
+        backgroundColor: isActive ? primary : GlassColors.surfaceSubtle,
+        labelStyle: TextStyle(
+          color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+        ),
+        side: BorderSide(color: isActive ? primary.withValues(alpha: 0.3) : GlassColors.borderSubtle, width: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
@@ -106,12 +110,12 @@ class DiscoverCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: AppRadius.md,
+      borderRadius: AppRadius.card,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: AppTheme.isLightMode ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          boxShadow: AppTheme.isLightMode ? null : [AppShadows.medium],
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -122,23 +126,24 @@ class DiscoverCard extends StatelessWidget {
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
                 memCacheWidth: 320,
-                placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, _, _) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
               )
             else
               Center(child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               )),
-            
+
             // Rating Badge
             Positioned(
               top: 8, right: 8,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.overlay.withValues(alpha: 0.7),
+                  color: AppTheme.bgDark.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

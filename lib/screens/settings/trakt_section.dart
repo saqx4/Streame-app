@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../api/trakt_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class TraktSection extends StatefulWidget {
   const TraktSection({super.key});

@@ -1,19 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../api/tmdb_api.dart';
-import '../../services/watch_history_service.dart';
-import '../../services/settings_service.dart';
-import '../../models/movie.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/services/watch_history_service.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import '../details_screen.dart';
-import '../../api/stremio_service.dart';
-import '../../api/webstreamr_service.dart';
-import '../../providers/stream_providers.dart';
-import '../../services/stream_extractor.dart';
-import '../../api/debrid_api.dart';
-import '../../services/torrent_stream_service.dart';
-import '../../api/trakt_service.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/api/webstreamr_service.dart';
+import 'package:streame_core/providers/stream_services.dart';
+import 'package:streame_core/services/stream_extractor.dart';
+import 'package:streame_core/api/debrid_api.dart';
+import 'package:streame_core/services/torrent_stream_service.dart';
+import 'package:streame_core/api/trakt_service.dart';
 import '../streaming_details_screen.dart';
 import '../player_screen.dart';
 
@@ -54,9 +54,9 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
     return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        color: GlassColors.surfaceSubtle,
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
       ),
       child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import '../lists_screen.dart';
 
 class ListsSection extends StatelessWidget {

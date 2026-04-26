@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:streame/models/season_data.dart';
+import 'package:streame_core/models/season_data.dart';
 
 void main() {
   group('CastMember', () {

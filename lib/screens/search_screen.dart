@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api/tmdb_api.dart';
-import '../api/stremio_service.dart';
-import '../services/settings_service.dart';
-import '../models/movie.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/utils/device_detector.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
 import 'main_screen.dart';
@@ -339,38 +341,60 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final isTv = PlatformInfo.isTv(context);
 
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          onChanged: _onSearchChanged,
-          style: TextStyle(color: AppTheme.textPrimary, fontSize: 18),
-          decoration: InputDecoration(
-            hintText: 'Search movies, shows...',
-            hintStyle: TextStyle(color: AppTheme.textDisabled),
-            border: InputBorder.none,
-            suffixIcon: _query.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.clear, color: AppTheme.textSecondary),
-                    onPressed: () {
-                      _controller.clear();
-                      _onSearchChanged('');
-                    },
-                  )
-                : Icon(Icons.search, color: AppTheme.textSecondary),
-          ),
-        ),
+        title: _buildGlassSearchBar(),
+        titleSpacing: 16,
       ),
-      body: _buildBody(),
+      body: _buildBody(isTv),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildGlassSearchBar() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.xl),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: GlassColors.blur, sigmaY: GlassColors.blur),
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: GlassColors.surfaceSubtle,
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
+          ),
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            onChanged: _onSearchChanged,
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: 'Search movies, shows...',
+              hintStyle: TextStyle(color: AppTheme.textDisabled),
+              border: InputBorder.none,
+              prefixIcon: Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 20),
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear_rounded, color: AppTheme.textSecondary, size: 20),
+                      onPressed: () {
+                        _controller.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(bool isTv) {
     if (_query.isEmpty) return _buildEmpty();
     if (_sections.isEmpty && _isSearching) {
       return Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor));
@@ -384,65 +408,109 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
       itemBuilder: (context, index) {
         if (index >= _sections.length) {
           // Loading indicator at the bottom while more results are coming
-          return const Padding(
+          return Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24))),
+            child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textDisabled))),
           );
         }
         final section = _sections[index];
-        return _buildSliderSection(section);
+        return _buildSliderSection(section, isTv);
       },
     );
   }
 
-  Widget _buildSliderSection(_SearchSection section) {
+  Widget _buildSliderSection(_SearchSection section, bool isTv) {
+    final horizontalPadding = isTv ? 32.0 : 24.0;
     final cardWidth = MediaQuery.of(context).size.width > 600 ? 140.0 : 120.0;
     final cardHeight = cardWidth * 1.5;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 20),
+      padding: EdgeInsets.only(top: isTv ? 40 : 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
               children: [
                 if (section.icon != null && section.icon!.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: CachedNetworkImage(
-                      imageUrl: section.icon!,
-                      width: 20, height: 20,
-                      errorWidget: (_, _, _) => const Icon(Icons.extension, size: 16, color: Colors.white38),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.15), width: 0.5),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: CachedNetworkImage(
+                        imageUrl: section.icon!,
+                        width: 18, height: 18,
+                        errorWidget: (_, __, ___) => Icon(Icons.extension, size: 16, color: AppTheme.textDisabled),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                 ] else if (section.isTmdb) ...[
-                  const Icon(Icons.movie, size: 18, color: Colors.amber),
-                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.15), width: 0.5),
+                    ),
+                    child: const Icon(Icons.movie_rounded, size: 18, color: Colors.amber),
+                  ),
+                  const SizedBox(width: 10),
                 ],
-                Text(
-                  section.title,
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        section.title,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 2.5,
+                        width: 32,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          gradient: LinearGradient(
+                            colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.0)],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '${section.results.length}',
-                  style: TextStyle(color: AppTheme.textDisabled, fontSize: 13),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: GlassColors.surfaceSubtle,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
+                  ),
+                  child: Text(
+                    '${section.results.length}',
+                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: isTv ? 16 : 10),
           // Horizontal slider with scroll arrows
           ScrollableSlider(
+            isTv: isTv,
             height: cardHeight + 32,
             itemCount: section.results.length,
             cardWidth: cardWidth,

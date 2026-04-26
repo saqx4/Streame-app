@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
-import '../api/trakt_service.dart';
-import '../api/mdblist_service.dart';
-import '../utils/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/mdblist_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'lists/lists_widgets.dart';
 
 class ListsScreen extends StatefulWidget {
@@ -101,8 +101,8 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
                   hintText: 'List name',
                   hintStyle: TextStyle(color: AppTheme.textDisabled),
                   filled: true,
-                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  fillColor: GlassColors.surfaceSubtle,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 12),
@@ -114,8 +114,8 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
                   hintText: 'Description (optional)',
                   hintStyle: TextStyle(color: AppTheme.textDisabled),
                   filled: true,
-                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  fillColor: GlassColors.surfaceSubtle,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 12),
@@ -125,8 +125,8 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
                 style: TextStyle(color: AppTheme.textPrimary),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  fillColor: GlassColors.surfaceSubtle,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide.none),
                 ),
                 items: const [
                   DropdownMenuItem(value: 'private', child: Text('Private')),
@@ -247,7 +247,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: AppTheme.textPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                 minimumSize: const Size(double.infinity, 48),
               ),
             ),
@@ -356,9 +356,9 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.bgCard,
+          color: GlassColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
         ),
         child: Row(
           children: [
@@ -366,7 +366,7 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Icon(icon, color: color, size: 22),
             ),

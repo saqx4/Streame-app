@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/settings_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class NavbarSection extends StatefulWidget {
   const NavbarSection({super.key});
@@ -89,9 +89,15 @@ class _NavbarSectionState extends State<NavbarSection> {
               margin: const EdgeInsets.only(bottom: 2),
               decoration: BoxDecoration(
                 color: isVisible
-                    ? AppTheme.surfaceContainerHigh.withValues(alpha: 0.2)
-                    : AppTheme.surfaceContainerHigh.withValues(alpha: 0.08),
+                    ? GlassColors.surfaceSubtle
+                    : GlassColors.surfaceSubtle.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isVisible
+                      ? AppTheme.current.primaryColor.withValues(alpha: 0.15)
+                      : GlassColors.borderSubtle,
+                  width: 0.5,
+                ),
               ),
               child: ListTile(
                 leading: Icon(
@@ -149,10 +155,11 @@ class _NavbarSectionState extends State<NavbarSection> {
         Container(
           margin: const EdgeInsets.only(top: 2),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+              color: AppTheme.current.primaryColor.withValues(alpha: 0.15),
+              width: 0.5,
             ),
           ),
           child: ListTile(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../api/tmdb_api.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'details_widgets.dart';
 
 class DesktopCastRow extends StatelessWidget {

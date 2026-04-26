@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
-import '../services/torrent_stream_service.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/services/torrent_stream_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'player_screen.dart';
 
 class MagnetPlayerScreen extends StatefulWidget {
@@ -234,15 +234,15 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                         filled: true,
                         fillColor: AppTheme.bgCard,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppTheme.border),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          borderSide: BorderSide(color: GlassColors.borderSubtle),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppTheme.border),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          borderSide: BorderSide(color: GlassColors.borderSubtle),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           borderSide: const BorderSide(color: AppTheme.primaryColor),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -273,7 +273,7 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: AppTheme.textPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                       ),
                     ),
                   ),
@@ -290,8 +290,8 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.redAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3), width: 0.5),
                   ),
                   child: Text(_error!,
                       style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
@@ -343,15 +343,15 @@ class _MagnetPlayerScreenState extends State<MagnetPlayerScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           onTap: isVideo && !isStreaming ? () => _playFile(file) : null,
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppRadius.md),
                               color: isStreaming
-                                  ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                                  : AppTheme.bgCard,
+                                  ? AppTheme.current.primaryColor.withValues(alpha: 0.1)
+                                  : GlassColors.surfaceSubtle,
                               border: Border.all(
                                 color: isStreaming
                                     ? AppTheme.primaryColor.withValues(alpha: 0.4)

@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import '../api/stremio_service.dart';
-import '../api/tmdb_api.dart';
-import '../models/movie.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'details_screen.dart';
 import 'stremio/stremio_widgets.dart';
 
@@ -289,7 +289,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
               end: Alignment.bottomCenter,
               colors: [Color(0xFF1A1A2E), Color(0xFF0D0D16)],
             ),
-            border: Border(right: BorderSide(color: AppTheme.border)),
+            border: Border(right: BorderSide(color: GlassColors.borderSubtle)),
           ),
           child: Column(
             children: [
@@ -309,14 +309,14 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 16),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border)),
+        border: Border(bottom: BorderSide(color: GlassColors.borderSubtle)),
       ),
       child: Row(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(10),
+              color: GlassColors.surfaceSubtle,
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: IconButton(
               icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textSecondary, size: 18),
@@ -358,7 +358,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor : AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+          color: selected ? AppTheme.current.primaryColor : GlassColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -431,7 +431,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           onTap: () => _selectCatalog(cat),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -442,9 +442,9 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                   height: 32,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.primaryColor.withValues(alpha: 0.2)
-                        : AppTheme.surfaceContainerHigh.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                        ? AppTheme.current.primaryColor.withValues(alpha: 0.2)
+                        : GlassColors.surfaceSubtle,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Icon(
                     cat['catalogType'] == 'movie' ? Icons.movie_outlined : Icons.tv_outlined,
@@ -469,8 +469,8 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
+                      color: GlassColors.surfaceSubtle,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Text(
                       cat['catalogType'].toString().toUpperCase(),
@@ -504,8 +504,8 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                 children: [
                   Container(
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      color: GlassColors.surfaceSubtle,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textSecondary, size: 18),
@@ -590,7 +590,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor : AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+          color: selected ? AppTheme.current.primaryColor : GlassColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -639,11 +639,11 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
                 width: 130,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : AppTheme.bgCard,
+                  color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.15) : GlassColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.5) : AppTheme.border,
-                    width: isSelected ? 1.5 : 1,
+                    color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.5) : GlassColors.borderSubtle,
+                    width: isSelected ? 1.5 : 0.5,
                   ),
                 ),
                 child: Column(
@@ -751,7 +751,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
               ],
             ),
           ),
-          Divider(color: AppTheme.border, height: 1),
+          Divider(color: GlassColors.borderSubtle, height: 1),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -800,7 +800,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           onTap: () {
             Navigator.pop(sheetCtx);
             _selectCatalog(cat);
@@ -884,9 +884,9 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.25) : AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+          color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.25) : GlassColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.5) : Colors.transparent),
+          border: Border.all(color: isSelected ? AppTheme.current.primaryColor.withValues(alpha: 0.5) : GlassColors.borderSubtle, width: 0.5),
         ),
         child: Text(
           label,
@@ -912,15 +912,15 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
           filled: true,
           fillColor: AppTheme.bgCard,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: AppTheme.border),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderSide: BorderSide(color: GlassColors.borderSubtle),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: AppTheme.border),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderSide: BorderSide(color: GlassColors.borderSubtle),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             borderSide: const BorderSide(color: AppTheme.primaryColor),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -997,7 +997,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                color: GlassColors.surfaceSubtle,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
@@ -1020,7 +1020,7 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
           hintText: 'Search in ${_selectedCatalog!['catalogName']}...',
           hintStyle: TextStyle(color: AppTheme.textDisabled, fontSize: 14),
           filled: true,
-          fillColor: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+          fillColor: GlassColors.surfaceSubtle,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/settings_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'settings_widgets.dart';
 
 class AppearanceSection extends StatefulWidget {
@@ -12,6 +12,7 @@ class AppearanceSection extends StatefulWidget {
 
 class _AppearanceSectionState extends State<AppearanceSection> {
   final SettingsService _settings = SettingsService();
+  final ScrollController _themeScrollController = ScrollController();
   bool _isLightMode = false;
   String _selectedThemeId = 'cinematic';
 
@@ -66,106 +67,119 @@ class _AppearanceSectionState extends State<AppearanceSection> {
   }
 
   Widget _buildThemePicker() {
-    final width = MediaQuery.of(context).size.width;
-    // Responsive: 2 cols on narrow, 3 on medium, 4 on wide
-    final cols = width > 900 ? 4 : (width > 550 ? 3 : 2);
-    final aspect = width > 550 ? 2.8 : 2.6;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'Choose a vibe for your app.',
-            style: TextStyle(color: AppTheme.textDisabled, fontSize: 12),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Tap a theme to apply instantly',
+              style: TextStyle(color: AppTheme.textDisabled, fontSize: 12),
+            ),
+            Row(
+              children: [
+                _scrollArrow(Icons.arrow_back_ios_rounded, () => _themeScrollController.animateTo(
+                  _themeScrollController.offset - 200,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                )),
+                _scrollArrow(Icons.arrow_forward_ios_rounded, () => _themeScrollController.animateTo(
+                  _themeScrollController.offset + 200,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                )),
+              ],
+            ),
+          ],
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            childAspectRatio: aspect,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: AppTheme.presets.length,
-          itemBuilder: (context, index) {
-            final preset = AppTheme.presets[index];
-            final isSelected = preset.id == _selectedThemeId;
-            return GestureDetector(
-              onTap: () async {
-                await AppTheme.setPreset(preset.id);
-                setState(() => _selectedThemeId = preset.id);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: preset.bgCard,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? preset.primaryColor : AppTheme.border,
-                    width: isSelected ? 2 : 1,
+        const SizedBox(height: 12),
+        // Theme pills — horizontal scroll
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            controller: _themeScrollController,
+            scrollDirection: Axis.horizontal,
+            itemCount: AppTheme.presets.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final preset = AppTheme.presets[index];
+              final isSelected = preset.id == _selectedThemeId;
+              return GestureDetector(
+                onTap: () async {
+                  await AppTheme.setPreset(preset.id);
+                  setState(() => _selectedThemeId = preset.id);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? preset.primaryColor.withValues(alpha: 0.15)
+                        : GlassColors.surfaceSubtle,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isSelected ? preset.primaryColor : GlassColors.borderSubtle,
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: preset.primaryColor.withValues(alpha: 0.25), blurRadius: 8)]
+                        : null,
                   ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: preset.primaryColor.withValues(alpha: 0.25),
-                            blurRadius: 8,
-                            spreadRadius: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Color circle
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [preset.primaryColor, preset.accentColor],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ]
-                      : [],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [preset.primaryColor, preset.accentColor],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(preset.icon, size: 12, color: Colors.white),
                         ),
                       ),
-                      child: Icon(
-                        preset.icon,
-                        size: 13,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
+                      const SizedBox(width: 8),
+                      Text(
                         preset.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isSelected
-                              ? AppTheme.textPrimary
-                              : AppTheme.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
-                    ),
-                    if (isSelected)
-                      Icon(
-                        Icons.check_circle,
-                        size: 14,
-                        color: preset.primaryColor,
-                      ),
-                  ],
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.check_rounded, size: 16, color: preset.primaryColor),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _scrollArrow(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 14, color: AppTheme.textSecondary),
+      ),
     );
   }
 }

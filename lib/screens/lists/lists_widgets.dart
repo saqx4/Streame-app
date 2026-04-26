@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../api/trakt_service.dart';
-import '../../api/mdblist_service.dart';
-import '../../api/tmdb_api.dart';
-import '../../models/movie.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/mdblist_service.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import '../details_screen.dart';
 
 class TraktListItemsScreen extends StatefulWidget {

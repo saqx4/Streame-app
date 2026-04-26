@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/settings_service.dart';
-import '../../services/external_player_service.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/services/external_player_service.dart';
 import 'settings_widgets.dart';
 
 class PlaybackSection extends StatefulWidget {

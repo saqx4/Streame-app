@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../services/settings_service.dart';
-import '../../api/stremio_service.dart';
-import '../../services/jackett_service.dart';
-import '../../services/prowlarr_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/services/jackett_service.dart';
+import 'package:streame_core/services/prowlarr_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class ProvidersAddonsSection extends StatefulWidget {
   const ProvidersAddonsSection({super.key});

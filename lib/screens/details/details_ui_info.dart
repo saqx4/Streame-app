@@ -64,11 +64,11 @@ Widget _buildRatingsRow() {
         ? value.toStringAsFixed(1)
         : value.toString();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -90,7 +90,7 @@ Widget _buildRatingsRow() {
             display,
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -144,11 +144,11 @@ Widget _buildRatingsRow() {
   if (_userTraktRating != null) {
     chips.add(
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
+          color: const Color(0xFFED1C24).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFED1C24).withValues(alpha: 0.25), width: 0.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -160,10 +160,19 @@ Widget _buildRatingsRow() {
             ),
             const SizedBox(width: 4),
             Text(
-              'Trakt: $_userTraktRating/10',
+              'Trakt',
+              style: const TextStyle(
+                color: Color(0xFFED1C24),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$_userTraktRating/10',
               style: TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -176,22 +185,31 @@ Widget _buildRatingsRow() {
   if (_userSimklRating != null) {
     chips.add(
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
+          color: AppTheme.current.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.25), width: 0.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_rounded, color: AppTheme.textPrimary, size: 14),
+            Icon(Icons.star_rounded, color: AppTheme.current.primaryColor, size: 14),
             const SizedBox(width: 4),
             Text(
-              'Simkl: $_userSimklRating/10',
+              'Simkl',
+              style: TextStyle(
+                color: AppTheme.current.primaryColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$_userSimklRating/10',
               style: TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -263,31 +281,46 @@ Widget _actionButton({
   required bool active,
   required VoidCallback onTap,
 }) {
+  final primary = AppTheme.current.primaryColor;
   return FocusableControl(
     onTap: onTap,
-    borderRadius: 12,
+    borderRadius: 24,
     child: AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: active
-            ? AppTheme.primaryColor.withValues(alpha: 0.2)
-            : AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
+            ? primary.withValues(alpha: 0.18)
+            : GlassColors.surfaceSubtle,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: active
-              ? AppTheme.primaryColor.withValues(alpha: 0.4)
-              : AppTheme.border,
-          width: 1.2,
+              ? primary.withValues(alpha: 0.5)
+              : GlassColors.borderSubtle,
+          width: active ? 1.5 : 0.5,
         ),
+        boxShadow: active
+            ? [AppShadows.glow(0.12)]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
-            size: 18,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: active
+                  ? primary.withValues(alpha: 0.25)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: active ? primary : AppTheme.textSecondary,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 8),
           Text(
@@ -295,7 +328,7 @@ Widget _actionButton({
             style: TextStyle(
               color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
               fontSize: 13,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -309,22 +342,38 @@ Widget _actionButton({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @override
-Widget _sectionLabel(String text) => Text(
-    text,
-    style: TextStyle(
-      color: AppTheme.textPrimary,
-      fontWeight: FontWeight.w700,
-      fontSize: 14,
+Widget _sectionLabel(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(
+            color: AppTheme.current.primaryColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+      ],
     ),
   );
 
 @override
 Widget _genreChip(String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
     decoration: BoxDecoration(
-      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
+      color: AppTheme.current.primaryColor.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppTheme.border),
+      border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.12), width: 0.5),
     ),
     child: Text(
       label,
@@ -337,17 +386,42 @@ Widget _genreChip(String label) => Container(
   );
 
 @override
-Widget _castChip(String name) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+Widget _castChip(String name) {
+  final initials = name.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase();
+  return Container(
+    padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
     decoration: BoxDecoration(
+      color: GlassColors.surfaceSubtle,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppTheme.border),
+      border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
     ),
-    child: Text(
-      name,
-      style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: AppTheme.current.primaryColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              initials,
+              style: TextStyle(
+                color: AppTheme.current.primaryColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(name, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+      ],
     ),
   );
+}
 
 @override
 Widget _scrollArrow(IconData icon, VoidCallback onTap) => GestureDetector(

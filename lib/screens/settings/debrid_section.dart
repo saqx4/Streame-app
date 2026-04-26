@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/settings_service.dart';
-import '../../api/debrid_api.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/api/debrid_api.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'settings_widgets.dart';
 
 class DebridSection extends StatefulWidget {

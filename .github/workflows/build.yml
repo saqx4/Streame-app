@@ -31,12 +31,14 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
 
       - run: flutter pub get
+        working-directory: packages/desktop
       - run: >
           flutter build windows --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
+        working-directory: packages/desktop
 
       - name: Install Inno Setup
         shell: pwsh
@@ -89,12 +91,14 @@ jobs:
           fi
 
       - run: flutter pub get
+        working-directory: packages/desktop
       - run: >
           flutter build linux --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
+        working-directory: packages/desktop
 
       - name: Package as AppImage
         run: |
@@ -106,8 +110,8 @@ jobs:
           # Create AppDir from Flutter bundle
           APP=Streame.AppDir
           mkdir -p "$APP"
-          cp -r build/linux/x64/release/bundle/* "$APP/"
-          cp assets/icon/icon.png "$APP/Streame.png"
+          cp -r packages/desktop/build/linux/x64/release/bundle/* "$APP/"
+          cp packages/mobile/assets/icon/icon.png "$APP/Streame.png"
           cp installer/linux/Streame.desktop "$APP/"
 
           # AppRun launcher
@@ -168,36 +172,31 @@ jobs:
             macos/Runner/Info.plist
 
       - run: flutter pub get
+        working-directory: packages/mobile
       - run: >
           flutter build macos --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
+        working-directory: packages/mobile
 
       - name: Package as DMG
         run: |
-          cd build/macos/Build/Products/Release
+          cd packages/mobile/build/macos/Build/Products/Release
           mv play_torrio_native.app Streame.app
 
-          # Ad-hoc sign the entire .app bundle (deep) so macOS doesn't kill it on launch.
-          # --deep signs all nested frameworks/binaries inside the bundle.
           codesign --sign - --force --deep Streame.app
-          
-          # Create DMG using hdiutil (built into macOS)
+
           mkdir -p dmg_temp
           cp -R Streame.app dmg_temp/
-          
-          # Create Applications symlink for drag-and-drop install
           ln -s /Applications dmg_temp/Applications
-          
-          # Create DMG
+
           hdiutil create -volname "Streame" \
             -srcfolder dmg_temp \
             -ov -format UDZO \
             ../../../../../Streame-macOS-arm64.dmg
-          
-          # Also create ZIP as backup
+
           zip -ry ../../../../../Streame-macOS-arm64.zip Streame.app
 
       - uses: actions/upload-artifact@v4
@@ -247,16 +246,18 @@ jobs:
             macos/Runner/Info.plist
 
       - run: arch -x86_64 flutter pub get
+        working-directory: packages/mobile
       - run: >
           arch -x86_64 flutter build macos --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
+        working-directory: packages/mobile
 
       - name: Package as DMG
         run: |
-          cd build/macos/Build/Products/Release
+          cd packages/mobile/build/macos/Build/Products/Release
           mv play_torrio_native.app Streame.app
 
           codesign --sign - --force --deep Streame.app
@@ -291,6 +292,7 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
 
       - name: Generate iOS platform files
+        working-directory: packages/mobile
         run: |
           if [ ! -d "ios" ]; then
             flutter create --platforms=ios .
@@ -333,18 +335,18 @@ jobs:
           EOF
 
       - run: flutter pub get
-
-      # ── Release build ────────────────────────────────────────────────────
+        working-directory: packages/mobile
       - run: >
           flutter build ios --release --no-codesign
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
+        working-directory: packages/mobile
 
       - name: Package as IPA
         run: |
-          cd build/ios/iphoneos
+          cd packages/mobile/build/ios/iphoneos
           mkdir -p Payload
           cp -R Runner.app Payload/
           zip -ry ../../../Streame-iOS.ipa Payload

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import '../api/tmdb_api.dart';
-import '../services/settings_service.dart';
-import '../models/movie.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/utils/device_detector.dart';
 import 'details_screen.dart';
 import 'streaming_details_screen.dart';
 import 'discover/discover_widgets.dart';
-import '../widgets/smooth_page_transition.dart';
+import 'package:streame_core/widgets/smooth_page_transition.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -192,7 +193,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   void _showTypeMenu() {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTheme.overlay,
       builder: (context) => CompactFilterDialog(
         title: 'Content Type',
         child: Column(
@@ -219,7 +220,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   void _showGenreMenu() {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTheme.overlay,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -287,7 +288,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
 
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTheme.overlay,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -351,7 +352,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   void _showLanguageMenu() {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTheme.overlay,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -428,7 +429,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   void _showRatingMenu() {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTheme.overlay,
       builder: (context) {
         double localRating = _minRating;
         return StatefulBuilder(
@@ -498,8 +499,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final isTv = PlatformInfo.isTv(context);
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width > 1200 ? 6 : (width > 900 ? 5 : (width > 600 ? 4 : 3));
+
+    // TV-specific spacing
+    final filterPadding = isTv ? 24.0 : 16.0;
+    final gridPadding = isTv ? 24.0 : 16.0;
+    final gridSpacing = isTv ? 20.0 : 16.0;
 
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
@@ -507,7 +514,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
         children: [
           // Filter Bar
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+            padding: EdgeInsets.fromLTRB(filterPadding, isTv ? 48 : 40, filterPadding, 16),
             color: AppTheme.surfaceContainer,
             child: Row(
               children: [
@@ -531,9 +538,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
 
           // Grid
           Expanded(
-            child: _isLoading 
+            child: _isLoading
               ? Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor))
-              : _movies.isEmpty 
+              : _movies.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -555,12 +562,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
                 : GridView.builder(
                     controller: _scrollController,
                     cacheExtent: 800,
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(gridPadding),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
                       childAspectRatio: 2 / 3,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
+                      crossAxisSpacing: gridSpacing,
+                      mainAxisSpacing: gridSpacing,
                     ),
                     itemCount: _movies.length,
                     itemBuilder: (context, index) {
@@ -572,7 +579,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
 
           // Pagination
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(filterPadding),
             color: AppTheme.surfaceContainer,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

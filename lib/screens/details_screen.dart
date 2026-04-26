@@ -1,35 +1,36 @@
 // ignore_for_file: unused_element, unused_element_parameter
 library;
 
-import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../models/movie.dart';
-import '../api/tmdb_api.dart';
-import '../models/torrent_result.dart';
-import '../api/torrent_api.dart';
-import '../services/torrent_stream_service.dart';
-import '../api/stremio_service.dart';
-import '../services/torrent_filter.dart';
-import '../services/settings_service.dart';
-import '../api/debrid_api.dart';
-import '../services/jackett_service.dart';
-import '../services/prowlarr_service.dart';
-import '../services/link_resolver.dart';
-import '../services/watch_history_service.dart';
-import '../services/episode_watched_service.dart';
-import '../api/trakt_service.dart';
-import '../api/simkl_service.dart';
-import '../api/mdblist_service.dart';
-import '../utils/extensions.dart';
-import '../utils/app_theme.dart';
-import '../widgets/loading_overlay.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/models/torrent_result.dart';
+import 'package:streame_core/api/torrent_api.dart';
+import 'package:streame_core/services/torrent_stream_service.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/services/torrent_filter.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/api/debrid_api.dart';
+import 'package:streame_core/services/jackett_service.dart';
+import 'package:streame_core/services/prowlarr_service.dart';
+import 'package:streame_core/services/link_resolver.dart';
+import 'package:streame_core/services/watch_history_service.dart';
+import 'package:streame_core/services/episode_watched_service.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/simkl_service.dart';
+import 'package:streame_core/api/mdblist_service.dart';
+import 'package:streame_core/utils/extensions.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/utils/device_detector.dart';
+import 'package:streame_core/widgets/loading_overlay.dart';
 import 'player_screen.dart';
 import 'stremio_catalog_screen.dart';
 import 'main_screen.dart';
-import '../widgets/movie_atmosphere.dart';
+import 'package:streame_core/widgets/movie_atmosphere.dart';
 import 'details/expandable_synopsis.dart';
 import 'details/audio_filter_menu.dart';
 import 'details/stream_tiles.dart';
@@ -241,6 +242,7 @@ abstract class _DetailsScreenBase extends State<DetailsScreen> with AtmosphereMi
   Widget _buildResultsHeader();
   Widget _buildAudioFilterButton();
   Widget _buildStreamList();
+  Widget _buildTvLayout();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -313,8 +315,8 @@ class _DetailsScreenState extends _DetailsScreenBase
       );
     }
 
-    final w = MediaQuery.of(context).size.width;
-    final isMobile = (Platform.isAndroid || Platform.isIOS) || w < 800;
+    final isTv = PlatformInfo.isTv(context);
+    final isMobile = PlatformInfo.isMobile(context);
 
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
@@ -355,7 +357,7 @@ class _DetailsScreenState extends _DetailsScreenBase
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppTheme.bgDark,
         extendBodyBehindAppBar: true,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -366,7 +368,7 @@ class _DetailsScreenState extends _DetailsScreenBase
               onTap: () => Navigator.of(context).pop(),
               borderRadius: 50,
               child: CircleAvatar(
-                backgroundColor: Colors.black54,
+                backgroundColor: AppTheme.overlay,
                 child: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
               ),
             ),
@@ -376,7 +378,7 @@ class _DetailsScreenState extends _DetailsScreenBase
           children: [
             _buildBackdropWidget(),
             SafeArea(
-              child: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
+              child: isTv ? _buildTvLayout() : (isMobile ? _buildMobileLayout() : _buildDesktopLayout()),
             ),
           ],
         ),

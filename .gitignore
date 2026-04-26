@@ -40,21 +40,29 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+packages/mobile/android/app/debug
+packages/mobile/android/app/profile
+packages/mobile/android/app/release
+packages/tv/android/app/debug
+packages/tv/android/app/profile
+packages/tv/android/app/release
+
+# Package build directories
+packages/*/build/
 
 # Android signing
-android/release.keystore
-android/key.properties
+packages/mobile/android/release.keystore
+packages/mobile/android/key.properties
+packages/tv/android/release.keystore
+packages/tv/android/key.properties
 
 # Local environment secrets
 .env
 *.env
 
 # Generated platform folders (CI creates linux/ & macos/ on the fly)
-/linux/
-/macos/
+packages/desktop/linux/
+packages/desktop/macos/
 
 # Inno Setup output
 installer/windows/Output/

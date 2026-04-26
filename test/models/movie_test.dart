@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:streame/models/movie.dart';
+import 'package:streame_core/models/movie.dart';
 
 void main() {
   group('Movie.fromJson', () {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/settings_service.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'settings_widgets.dart';
 
 class SearchTorrentsSection extends StatefulWidget {

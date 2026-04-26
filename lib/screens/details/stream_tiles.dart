@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/torrent_result.dart';
-import '../../utils/app_theme.dart';
-import '../../api/stremio_service.dart';
+import 'package:streame_core/models/torrent_result.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/api/stremio_service.dart';
 import 'details_widgets.dart';
 
 class TorrentTile extends StatelessWidget {

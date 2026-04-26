@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:streame/models/movie.dart';
-import 'package:streame/models/stream_source.dart';
-import '../services/external_player_service.dart';
-import '../services/settings_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/models/stream_source.dart';
+import 'package:streame_core/services/external_player_service.dart';
+import 'package:streame_core/services/settings_service.dart';
 import 'player/mobile_player_screen.dart';
 import 'player/simple_desktop_player.dart';
 
@@ -142,7 +142,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    // Built-in player
+    // Built-in player — mobile player also used on Android TV
     if (Platform.isAndroid || Platform.isIOS) {
       return MobilePlayerScreen(
         mediaPath: widget.streamUrl,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class ExpandableSection extends StatefulWidget {
   final IconData icon;
@@ -31,32 +31,45 @@ class _ExpandableSectionState extends State<ExpandableSection> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
         decoration: BoxDecoration(
-          color: AppTheme.surfaceContainerHigh.withValues(
-            alpha: _isExpanded ? 0.15 : 0.08,
-          ),
-          borderRadius: BorderRadius.circular(14),
+          color: _isExpanded
+              ? GlassColors.surfaceSubtle
+              : GlassColors.surfaceSubtle.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: _isExpanded
-                ? AppTheme.current.primaryColor.withValues(alpha: 0.2)
-                : AppTheme.border,
+                ? AppTheme.current.primaryColor.withValues(alpha: 0.3)
+                : GlassColors.borderSubtle,
+            width: 0.5,
           ),
         ),
         child: Column(
           children: [
             InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               onTap: () => setState(() => _isExpanded = !_isExpanded),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 14,
+                  vertical: 16,
                 ),
                 child: Row(
                   children: [
+                    Container(
+                      width: 4,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: _isExpanded
+                            ? AppTheme.current.primaryColor
+                            : AppTheme.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Icon(
                       widget.icon,
                       size: 20,
@@ -79,7 +92,7 @@ class _ExpandableSectionState extends State<ExpandableSection> {
                     ),
                     AnimatedRotation(
                       turns: _isExpanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 300),
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
                         color: _isExpanded
@@ -105,8 +118,8 @@ class _ExpandableSectionState extends State<ExpandableSection> {
               crossFadeState: _isExpanded
                   ? CrossFadeState.showFirst
                   : CrossFadeState.showSecond,
-              duration: const Duration(milliseconds: 200),
-              sizeCurve: Curves.easeInOut,
+              duration: const Duration(milliseconds: 300),
+              sizeCurve: Curves.easeInOutCubic,
             ),
           ],
         ),
@@ -160,10 +173,16 @@ class FocusableToggle extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeTrackColor: AppTheme.current.primaryColor,
+            Transform.scale(
+              scale: 0.9,
+              child: Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: AppTheme.current.primaryColor,
+                activeTrackColor: AppTheme.current.primaryColor.withValues(alpha: 0.5),
+                inactiveThumbColor: AppTheme.textDisabled,
+                inactiveTrackColor: AppTheme.surfaceContainer,
+              ),
             ),
           ],
         ),
@@ -222,8 +241,9 @@ class FocusableDropdown extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                color: GlassColors.surfaceSubtle,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
               ),
               child: DropdownButton<String>(
                 value: value,

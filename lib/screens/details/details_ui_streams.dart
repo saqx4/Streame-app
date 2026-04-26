@@ -101,7 +101,7 @@ Widget _buildSeasonSelector() {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: sel ? AppTheme.textPrimary : AppTheme.border,
-                    width: 1.2,
+                    width: 1,
                   ),
                 ),
                 child: Text(
@@ -162,9 +162,24 @@ Widget _buildEpisodeSelector() {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _sectionLabel('Episodes (${episodes.length})'),
+          Text(
+            'Episodes',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
           Row(
             children: [
+              Text(
+                '${episodes.length} episodes',
+                style: TextStyle(
+                  color: AppTheme.textDisabled,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 12),
               _scrollArrow(
                 Icons.arrow_back_ios_rounded,
                 () => _episodeScrollController.animateTo(
@@ -185,7 +200,7 @@ Widget _buildEpisodeSelector() {
           ),
         ],
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 12),
       SizedBox(
         height: 160,
         child: ListView.separated(
@@ -193,7 +208,7 @@ Widget _buildEpisodeSelector() {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           itemCount: episodes.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 16),
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (context, index) {
             final ep = episodes[index];
             final epNum = (ep['episode_number'] ?? ep['episode']) as int;
@@ -228,38 +243,45 @@ Widget _buildEpisodeSelector() {
                 duration: const Duration(milliseconds: 200),
                 width: 240,
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.current.primaryColor.withValues(alpha: 0.1)
-                      : AppTheme.surfaceContainerHigh.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.current.primaryColor
-                        : AppTheme.border,
-                    width: 1.5,
+                        : Colors.transparent,
+                    width: 2,
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(10),
                   child: Stack(
                     children: [
-                      if (stillPath != null &&
-                          stillPath.toString().isNotEmpty)
-                        Positioned.fill(
-                          child: CachedNetworkImage(
-                            imageUrl: stillPath.toString().startsWith('http')
-                                ? stillPath.toString()
-                                : TmdbApi.getBackdropUrl(
-                                    stillPath.toString(),
+                      // Episode thumbnail
+                      Positioned.fill(
+                        child: stillPath != null && stillPath.toString().isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: stillPath.toString().startsWith('http')
+                                    ? stillPath.toString()
+                                    : TmdbApi.getBackdropUrl(stillPath.toString()),
+                                fit: BoxFit.cover,
+                                memCacheWidth: 480,
+                                placeholder: (_, __) => Container(color: AppTheme.surfaceContainerHigh),
+                                errorWidget: (_, __, ___) => Container(
+                                  color: AppTheme.surfaceContainerHigh,
+                                  child: Center(
+                                    child: Icon(Icons.movie_outlined,
+                                        color: AppTheme.textDisabled, size: 32),
                                   ),
-                            fit: BoxFit.cover,
-                            memCacheWidth: 600,
-                            placeholder: (_, _) =>
-                                Container(color: AppTheme.bgCard),
-                            errorWidget: (_, _, _) =>
-                                Container(color: AppTheme.bgCard),
-                          ),
-                        ),
+                                ),
+                              )
+                            : Container(
+                                color: AppTheme.surfaceContainerHigh,
+                                child: Center(
+                                  child: Icon(Icons.movie_outlined,
+                                      color: AppTheme.textDisabled, size: 32),
+                                ),
+                              ),
+                      ),
+                      // Gradient overlay
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
@@ -268,76 +290,66 @@ Widget _buildEpisodeSelector() {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                AppTheme.bgDark.withValues(alpha: 0.8),
+                                AppTheme.bgDark.withValues(alpha: 0.9),
                               ],
+                              stops: const [0.3, 1.0],
                             ),
                           ),
                         ),
                       ),
+                      // Episode number badge - top left
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.current.primaryColor
+                                : AppTheme.bgDark.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'E$epNum',
+                            style: TextStyle(
+                              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Watched badge - top right
                       if (isWatched)
                         Positioned(
                           top: 8,
-                          left: 8,
+                          right: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.green.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
                             ),
-                            child: Text(
-                              'WATCHED',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
+                            child: const Icon(Icons.check, size: 12, color: Colors.white),
                           ),
                         ),
+                      // Episode title - bottom
                       Positioned(
-                        bottom: 12,
-                        left: 12,
-                        right: 12,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'EP $epNum',
-                              style: TextStyle(
-                                color: isSelected
-                                    ? AppTheme.current.primaryColor
-                                    : AppTheme.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        bottom: 10,
+                        left: 10,
+                        right: 10,
+                        child: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
                       ),
-                      if (isSelected)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Icon(
-                            Icons.play_circle_fill,
-                            color: AppTheme.textPrimary,
-                            size: 24,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -414,6 +426,7 @@ Widget _sourceTab(
 ) {
   return GestureDetector(
     onTap: onTap,
+    behavior: HitTestBehavior.opaque,
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -560,12 +573,15 @@ Widget _buildResultsHeader() {
     children: [
       Icon(Icons.download_rounded, color: AppTheme.textSecondary, size: 16),
       const SizedBox(width: 6),
-      Text(
-        'Available Sources',
-        style: TextStyle(
-          color: AppTheme.textPrimary,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
+      Flexible(
+        child: Text(
+          'Available Sources',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
       ),
       if (epLabel != null) ...[

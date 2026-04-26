@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/backup_restore_section.dart';
 import 'settings/appearance_section.dart';
@@ -30,70 +30,134 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              const SliverAppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                floating: true,
-                title: Text(
-                  'Settings',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 32,
-                    fontFamily: 'Poppins',
+              // ── Premium Header ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.current.primaryColor,
+                              AppTheme.current.accentColor,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [AppShadows.glow(0.2)],
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Settings',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 28,
+                                color: AppTheme.textPrimary,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            Text(
+                              'Customize your experience',
+                              style: TextStyle(
+                                color: AppTheme.textDisabled,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                centerTitle: false,
+              ),
+
+              // ── General Section ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: _categoryHeader('General'),
+                ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // ── Backup & Restore ──
                     const ExpandableSection(
                       icon: Icons.backup_rounded,
                       title: 'Backup & Restore',
                       children: [BackupRestoreSection()],
                     ),
-
-                    // ── Appearance ──
                     const ExpandableSection(
                       icon: Icons.palette_rounded,
                       title: 'Appearance',
                       children: [AppearanceSection()],
                     ),
-
-                    // ── Playback ──
                     const ExpandableSection(
                       icon: Icons.play_circle_outline_rounded,
                       title: 'Playback',
                       children: [PlaybackSection()],
                     ),
+                    const ExpandableSection(
+                      icon: Icons.tab_rounded,
+                      title: 'Navigation Bar',
+                      children: [NavbarSection()],
+                    ),
+                  ]),
+                ),
+              ),
 
-                    // ── Search & Torrents ──
+              // ── Content Section ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: _categoryHeader('Content & Search'),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
                     const ExpandableSection(
                       icon: Icons.search_rounded,
                       title: 'Search & Torrents',
                       children: [SearchTorrentsSection()],
                     ),
-
-                    // ── Providers & Addons ──
                     const ExpandableSection(
                       icon: Icons.extension_rounded,
                       title: 'Providers & Addons',
                       children: [ProvidersAddonsSection()],
                     ),
-
-                    // ── Debrid ──
                     const ExpandableSection(
                       icon: Icons.cloud_download_rounded,
                       title: 'Debrid',
                       children: [DebridSection()],
                     ),
+                  ]),
+                ),
+              ),
 
-                    // ── Accounts & Sync ──
+              // ── Accounts Section ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: _categoryHeader('Accounts & Sync'),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
                     ExpandableSection(
                       icon: Icons.sync_rounded,
                       title: 'Accounts & Sync',
@@ -144,48 +208,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const MdblistSection(),
                       ],
                     ),
-
-                    // ── Lists ──
                     const ExpandableSection(
                       icon: Icons.list_alt_rounded,
                       title: 'Lists',
                       children: [ListsSection()],
                     ),
+                  ]),
+                ),
+              ),
 
-                    // ── Navigation Bar ──
-                    const ExpandableSection(
-                      icon: Icons.tab_rounded,
-                      title: 'Navigation Bar',
-                      children: [NavbarSection()],
-                    ),
-
-                    // ── App Updates ──
+              // ── About Section ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: _categoryHeader('About'),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
                     const ExpandableSection(
                       icon: Icons.system_update_rounded,
                       title: 'App Updates',
                       children: [UpdateSection()],
                     ),
-
-                    const SizedBox(height: 40),
-                    Center(
-                      child: Text(
-                        'Streame Native v1.1.5',
-                        style: TextStyle(
-                          color: AppTheme.textDisabled,
-                          fontSize: 12,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 100),
                   ]),
+                ),
+              ),
+
+              // ── Footer ──
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 100),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: GlassColors.surfaceSubtle,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.current.primaryColor.withValues(alpha: 0.6),
+                                AppTheme.current.accentColor.withValues(alpha: 0.6),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Streame Native v1.1.5',
+                          style: TextStyle(
+                            color: AppTheme.textDisabled,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _categoryHeader(String title) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 18,
+          decoration: BoxDecoration(
+            color: AppTheme.current.primaryColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: AppTheme.current.primaryColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+      ],
     );
   }
 }

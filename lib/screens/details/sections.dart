@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import 'details_widgets.dart';
 
 class CollectionItemsSection extends StatelessWidget {
@@ -35,13 +35,13 @@ class CollectionItemsSection extends StatelessWidget {
 
             return FocusableControl(
               onTap: () => onItemTap(id),
-              borderRadius: 12,
+              borderRadius: AppRadius.card,
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+                  color: GlassColors.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

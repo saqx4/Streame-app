@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -12,24 +11,23 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
-import '../../api/subtitle_api.dart';
-import '../../services/watch_history_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../api/trakt_service.dart';
-import '../../api/simkl_service.dart';
-import '../../services/torrent_stream_service.dart';
-import '../../services/stream_extractor.dart';
-import '../../api/webstreamr_service.dart';
-import '../../api/stremio_service.dart';
-import '../../providers/stream_providers.dart';
-import '../../services/settings_service.dart';
-import '../../api/debrid_api.dart';
-import '../../api/torrent_api.dart';
-import '../../services/torrent_filter.dart';
-import '../../api/tmdb_service.dart';
-import '../../api/introdb_service.dart';
-import '../../models/movie.dart';
-import '../../models/stream_source.dart';
+import 'package:streame_core/api/subtitle_api.dart';
+import 'package:streame_core/services/watch_history_service.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/simkl_service.dart';
+import 'package:streame_core/services/torrent_stream_service.dart';
+import 'package:streame_core/services/stream_extractor.dart';
+import 'package:streame_core/api/webstreamr_service.dart';
+import 'package:streame_core/api/stremio_service.dart';
+import 'package:streame_core/providers/stream_services.dart';
+import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/api/debrid_api.dart';
+import 'package:streame_core/api/torrent_api.dart';
+import 'package:streame_core/services/torrent_filter.dart';
+import 'package:streame_core/api/tmdb_service.dart';
+import 'package:streame_core/api/introdb_service.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/models/stream_source.dart';
 import '../player_screen.dart';
 import 'utils.dart' show formatDuration;
 import 'menus.dart';
@@ -80,42 +78,8 @@ class MobilePlayerScreen extends StatefulWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  HARDWARE DECODE MODE  (3-mode cycle)
+//  LIFECYCLE
 // ─────────────────────────────────────────────────────────────────────────────
-
-enum _HwDecMode { autoSafe, autoCopy, software }
-
-extension _HwDecModeX on _HwDecMode {
-  String get mpvValue => switch (this) {
-        _HwDecMode.autoSafe => 'auto-safe',
-        _HwDecMode.autoCopy => 'auto-copy',
-        _HwDecMode.software => 'no',
-      };
-
-  String get label => switch (this) {
-        _HwDecMode.autoSafe => 'HW+',
-        _HwDecMode.autoCopy => 'COPY',
-        _HwDecMode.software => 'SW',
-      };
-
-  String get description => switch (this) {
-        _HwDecMode.autoSafe => 'Hardware Decoding: ON (GPU, safe)',
-        _HwDecMode.autoCopy => 'Hardware Decoding: ON (copy-back)',
-        _HwDecMode.software => 'Hardware Decoding: OFF (CPU)',
-      };
-
-  _HwDecMode get next => switch (this) {
-        _HwDecMode.autoSafe => _HwDecMode.autoCopy,
-        _HwDecMode.autoCopy => _HwDecMode.software,
-        _HwDecMode.software => _HwDecMode.autoSafe,
-      };
-
-  Color get accent => switch (this) {
-        _HwDecMode.autoSafe => const Color(0xFF7C3AED),
-        _HwDecMode.autoCopy => const Color(0xFF0EA5E9),
-        _HwDecMode.software => const Color(0xFF3A3A3C),
-      };
-}
 
 class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
@@ -184,7 +148,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
   String? _selectedExternalSubUrl;
 
   // ── Feature State ─────────────────────────────────────────────────────────
-  _HwDecMode _hwDecMode = _HwDecMode.autoSafe;
   bool _loopEnabled = false;
   double _subtitleDelay = 0.0;
   double _subtitleSize = 24.0;
@@ -422,13 +385,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     final pos = _positionNotifier.value.inMilliseconds;
     final dur = _durationNotifier.value.inMilliseconds;
 
-    // Save anime watch position
-    if (widget.activeProvider != null &&
-        widget.activeProvider!.startsWith('anime_') &&
-        pos > 10000 && dur > 0) {
-      _saveAnimeWatchPosition(pos, dur);
-    }
-
     if (widget.movie == null) return;
     if (pos > 10000 && dur > 0) {
       final isTorrent = widget.magnetLink != null;
@@ -501,24 +457,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         episode: widget.selectedEpisode,
       );
     }
-  }
-
-  void _saveAnimeWatchPosition(int posMs, int durMs) {
-    SharedPreferences.getInstance().then((prefs) {
-      final list = prefs.getStringList('anime_watch_history') ?? [];
-      for (int i = 0; i < list.length; i++) {
-        final entry = jsonDecode(list[i]) as Map<String, dynamic>;
-        // Match by title which contains the anime name + episode
-        // The most recent entry (index 0) is the one currently playing
-        if (i == 0) {
-          entry['position'] = posMs;
-          entry['duration'] = durMs;
-          list[i] = jsonEncode(entry);
-          prefs.setStringList('anime_watch_history', list);
-          break;
-        }
-      }
-    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -845,7 +783,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // ── Decoding ─────────────────────────────────────────────────────────
     // auto-safe on mobile: uses MediaCodec (Android) / VideoToolbox (iOS),
     // whitelisted to formats each platform reliably supports.
-    await mpv.setProperty('hwdec', _hwDecMode.mpvValue);
+    await mpv.setProperty('hwdec', 'auto-safe');
 
     // Zero-copy direct rendering — decoder writes straight to GPU texture.
     // Big win on mobile for battery + throughput on H.265/4K content.
@@ -926,20 +864,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       final secs = widget.startPosition!.inMilliseconds / 1000.0;
       await mpv.setProperty('start', '+${secs.toStringAsFixed(3)}');
     }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  //  HW DECODE CYCLE
-  // ─────────────────────────────────────────────────────────────────────────
-
-  void _cycleHwDec() {
-    final next = _hwDecMode.next;
-    setState(() => _hwDecMode = next);
-    if (_player.platform is NativePlayer) {
-      (_player.platform as NativePlayer)
-          .setProperty('hwdec', next.mpvValue);
-    }
-    _showPlayerToast(next.description);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2549,14 +2473,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (!isPortrait) ...[
-                SizedBox(width: gap),
-                PlayerPill(
-                  text: _hwDecMode.label,
-                  onTap: _cycleHwDec,
-                  accent: _hwDecMode.accent,
-                ),
-              ],
               SizedBox(width: gap),
               PlayerBtn(
                 icon: Icons.music_note_outlined,
@@ -2686,7 +2602,6 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     ),
                     if (isPortrait) ...[
                       SizedBox(width: gap),
-                      PlayerPill(text: _hwDecMode.label, onTap: _cycleHwDec, accent: _hwDecMode.accent),
                     ],
                   ]),
 

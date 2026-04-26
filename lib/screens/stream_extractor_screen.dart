@@ -2,8 +2,8 @@ import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import '../services/stream_extractor.dart';
-import '../utils/webview_cleanup.dart';
+import 'package:streame_core/services/stream_extractor.dart';
+import 'package:streame_core/utils/webview_cleanup.dart';
 
 class StreamExtractorView extends StatefulWidget {
   final String url;

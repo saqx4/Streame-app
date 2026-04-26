@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../api/tmdb_api.dart';
-import '../../models/movie.dart';
-import '../../utils/app_theme.dart';
-import '../../widgets/my_list_button.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
+import 'package:streame_core/widgets/my_list_button.dart';
 
 class MovieSection extends StatefulWidget {
   final String title;
@@ -14,14 +14,16 @@ class MovieSection extends StatefulWidget {
   final Function(Movie) onMovieTap;
   final bool isPortrait;
   final bool showRank;
+  final bool isTv;
 
-  const MovieSection({super.key, 
+  const MovieSection({super.key,
     required this.title,
     this.icon,
     required this.future,
     required this.onMovieTap,
     this.isPortrait = false,
     this.showRank = false,
+    this.isTv = false,
   });
 
   @override
@@ -51,13 +53,13 @@ class _MovieSectionState extends State<MovieSection> {
     }
   }
 
-  Widget _buildSmallFrostedArrow(IconData icon) {
+  Widget _buildGlassArrow(IconData icon) {
     return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        color: GlassColors.surfaceSubtle,
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
       ),
       child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );
@@ -71,32 +73,35 @@ class _MovieSectionState extends State<MovieSection> {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = widget.isTv ? 32.0 : 24.0;
+    final sectionSpacing = widget.isTv ? 48.0 : 32.0;
+    final itemSpacing = widget.isTv ? 20.0 : 14.0;
+
     return FutureBuilder<List<Movie>>(
       future: widget.future,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          // Shimmer placeholder while loading
           if (snapshot.connectionState == ConnectionState.waiting) {
             final shimmerChild = Padding(
-                padding: const EdgeInsets.only(top: 32),
+                padding: EdgeInsets.only(top: sectionSpacing),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                       child: Container(height: 18, width: 140, decoration: BoxDecoration(color: AppTheme.surfaceContainer, borderRadius: BorderRadius.circular(AppRadius.sm))),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: widget.isTv ? 24 : 16),
                     SizedBox(
                       height: widget.isPortrait ? 240 : 180,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                         itemCount: 5,
-                        separatorBuilder: (_, _) => const SizedBox(width: 14),
-                        itemBuilder: (_, _) => Container(
+                        separatorBuilder: (_, __) => SizedBox(width: itemSpacing),
+                        itemBuilder: (_, __) => Container(
                           width: widget.isPortrait ? 150 : 280,
-                          decoration: BoxDecoration(color: AppTheme.surfaceContainer, borderRadius: BorderRadius.circular(AppRadius.md)),
+                          decoration: BoxDecoration(color: AppTheme.surfaceContainer, borderRadius: BorderRadius.circular(AppRadius.card)),
                         ),
                       ),
                     ),
@@ -113,12 +118,12 @@ class _MovieSectionState extends State<MovieSection> {
           return const SizedBox.shrink();
         }
         final movies = snapshot.data!;
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 18),
+              padding: EdgeInsets.fromLTRB(horizontalPadding, sectionSpacing, horizontalPadding, 18),
               child: Row(
                 children: [
                   if (widget.icon != null) ...[
@@ -127,6 +132,7 @@ class _MovieSectionState extends State<MovieSection> {
                       decoration: BoxDecoration(
                         color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.15), width: 0.5),
                       ),
                       child: Icon(widget.icon, color: AppTheme.current.primaryColor, size: 20),
                     ),
@@ -164,12 +170,12 @@ class _MovieSectionState extends State<MovieSection> {
                   ),
                   GestureDetector(
                     onTap: _scrollLeft,
-                    child: _buildSmallFrostedArrow(Icons.arrow_back_ios_new_rounded),
+                    child: _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
                   ),
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: _scrollRight,
-                    child: _buildSmallFrostedArrow(Icons.arrow_forward_ios_rounded),
+                    child: _buildGlassArrow(Icons.arrow_forward_ios_rounded),
                   ),
                 ],
               ),
@@ -180,9 +186,9 @@ class _MovieSectionState extends State<MovieSection> {
                 clipBehavior: Clip.none,
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 itemCount: movies.length,
-                separatorBuilder: (_, _) => SizedBox(width: widget.showRank ? 6 : 14),
+                separatorBuilder: (_, __) => SizedBox(width: widget.showRank ? 6 : itemSpacing),
                 itemBuilder: (context, index) => MovieCard(
                   movie: movies[index],
                   onTap: () => widget.onMovieTap(movies[index]),
@@ -244,13 +250,13 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
     super.dispose();
   }
 
-  Widget _buildSmallFrostedArrow(IconData icon) {
+  Widget _buildGlassArrow(IconData icon) {
     return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        color: GlassColors.surfaceSubtle,
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
       ),
       child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );
@@ -263,17 +269,18 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 18),
           child: Row(
             children: [
               if (widget.icon != null) ...[
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: AppTheme.current.primaryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppTheme.current.primaryColor.withValues(alpha: 0.15), width: 0.5),
                   ),
-                  child: Icon(widget.icon, color: AppTheme.current.primaryColor, size: 18),
+                  child: Icon(widget.icon, color: AppTheme.current.primaryColor, size: 20),
                 ),
                 const SizedBox(width: AppSpacing.md),
               ],
@@ -282,10 +289,10 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(widget.title, style: TextStyle(color: AppTheme.textPrimary, fontSize: scaledFontSize(context, 20), fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Container(
-                      height: 2.5,
-                      width: 36,
+                      height: 3,
+                      width: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
                         gradient: LinearGradient(
@@ -298,12 +305,12 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
               ),
               GestureDetector(
                 onTap: _scrollLeft,
-                child: _buildSmallFrostedArrow(Icons.arrow_back_ios_new_rounded),
+                child: _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
               ),
               const SizedBox(width: 6),
               GestureDetector(
                 onTap: _scrollRight,
-                child: _buildSmallFrostedArrow(Icons.arrow_forward_ios_rounded),
+                child: _buildGlassArrow(Icons.arrow_forward_ios_rounded),
               ),
             ],
           ),
@@ -375,18 +382,18 @@ class MovieCard extends StatelessWidget {
           ),
         FocusableControl(
           onTap: onTap,
-          borderRadius: AppRadius.lg,
+          borderRadius: AppRadius.card,
           scaleOnFocus: 1.05,
           child: Container(
             width: cardWidth,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: AppTheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+              borderRadius: BorderRadius.circular(AppRadius.card),
               border: Border.all(color: AppTheme.border, width: 0.5),
               boxShadow: AppTheme.isLightMode ? null : [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 8)),
-                BoxShadow(color: AppTheme.current.primaryColor.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: -4),
+                AppShadows.strong,
+                AppShadows.glow(0.08),
               ],
             ),
             child: Stack(
@@ -492,9 +499,9 @@ Widget buildRatingBadge(double voteAverage) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: AppTheme.overlay.withValues(alpha: 0.5),
+      color: AppTheme.bgDark.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      border: Border.all(color: AppTheme.border),
+      border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -515,9 +522,9 @@ Widget buildRatingBadgeText(String rating) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
     decoration: BoxDecoration(
-      color: AppTheme.overlay.withValues(alpha: 0.5),
+      color: AppTheme.bgDark.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      border: Border.all(color: AppTheme.border),
+      border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -590,16 +597,15 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
   }
 
   Widget _buildStremioArrow(IconData icon) {
-    final inner = Container(
+    return Container(
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: GlassColors.surfaceSubtle,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
       ),
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.6), size: 14),
+      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
     );
-    return inner;
   }
 
   @override
@@ -761,7 +767,7 @@ class StremioCatalogCard extends StatelessWidget {
 
     return FocusableControl(
       onTap: onTap,
-      borderRadius: 14,
+      borderRadius: AppRadius.card,
       scaleOnFocus: 1.05,
       child: Container(
         width: width,
@@ -769,11 +775,11 @@ class StremioCatalogCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.1), width: 0.5),
           boxShadow: AppTheme.isLightMode ? null : [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: -4),
+            AppShadows.strong,
+            AppShadows.glow(0.08),
           ],
         ),
         child: Stack(

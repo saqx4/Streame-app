@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
-import '../../../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLASSY WIDGET PRIMITIVES

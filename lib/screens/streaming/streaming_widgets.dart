@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../api/tmdb_api.dart';
-import '../../models/movie.dart';
+import 'package:streame_core/api/tmdb_api.dart';
+import 'package:streame_core/models/movie.dart';
+import 'package:streame_core/utils/app_theme.dart';
 import '../streaming_details_screen.dart';
 
 class HorizontalEpisodeCard extends StatefulWidget {
@@ -450,7 +451,7 @@ class _SimilarMovieCardState extends State<SimilarMovieCard> {
               Container(
                 height: 195,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                   boxShadow: [
                     BoxShadow(
                       color: _isHovered 
@@ -462,7 +463,7 @@ class _SimilarMovieCardState extends State<SimilarMovieCard> {
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                   child: widget.movie.posterPath.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: TmdbApi.getImageUrl(widget.movie.posterPath),

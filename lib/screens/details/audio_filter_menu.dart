@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_theme.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 class AudioFilterMenu extends StatefulWidget {
   final List<String> allTags;
