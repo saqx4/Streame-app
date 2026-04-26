@@ -349,20 +349,38 @@ class _StremioCatalogScreenState extends State<StremioCatalogScreen> {
               child: Text('Catalogs', style: TextStyle(color: AppTheme.textPrimary, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
             ),
           if (!_isSidebarCollapsed) const SizedBox(width: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: GlassColors.surfaceSubtle,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: IconButton(
-              icon: Icon(
-                _isSidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
-                color: AppTheme.textSecondary,
-                size: 18,
+          if (_isSidebarCollapsed)
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
-              onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+              child: IconButton(
+                icon: Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.primaryColor,
+                  size: 22,
+                ),
+                onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+                tooltip: 'Expand sidebar',
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.chevron_left,
+                  color: AppTheme.primaryColor,
+                  size: 22,
+                ),
+                onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+                tooltip: 'Collapse sidebar',
+              ),
             ),
-          ),
         ],
       ),
     );
