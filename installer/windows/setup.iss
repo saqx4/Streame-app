@@ -4,7 +4,7 @@
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #define MyAppName      "Streame"
-#define MyAppVersion   "2.0.1"
+#define MyAppVersion   "2.0.2"
 #define MyAppPublisher "Streame"
 #define MyAppExeName   "Streame.exe"
 #define MyAppURL       "https://github.com/streame0/Streame/"
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\..\windows\runner\resources\app_icon.ico
-OutputDir=C:\Users\qaz\Downloads\Streame-app-main\installer\windows\Output
+OutputDir=Output
 OutputBaseFilename=Streame-Windows-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes

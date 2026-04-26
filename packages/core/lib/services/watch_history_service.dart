@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
 
 class WatchHistoryService {
   static final WatchHistoryService _instance = WatchHistoryService._internal();
@@ -103,18 +105,31 @@ class WatchHistoryService {
         if (dismissedList.contains(uniqueId)) {
           dismissedList.remove(uniqueId);
           await prefs.setString(_dismissedKey, json.encode(dismissedList));
-          debugPrint('[WatchHistory] Removed $uniqueId from dismissed list (re-watching)');
+          log.info('[WatchHistory] Removed $uniqueId from dismissed list (re-watching)');
         }
       }
 
-      debugPrint('[WatchHistory] Saved progress for $title ($uniqueId) at $position ms');
-      debugPrint('[WatchHistory] Method: $method, MagnetLink: ${magnetLink?.substring(0, 50)}..., FileIndex: $fileIndex');
-      
+      log.info('[WatchHistory] Saved progress for $title ($uniqueId) at $position ms');
+      log.info('[WatchHistory] Method: $method, MagnetLink: ${magnetLink?.substring(0, 50)}..., FileIndex: $fileIndex');
+
+      // Push progress to Trakt & Simkl in the background so other devices can pick it up.
+      // Only push if we have a tmdbId and the progress is meaningful (>5%).
+      final progressPct = duration > 0 ? (position / duration * 100) : 0.0;
+      if (tmdbId > 0 && progressPct > 5.0) {
+        _pushProgressToTrakt(
+          tmdbId: tmdbId,
+          mediaType: mediaType ?? (season != null ? 'tv' : 'movie'),
+          season: season,
+          episode: episode,
+          progressPct: progressPct,
+        );
+      }
+
       // Emit update
       _current = list.cast<Map<String, dynamic>>();
       _controller.add(_current);
     } catch (e) {
-      debugPrint('[WatchHistory] Error saving progress: $e');
+      log.info('[WatchHistory] Error saving progress: $e');
     }
   }
 
@@ -128,7 +143,7 @@ class WatchHistoryService {
       final List<dynamic> list = json.decode(jsonString);
       return list.cast<Map<String, dynamic>>();
     } catch (e) {
-      debugPrint('[WatchHistory] Error fetching history: $e');
+      log.info('[WatchHistory] Error fetching history: $e');
       return [];
     }
   }
@@ -178,10 +193,10 @@ class WatchHistoryService {
           dismissedList = dismissedList.sublist(dismissedList.length - 100);
         }
         await prefs.setString(_dismissedKey, json.encode(dismissedList));
-        debugPrint('[WatchHistory] Added $uniqueId to dismissed list');
+        log.info('[WatchHistory] Added $uniqueId to dismissed list');
       }
     } catch (e) {
-      debugPrint('[WatchHistory] Error removing item: $e');
+      log.info('[WatchHistory] Error removing item: $e');
     }
   }
 
@@ -196,6 +211,43 @@ class WatchHistoryService {
     } catch (e) {
       return false;
     }
+  }
+
+  /// Push playback progress to Trakt & Simkl in the background.
+  /// Uses scrobble/pause so Trakt records the position for cross-device resume.
+  void _pushProgressToTrakt({
+    required int tmdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    required double progressPct,
+  }) {
+    // Fire-and-forget — don't block the local save
+    TraktService().isLoggedIn().then((loggedIn) {
+      if (!loggedIn) return;
+      TraktService().scrobblePause(
+        tmdbId: tmdbId,
+        mediaType: mediaType,
+        season: season,
+        episode: episode,
+        progressPercent: progressPct,
+      ).catchError((e) {
+        log.info('[WatchHistory] Trakt push failed: $e');
+        return false;
+      });
+    });
+    SimklService().isLoggedIn().then((loggedIn) {
+      if (!loggedIn) return;
+      SimklService().scrobblePause(
+        tmdbId: tmdbId,
+        mediaType: mediaType,
+        season: season,
+        episode: episode,
+      ).catchError((e) {
+        log.info('[WatchHistory] Simkl push failed: $e');
+        return false;
+      });
+    });
   }
   
   void dispose() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:streame_core/utils/device_detector.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -255,7 +256,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
           }
         }
       } catch (e) {
-        debugPrint('Error fetching from WebStreamr: $e');
+        log.info('Error fetching from WebStreamr: $e');
       }
     }
 
@@ -280,7 +281,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
         }
         
         setState(() => _statusMessage = 'Searching ${provider['name']}...');
-        debugPrint('[StreamExtractor] Trying ${provider['name']} source: $url');
+        log.info('[StreamExtractor] Trying ${provider['name']} source: $url');
 
         try {
           var result = await _extractor.extract(url, timeout: const Duration(seconds: 5));
@@ -313,7 +314,7 @@ class _StreamingDetailsScreenState extends State<StreamingDetailsScreen> with At
             break;
           }
         } catch (e) {
-          debugPrint('Error extracting from $key: $e');
+          log.info('Error extracting from $key: $e');
         }
       }
     }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:streame_core/api/tmdb_api.dart';
@@ -202,7 +203,7 @@ class _SearchScreenState extends State<SearchScreen> with AutomaticKeepAliveClie
         }
       });
     } catch (e) {
-      debugPrint('TMDB search error: $e');
+      log.info('TMDB search error: $e');
     }
   }
 

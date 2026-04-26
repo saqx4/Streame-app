@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 
@@ -30,10 +30,10 @@ class AndroidPlayerLauncher {
       );
 
       await intent.launch();
-      debugPrint('[AndroidPlayerLauncher] Launched ${packageName ?? "system chooser"} with $url');
+      log.info('[AndroidPlayerLauncher] Launched ${packageName ?? "system chooser"} with $url');
       return true;
     } catch (e) {
-      debugPrint('[AndroidPlayerLauncher] Error: $e');
+      log.info('[AndroidPlayerLauncher] Error: $e');
       return false;
     }
   }

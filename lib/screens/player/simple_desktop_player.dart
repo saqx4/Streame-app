@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -215,7 +216,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
 
     _errorSub = _player.stream.error.listen((err) {
       if (!mounted || err.isEmpty) return;
-      debugPrint('[Player] Error: $err');
+      log.info('[Player] Error: $err');
       // Don't show error overlay if we're already retrying
       if (_isRetrying) return;
       _hasErrorNotifier.value = true;
@@ -305,7 +306,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
       final torrentId = widget.magnetLink ?? widget.mediaPath;
       TorrentStreamService().removeTorrent(torrentId);
     } catch (e) {
-      debugPrint('[Player] Error removing torrent: $e');
+      log.info('[Player] Error removing torrent: $e');
     }
 
     super.dispose();
@@ -391,7 +392,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   }
 
   Future<void> _trySource(String url, [Map<String, String>? headers]) async {
-    debugPrint('[Player] Trying source: $url');
+    log.info('[Player] Trying source: $url');
     _isRetrying = _currentFallbackSourceIndex >= 0;
     final savedPos = _lastKnownPosition;
     _hasErrorNotifier.value = false;
@@ -415,19 +416,19 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
       if (savedPos.inSeconds > 0) {
         await Future.delayed(const Duration(milliseconds: 800));
         await _player.seek(savedPos);
-        debugPrint('[Player] Restored position to ${savedPos.inSeconds}s after reconnect');
+        log.info('[Player] Restored position to ${savedPos.inSeconds}s after reconnect');
       }
       // Give the player a moment to validate the source
       await Future.delayed(const Duration(seconds: 3));
       if (_hasErrorNotifier.value) {
-        debugPrint('[Player] Source failed after open, trying next...');
+        log.info('[Player] Source failed after open, trying next...');
         await _tryNextSource();
       } else {
-        debugPrint('[Player] Opened successfully: $url');
+        log.info('[Player] Opened successfully: $url');
         _isRetrying = false; _isRetryingNotifier.value = false;
       }
     } catch (e) {
-      debugPrint('[Player] Error opening source: $e');
+      log.info('[Player] Error opening source: $e');
       await _tryNextSource();
     }
   }
@@ -440,7 +441,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     } else if (widget.sources != null && widget.sources!.isNotEmpty) {
       // All sources tried — cycle back to first source and keep retrying
       // (the 3-min timeout in _attemptReconnect will eventually give up)
-      debugPrint('[Player] All sources tried, cycling back to first...');
+      log.info('[Player] All sources tried, cycling back to first...');
       _currentFallbackSourceIndex = 0;
       final source = widget.sources![_currentFallbackSourceIndex];
       await _trySource(source.url, source.headers ?? widget.headers);
@@ -454,7 +455,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         _errorMessageNotifier.value = 'Failed to play: No working source found';
       } else {
         // Retry the primary URL after a delay
-        debugPrint('[Player] Retrying primary source in 10s...');
+        log.info('[Player] Retrying primary source in 10s...');
         await Future.delayed(const Duration(seconds: 10));
         if (!mounted) return;
         await _trySource(widget.mediaPath, widget.headers);
@@ -1189,7 +1190,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         : '${widget.movie!.id}';
     WatchHistoryService().removeItem(uniqueId);
 
-    debugPrint('[Player] Auto-marked as watched: ${widget.title} ($uniqueId) at ${(progress * 100).round()}%');
+    log.info('[Player] Auto-marked as watched: ${widget.title} ($uniqueId) at ${(progress * 100).round()}%');
   }
 
   void _startAutoPlayCountdown() {
@@ -1251,7 +1252,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         }
       }
 
-      debugPrint('[NextEp] Playing S${nextSeason}E$nextEpisode');
+      log.info('[NextEp] Playing S${nextSeason}E$nextEpisode');
       _saveProgress(_positionNotifier.value);
 
       String? streamUrl;
@@ -1399,7 +1400,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         ),
       );
     } catch (e) {
-      debugPrint('[NextEp] Error: $e');
+      log.info('[NextEp] Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Next episode error: $e')),
@@ -1416,7 +1417,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     _stallCheckTimer?.cancel();
     _stallCheckTimer = Timer(const Duration(seconds: 30), () {
       if (!mounted || !_isBufferingNotifier.value) return;
-      debugPrint('[Player] Stall detected, attempting reconnect...');
+      log.info('[Player] Stall detected, attempting reconnect...');
       _attemptReconnect();
     });
   }
@@ -1435,7 +1436,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         return;
       }
       // Still stalled, try next source (will cycle back if all tried)
-      debugPrint('[Player] Still stalled (attempt $_stallRetryCount), trying next source...');
+      log.info('[Player] Still stalled (attempt $_stallRetryCount), trying next source...');
       _tryNextSource();
     });
   }

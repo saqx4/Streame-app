@@ -221,11 +221,11 @@ Future<void> _fetchStremioStreamsForCustomId(
   final type =
       item['type']?.toString() ??
       (_movie.mediaType == 'tv' ? 'series' : 'movie');
-  debugPrint(
+  log.info(
     '[CustomIdStreams] customId=$customId, addonBaseUrl=$addonBaseUrl, type=$type',
   );
   if (customId.isEmpty || addonBaseUrl.isEmpty) {
-    debugPrint(
+    log.info(
       '[CustomIdStreams] SKIPPED: customId empty=${customId.isEmpty}, addonBaseUrl empty=${addonBaseUrl.isEmpty}',
     );
     return;
@@ -249,7 +249,7 @@ Future<void> _fetchStremioStreamsForCustomId(
       );
       if (meta != null && meta['videos'] != null) {
         final videos = meta['videos'] as List;
-        debugPrint(
+        log.info(
           '[CustomIdStreams] Got ${videos.length} collection items from meta',
         );
 
@@ -277,7 +277,7 @@ Future<void> _fetchStremioStreamsForCustomId(
       );
       if (meta != null && meta['videos'] != null) {
         final videos = meta['videos'] as List;
-        debugPrint('[CustomIdStreams] Got ${videos.length} videos from meta');
+        log.info('[CustomIdStreams] Got ${videos.length} videos from meta');
 
         // Parse videos to build season/episode structure
         _parseCustomIdVideos(videos);
@@ -286,7 +286,7 @@ Future<void> _fetchStremioStreamsForCustomId(
         final selectedVideo = _getSelectedVideoFromCustomId(videos);
         if (selectedVideo != null) {
           final videoId = selectedVideo['id']?.toString() ?? '';
-          debugPrint(
+          log.info(
             '[CustomIdStreams] Fetching streams for video: $videoId',
           );
           final streams = await _stremio.getStreams(
@@ -294,7 +294,7 @@ Future<void> _fetchStremioStreamsForCustomId(
             type: type,
             id: videoId,
           );
-          debugPrint('[CustomIdStreams] Got ${streams.length} streams');
+          log.info('[CustomIdStreams] Got ${streams.length} streams');
 
           if (mounted) {
             final tagged = streams.map((s) {
@@ -329,9 +329,9 @@ Future<void> _fetchStremioStreamsForCustomId(
       type: type,
       id: customId,
     );
-    debugPrint('[CustomIdStreams] Got ${streams.length} streams');
+    log.info('[CustomIdStreams] Got ${streams.length} streams');
     if (streams.isNotEmpty) {
-      debugPrint('[CustomIdStreams] First stream: ${streams.first}');
+      log.info('[CustomIdStreams] First stream: ${streams.first}');
     }
     if (mounted) {
       final tagged = streams.map((s) {

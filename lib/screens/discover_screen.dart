@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:streame_core/api/tmdb_api.dart';
 import 'package:streame_core/services/settings_service.dart';
 import 'package:streame_core/models/movie.dart';
@@ -111,7 +112,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
         });
       }
     } catch (e) {
-      debugPrint('Error loading genres: $e');
+      log.info('Error loading genres: $e');
     }
   }
 
@@ -173,7 +174,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with AutomaticKeepAlive
         }
       }
     } catch (e) {
-      debugPrint('Error loading discover: $e');
+      log.info('Error loading discover: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }

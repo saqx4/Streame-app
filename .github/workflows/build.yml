@@ -80,14 +80,14 @@ jobs:
           flutter create --platforms=linux .
 
           # Fix binary name & window title
-          sed -i 's/set(BINARY_NAME "play_torrio_native")/set(BINARY_NAME "Streame")/' \
+          sed -i 's/set(BINARY_NAME "streame_native")/set(BINARY_NAME "Streame")/' \
             linux/CMakeLists.txt
-          sed -i 's/set(APPLICATION_ID "com.example.play_torrio_native")/set(APPLICATION_ID "com.streame.app")/' \
+          sed -i 's/set(APPLICATION_ID "com.example.streame_native")/set(APPLICATION_ID "com.streame.app")/' \
             linux/CMakeLists.txt
 
           # Fix application name in my_application.cc if it exists
           if [ -f "linux/my_application.cc" ]; then
-            sed -i 's/play_torrio_native/Streame/g' linux/my_application.cc
+            sed -i 's/streame_native/Streame/g' linux/my_application.cc
           fi
 
       - run: flutter pub get
@@ -172,19 +172,18 @@ jobs:
             macos/Runner/Info.plist
 
       - run: flutter pub get
-        working-directory: packages/mobile
+        working-directory: packages/desktop
       - run: >
           flutter build macos --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
-        working-directory: packages/mobile
+        working-directory: packages/desktop
 
       - name: Package as DMG
         run: |
-          cd packages/mobile/build/macos/Build/Products/Release
-          mv play_torrio_native.app Streame.app
+          cd packages/desktop/build/macos/Build/Products/Release
 
           codesign --sign - --force --deep Streame.app
 
@@ -246,19 +245,18 @@ jobs:
             macos/Runner/Info.plist
 
       - run: arch -x86_64 flutter pub get
-        working-directory: packages/mobile
+        working-directory: packages/desktop
       - run: >
           arch -x86_64 flutter build macos --release
           --dart-define=TRAKT_CLIENT_ID=${{ secrets.TRAKT_CLIENT_ID }}
           --dart-define=TRAKT_CLIENT_SECRET=${{ secrets.TRAKT_CLIENT_SECRET }}
           --dart-define=SIMKL_CLIENT_ID=${{ secrets.SIMKL_CLIENT_ID }}
           --dart-define=SIMKL_CLIENT_SECRET=${{ secrets.SIMKL_CLIENT_SECRET }}
-        working-directory: packages/mobile
+        working-directory: packages/desktop
 
       - name: Package as DMG
         run: |
-          cd packages/mobile/build/macos/Build/Products/Release
-          mv play_torrio_native.app Streame.app
+          cd packages/desktop/build/macos/Build/Products/Release
 
           codesign --sign - --force --deep Streame.app
 

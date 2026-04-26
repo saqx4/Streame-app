@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:streame_core/api/tmdb_api.dart';
 import 'package:streame_core/services/watch_history_service.dart';
@@ -98,14 +99,14 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
         if (savedUrl != null && savedUrl.isNotEmpty) {
           // Try playing the saved URL directly
           streamUrl = savedUrl;
-          debugPrint('[Resume] Trying saved stremio direct URL: $savedUrl');
+          log.info('[Resume] Trying saved stremio direct URL: $savedUrl');
         }
 
         // If no saved URL, or if player fails, we'll fall through to the
         // "open details page" fallback below
         if (streamUrl == null && stremioItemId != null && stremioAddonBase != null) {
           // Re-fetch streams from the addon
-          debugPrint('[Resume] Re-fetching stremio streams for $stremioItemId from $stremioAddonBase');
+          log.info('[Resume] Re-fetching stremio streams for $stremioItemId from $stremioAddonBase');
           final stremioType = item['stremioType'] as String? ?? (season != null ? 'series' : 'movie');
           final stremio = StremioService();
           try {
@@ -121,7 +122,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
               }
             }
           } catch (e) {
-            debugPrint('[Resume] Re-fetch stremio streams failed: $e');
+            log.info('[Resume] Re-fetch stremio streams failed: $e');
           }
         }
 
@@ -168,7 +169,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
         activeProvider = sourceId;
         
         if (sourceId == 'webstreamr') {
-          debugPrint('[Resume] Using WebStreamrService for $title');
+          log.info('[Resume] Using WebStreamrService for $title');
           final webStreamr = WebStreamrService();
           final imdbId = item['imdbId']?.toString() ?? '';
           if (imdbId.isNotEmpty) {
@@ -218,7 +219,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
            throw Exception('Provider $sourceId not available');
         }
 
-        debugPrint('[Resume] Re-extracting stream for $title (TMDB: $tmdbId, S:$season, E:$episode)');
+        log.info('[Resume] Re-extracting stream for $title (TMDB: $tmdbId, S:$season, E:$episode)');
         final url = season != null && episode != null
             ? provider['tv'](tmdbId, season, episode)
             : provider['movie'](tmdbId);
@@ -235,8 +236,8 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
           throw Exception('No magnet link saved for this torrent');
         }
         
-        debugPrint('[Resume] Using saved magnet link: ${magnetLink.substring(0, 60)}...');
-        debugPrint('[Resume] Using saved file index: $fileIndex');
+        log.info('[Resume] Using saved magnet link: ${magnetLink.substring(0, 60)}...');
+        log.info('[Resume] Using saved file index: $fileIndex');
 
         // Check Debrid Preference
         final useDebridSetting = await SettingsService().useDebridForStreams();
@@ -244,13 +245,13 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
         final useDebrid = useDebridSetting && debridService != 'None';
 
         if (useDebrid) {
-          debugPrint('[Resume] Using debrid service: $debridService');
+          log.info('[Resume] Using debrid service: $debridService');
           if (debridService == 'Real-Debrid') {
              final files = await DebridApi().resolveRealDebrid(magnetLink);
              if (fileIndex != null && fileIndex < files.length) {
                // Use saved file index
                streamUrl = files[fileIndex].downloadUrl;
-               debugPrint('[Resume] Using file at index $fileIndex: ${files[fileIndex].filename}');
+               log.info('[Resume] Using file at index $fileIndex: ${files[fileIndex].filename}');
              } else {
                // Fallback to largest file
                files.sort((a, b) => b.filesize.compareTo(a.filesize));
@@ -260,7 +261,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
              final files = await DebridApi().resolveTorBox(magnetLink);
              if (fileIndex != null && fileIndex < files.length) {
                streamUrl = files[fileIndex].downloadUrl;
-               debugPrint('[Resume] Using file at index $fileIndex: ${files[fileIndex].filename}');
+               log.info('[Resume] Using file at index $fileIndex: ${files[fileIndex].filename}');
              } else {
                files.sort((a, b) => b.filesize.compareTo(a.filesize));
                if (files.isNotEmpty) streamUrl = files.first.downloadUrl;
@@ -270,7 +271,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
           }
         } else {
           // Local Torrent Engine
-          debugPrint('[Resume] Using local torrent engine');
+          log.info('[Resume] Using local torrent engine');
           streamUrl = await TorrentStreamService().streamTorrent(magnetLink, season: season, episode: episode, fileIdx: fileIndex);
         }
       } else if (method == 'trakt_import') {
@@ -345,7 +346,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load video')));
       }
     } catch (e) {
-      debugPrint('[Resume] Error: $e');
+      log.info('[Resume] Error: $e');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _loadingItemId = null);

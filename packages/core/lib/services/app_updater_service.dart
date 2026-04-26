@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -69,7 +69,7 @@ class AppUpdaterService {
       }
       return null;
     } catch (e) {
-      debugPrint('Error checking for updates: $e');
+      log.info('Error checking for updates: $e');
       return null;
     }
   }

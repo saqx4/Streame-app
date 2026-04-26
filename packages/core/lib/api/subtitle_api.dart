@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
 import 'stremio_service.dart';
@@ -98,7 +98,7 @@ class SubtitleApi {
         completedTasks++;
         if (completedTasks == totalTasks) controller.close();
       }).catchError((e) {
-        debugPrint('Subtitle task error: $e');
+        log.info('Subtitle task error: $e');
         completedTasks++;
         if (completedTasks == totalTasks) controller.close();
       });
@@ -148,7 +148,7 @@ class SubtitleApi {
         }).toList();
       }
     } catch (e) {
-      debugPrint('Wyzie error: $e');
+      log.info('Wyzie error: $e');
     }
     return [];
   }
@@ -184,7 +184,7 @@ class SubtitleApi {
         return result;
       }
     } catch (e) {
-      debugPrint('Levrx error: $e');
+      log.info('Levrx error: $e');
     }
     return [];
   }

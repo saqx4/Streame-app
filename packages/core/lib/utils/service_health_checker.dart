@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import '../error/either.dart';
 import '../error/failures.dart';
 
@@ -92,20 +92,20 @@ class ServiceHealthChecker {
 
   /// Log health check results
   static void logResults(Map<String, ServiceHealth> results) {
-    debugPrint('═══════════════════════════════════════════════════════════');
-    debugPrint('[HealthCheck] Service Health Report');
-    debugPrint('═══════════════════════════════════════════════════════════');
+    log.info('═══════════════════════════════════════════════════════════');
+    log.info('[HealthCheck] Service Health Report');
+    log.info('═══════════════════════════════════════════════════════════');
     
     final healthy = results.values.where((h) => h.isHealthy).length;
     final total = results.length;
     
     for (final health in results.values) {
-      debugPrint(health.toString());
+      log.info(health.toString());
     }
     
-    debugPrint('═══════════════════════════════════════════════════════════');
-    debugPrint('[HealthCheck] Summary: $healthy/$total services healthy');
-    debugPrint('═══════════════════════════════════════════════════════════');
+    log.info('═══════════════════════════════════════════════════════════');
+    log.info('[HealthCheck] Summary: $healthy/$total services healthy');
+    log.info('═══════════════════════════════════════════════════════════');
   }
 
   /// Check if critical services are healthy
@@ -116,7 +116,7 @@ class ServiceHealthChecker {
     for (final serviceName in criticalServices) {
       final health = results[serviceName];
       if (health == null || !health.isHealthy) {
-        debugPrint('[HealthCheck] Critical service $serviceName is unhealthy');
+        log.info('[HealthCheck] Critical service $serviceName is unhealthy');
         return false;
       }
     }

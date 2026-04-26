@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'home_screen.dart';
@@ -82,7 +83,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         );
       }
     } catch (e) {
-      debugPrint('[MainScreen] Update check failed: $e');
+      log.info('[MainScreen] Update check failed: $e');
     }
   }
 

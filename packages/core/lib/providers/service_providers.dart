@@ -2,10 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/settings_service.dart';
 import '../services/torrent_stream_service.dart';
 import '../api/tmdb_api.dart';
+import '../api/torrent_api.dart';
+import '../api/stremio_service.dart';
+import '../api/trakt_service.dart';
+import '../api/simkl_service.dart';
+import '../api/debrid_api.dart';
+import '../api/mdblist_service.dart';
 import '../services/player_pool_service.dart';
 import '../services/watch_history_service.dart';
 import '../services/my_list_service.dart';
 import '../services/local_server_service.dart';
+import '../services/jackett_service.dart';
+import '../services/prowlarr_service.dart';
+import '../services/link_resolver.dart';
+import '../services/episode_watched_service.dart';
+import '../services/external_player_service.dart';
 
 // ============================================================================
 // Service Providers
@@ -94,4 +105,52 @@ final themePresetProvider = FutureProvider<String>((ref) async {
 final navbarConfigProvider = FutureProvider<List<String>>((ref) async {
   final settings = ref.watch(settingsServiceProvider);
   return await settings.getNavbarConfig();
+});
+
+// ============================================================================
+// Additional Service Providers
+// ============================================================================
+
+final torrentApiProvider = Provider<TorrentApi>((ref) {
+  return TorrentApi();
+});
+
+final stremioServiceProvider = Provider<StremioService>((ref) {
+  return StremioService();
+});
+
+final traktServiceProvider = Provider<TraktService>((ref) {
+  return TraktService();
+});
+
+final simklServiceProvider = Provider<SimklService>((ref) {
+  return SimklService();
+});
+
+final debridApiProvider = Provider<DebridApi>((ref) {
+  return DebridApi();
+});
+
+final mdblistServiceProvider = Provider<MdblistService>((ref) {
+  return MdblistService();
+});
+
+final jackettServiceProvider = Provider<JackettService>((ref) {
+  return JackettService();
+});
+
+final prowlarrServiceProvider = Provider<ProwlarrService>((ref) {
+  return ProwlarrService();
+});
+
+final linkResolverProvider = Provider<LinkResolver>((ref) {
+  return LinkResolver();
+});
+
+final episodeWatchedServiceProvider = Provider<EpisodeWatchedService>((ref) {
+  return EpisodeWatchedService();
+});
+
+final externalPlayerServiceProvider = Provider<ExternalPlayerService>((ref) {
+  return ExternalPlayerService();
 });

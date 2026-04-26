@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/stream_source.dart';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 
 class WebStreamrService {
   static const String baseUrl = 'https://webstreamr.hayd.uk';
@@ -20,7 +20,7 @@ class WebStreamrService {
         url = '$baseUrl/stream/series/$imdbId:$season:$episode.json';
       }
 
-      debugPrint('[WebStreamrService] Fetching streams from: $url');
+      log.info('[WebStreamrService] Fetching streams from: $url');
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
@@ -40,11 +40,11 @@ class WebStreamrService {
           );
         }).toList();
       } else {
-        debugPrint('[WebStreamrService] Error: ${response.statusCode}');
+        log.info('[WebStreamrService] Error: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      debugPrint('[WebStreamrService] Exception: $e');
+      log.info('[WebStreamrService] Exception: $e');
       return [];
     }
   }

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 import 'settings_service.dart';
 import 'torrent_filter.dart';
@@ -428,7 +428,7 @@ class TorrentStreamService {
   }
 
   void _log(String message) {
-    debugPrint('[TorrentStream] $message');
+    log.info('[TorrentStream] $message');
     onLogLine?.call(message);
   }
 }

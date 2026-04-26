@@ -1,35 +1,41 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/torrent_result.dart';
-import '../services/local_server_service.dart';
+import '../services/jackett_service.dart';
+import '../services/prowlarr_service.dart';
+import '../services/settings_service.dart';
+import '../utils/app_logger.dart';
 
+/// Torrent search API that delegates to configured backends (Jackett / Prowlarr).
 class TorrentApi {
-  final LocalServerService _localServer = LocalServerService();
+  static final TorrentApi _instance = TorrentApi._internal();
+  factory TorrentApi() => _instance;
+  TorrentApi._internal();
 
+  final JackettService _jackett = JackettService();
+  final ProwlarrService _prowlarr = ProwlarrService();
+  final SettingsService _settings = SettingsService();
+
+  /// Search torrents using the first available configured backend.
+  /// Tries Prowlarr first, then Jackett, then returns empty list.
   Future<List<TorrentResult>> searchTorrents(String query) async {
     try {
-      final baseUrl = _localServer.baseUrl;
-      final response = await http.get(Uri.parse('$baseUrl/api/ultimate?query=${Uri.encodeComponent(query)}'));
-
-      if (response.statusCode == 200) {
-        // Use compute to parse JSON in a background isolate to avoid UI lag
-        return await compute(_parseTorrents, response.body);
-      } else {
-        throw Exception('Failed to load torrents: ${response.statusCode}');
+      if (await _settings.isProwlarrConfigured()) {
+        final baseUrl = await _settings.getProwlarrBaseUrl() ?? '';
+        final apiKey = await _settings.getProwlarrApiKey() ?? '';
+        return await _prowlarr.search(baseUrl, apiKey, query);
       }
-    } catch (e) {
-      throw Exception('Error searching torrents: $e');
-    }
-  }
 
-  // Top-level function for compute
-  static List<TorrentResult> _parseTorrents(String responseBody) {
-    final decoded = jsonDecode(responseBody);
-    final results = decoded['results'] as List?;
-    if (results != null) {
-      return results.map((json) => TorrentResult.fromJson(json)).toList();
+      if (await _settings.isJackettConfigured()) {
+        final baseUrl = await _settings.getJackettBaseUrl() ?? '';
+        final apiKey = await _settings.getJackettApiKey() ?? '';
+        return await _jackett.search(baseUrl, apiKey, query);
+      }
+
+      log.warning('[TorrentApi] No torrent search backend configured '
+          '(Jackett or Prowlarr). Configure one in Settings.');
+      return [];
+    } catch (e) {
+      log.warning('[TorrentApi] Search error: $e');
+      rethrow;
     }
-    return [];
   }
 }

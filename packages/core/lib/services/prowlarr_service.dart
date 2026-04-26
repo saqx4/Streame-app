@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import '../models/torrent_result.dart';
 
@@ -35,10 +35,10 @@ class ProwlarrService {
   ) async {
     try {
       final normalizedUrl = _normalizeBaseUrl(baseUrl);
-      debugPrint('🔍 Prowlarr Search Starting...');
-      debugPrint('   Base URL: $normalizedUrl');
-      debugPrint('   Query: "$query"');
-      debugPrint('   API Key: ${apiKey.substring(0, 8)}...');
+      log.info('🔍 Prowlarr Search Starting...');
+      log.info('   Base URL: $normalizedUrl');
+      log.info('   Query: "$query"');
+      log.info('   API Key: ${apiKey.substring(0, 8)}...');
 
       // KEY FIX: indexerIds=-2 means ALL torrent indexers.
       //          indexerIds=-1 (the old value) means ALL USENET indexers — wrong!
@@ -58,21 +58,21 @@ class ProwlarrService {
           '&$categoriesQuery';
 
       final uri = Uri.parse('$normalizedUrl/api/v1/search?$fullQuery');
-      debugPrint('   Full URL: $uri');
+      log.info('   Full URL: $uri');
 
       final response = await _client.get(
         uri,
         headers: {'X-Api-Key': apiKey},
       ).timeout(_timeout);
 
-      debugPrint('   Response Status: ${response.statusCode}');
-      debugPrint('   Response Length: ${response.body.length} bytes');
+      log.info('   Response Status: ${response.statusCode}');
+      log.info('   Response Length: ${response.body.length} bytes');
 
       if (response.statusCode == 401) {
         throw Exception('❌ Wrong API key (401). Check your API key in Settings.');
       }
       if (response.statusCode == 400) {
-        debugPrint('   ❌ Bad Request Body: ${response.body}');
+        log.info('   ❌ Bad Request Body: ${response.body}');
         if (response.body.contains('all selected indexers being unavailable')) {
           throw Exception(
             '❌ No torrent indexers available in Prowlarr. '
@@ -85,7 +85,7 @@ class ProwlarrService {
         throw Exception('❌ Access denied (403). Check your Prowlarr API key and server configuration.');
       }
       if (response.statusCode == 500) {
-        debugPrint('   ❌ Server Error Body: ${response.body}');
+        log.info('   ❌ Server Error Body: ${response.body}');
         throw Exception('❌ Prowlarr server error (500). Check the Prowlarr logs.');
       }
       if (response.statusCode != 200) {
@@ -93,13 +93,13 @@ class ProwlarrService {
       }
 
       final results = _parseJsonResults(response.body);
-      debugPrint('   ✅ Parsed ${results.length} results');
+      log.info('   ✅ Parsed ${results.length} results');
       return results;
     } on http.ClientException catch (e) {
-      debugPrint('   ❌ ClientException: $e');
+      log.info('   ❌ ClientException: $e');
       throw Exception('⚠️ Cannot connect to Prowlarr. Is it running? Check your Base URL in Settings.');
     } catch (e) {
-      debugPrint('   ❌ Error: $e');
+      log.info('   ❌ Error: $e');
       if (e.toString().contains('TimeoutException')) {
         throw Exception('⚠️ Prowlarr timed out. It may be overloaded or the URL is wrong.');
       }
@@ -154,9 +154,9 @@ class ProwlarrService {
   /// Parse JSON response from Prowlarr
   List<TorrentResult> _parseJsonResults(String jsonBody) {
     try {
-      debugPrint('   📦 Parsing JSON response...');
+      log.info('   📦 Parsing JSON response...');
       final List<dynamic> data = jsonDecode(jsonBody) as List<dynamic>;
-      debugPrint('   📦 Total items in response: ${data.length}');
+      log.info('   📦 Total items in response: ${data.length}');
       final results = <TorrentResult>[];
 
       for (final item in data) {
@@ -166,7 +166,7 @@ class ProwlarrService {
           // Filter out usenet results (shouldn't appear with indexerIds=-2 but be safe)
           final protocol = map['protocol'] as String?;
           if (protocol == 'usenet') {
-            debugPrint('   ⏭️  Skipping usenet result');
+            log.info('   ⏭️  Skipping usenet result');
             continue;
           }
 
@@ -185,14 +185,14 @@ class ProwlarrService {
           final magnetUrl = map['magnetUrl'] as String?;
           if (magnetUrl != null && magnetUrl.isNotEmpty && magnetUrl.startsWith('magnet:')) {
             downloadLink = magnetUrl;
-            debugPrint('   ✅ magnetUrl for: $shortTitle');
+            log.info('   ✅ magnetUrl for: $shortTitle');
           }
 
           if (downloadLink == null) {
             final dlUrl = map['downloadUrl'] as String?;
             if (dlUrl != null && dlUrl.isNotEmpty) {
               downloadLink = dlUrl;
-              debugPrint('   ⚠️  downloadUrl for: $shortTitle');
+              log.info('   ⚠️  downloadUrl for: $shortTitle');
             }
           }
 
@@ -200,7 +200,7 @@ class ProwlarrService {
             final infoHash = map['infoHash'] as String?;
             if (infoHash != null && infoHash.isNotEmpty) {
               downloadLink = 'magnet:?xt=urn:btih:$infoHash&dn=${Uri.encodeComponent(title)}';
-              debugPrint('   🔗 infoHash magnet for: $shortTitle');
+              log.info('   🔗 infoHash magnet for: $shortTitle');
             }
           }
 
@@ -213,15 +213,15 @@ class ProwlarrService {
               source: indexer,
             ));
           } else {
-            debugPrint('   ❌ No download link for: $shortTitle');
+            log.info('   ❌ No download link for: $shortTitle');
           }
         } catch (e) {
-          debugPrint('   ❌ Error parsing item: $e');
+          log.info('   ❌ Error parsing item: $e');
           continue;
         }
       }
 
-      debugPrint('   ✅ Successfully parsed ${results.length} torrent results');
+      log.info('   ✅ Successfully parsed ${results.length} torrent results');
 
       // Sort by seeders descending (unknowns to bottom)
       results.sort((a, b) {
@@ -235,7 +235,7 @@ class ProwlarrService {
 
       return results;
     } catch (e) {
-      debugPrint('   ❌ JSON parsing error: $e');
+      log.info('   ❌ JSON parsing error: $e');
       throw Exception('⚠️ Unexpected response from Prowlarr. The server may be misconfigured.');
     }
   }

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,7 +56,7 @@ class SimklService {
     await _storage.write(key: _keyClientSecret, value: secret);
     _cachedClientId = id;
     _cachedClientSecret = secret;
-    debugPrint('[Simkl] Credentials saved');
+    log.info('[Simkl] Credentials saved');
   }
 
   /// Check if credentials are configured (runtime or env)
@@ -82,7 +82,7 @@ class SimklService {
   Future<Map<String, dynamic>?> requestPin() async {
     final cId = await clientId;
     if (cId.isEmpty) {
-      debugPrint('[Simkl] Error: Client ID not configured');
+      log.info('[Simkl] Error: Client ID not configured');
       return null;
     }
     try {
@@ -93,9 +93,9 @@ class SimklService {
       if (resp.statusCode == 200) {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
-      debugPrint('[Simkl] Request PIN failed: ${resp.statusCode} ${resp.body}');
+      log.info('[Simkl] Request PIN failed: ${resp.statusCode} ${resp.body}');
     } catch (e) {
-      debugPrint('[Simkl] Request PIN error: $e');
+      log.info('[Simkl] Request PIN error: $e');
     }
     return null;
   }
@@ -115,13 +115,13 @@ class SimklService {
         if (result == 'OK' && data['access_token'] != null) {
           final token = data['access_token'] as String;
           await _storage.write(key: _keyAccessToken, value: token);
-          debugPrint('[Simkl] Token saved.');
+          log.info('[Simkl] Token saved.');
           return token;
         }
         // result == "KO" means user hasn't entered PIN yet
       }
     } catch (e) {
-      debugPrint('[Simkl] Poll token error: $e');
+      log.info('[Simkl] Poll token error: $e');
     }
     return null;
   }
@@ -137,13 +137,13 @@ class SimklService {
     await _storage.delete(key: _keyAccessToken);
     _initialSyncDone = false;
     _syncInProgress = null;
-    debugPrint('[Simkl] Logged out.');
+    log.info('[Simkl] Logged out.');
   }
 
   /// Handle 401 unauthorized — token revoked server-side.
   void _handleUnauthorized(int statusCode) {
     if (statusCode == 401) {
-      debugPrint('[Simkl] 401 Unauthorized — token revoked, clearing auth');
+      log.info('[Simkl] 401 Unauthorized — token revoked, clearing auth');
       _storage.delete(key: _keyAccessToken);
       _initialSyncDone = false;
     }
@@ -167,7 +167,7 @@ class SimklService {
         return data['user'] as Map<String, dynamic>?;
       }
     } catch (e) {
-      debugPrint('[Simkl] Get profile error: $e');
+      log.info('[Simkl] Get profile error: $e');
     }
     return null;
   }
@@ -191,7 +191,7 @@ class SimklService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[Simkl] Get activities error: $e');
+      log.info('[Simkl] Get activities error: $e');
     }
     return null;
   }
@@ -222,10 +222,10 @@ class SimklService {
         headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
-      debugPrint('[Simkl] Add to list: ${resp.statusCode}');
+      log.info('[Simkl] Add to list: ${resp.statusCode}');
       return resp.statusCode == 200 || resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Simkl] Add to list error: $e');
+      log.info('[Simkl] Add to list error: $e');
       return false;
     }
   }
@@ -253,7 +253,7 @@ class SimklService {
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Simkl] Remove from list error: $e');
+      log.info('[Simkl] Remove from list error: $e');
       return false;
     }
   }
@@ -331,7 +331,7 @@ class SimklService {
       );
       return resp.statusCode == 200 || resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Simkl] Add to history error: $e');
+      log.info('[Simkl] Add to history error: $e');
       return false;
     }
   }
@@ -357,7 +357,7 @@ class SimklService {
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Simkl] Remove from history error: $e');
+      log.info('[Simkl] Remove from history error: $e');
       return false;
     }
   }
@@ -381,7 +381,7 @@ class SimklService {
         if (data is List) return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Simkl] Get ratings error: $e');
+      log.info('[Simkl] Get ratings error: $e');
     }
     return [];
   }
@@ -417,7 +417,7 @@ class SimklService {
       );
       return resp.statusCode == 200 || resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Simkl] Add rating error: $e');
+      log.info('[Simkl] Add rating error: $e');
       return false;
     }
   }
@@ -451,7 +451,7 @@ class SimklService {
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Simkl] Remove rating error: $e');
+      log.info('[Simkl] Remove rating error: $e');
       return false;
     }
   }
@@ -560,10 +560,10 @@ class SimklService {
           }
         }
       } catch (e) {
-        debugPrint('[Simkl] Import watchlist ($type) error: $e');
+        log.info('[Simkl] Import watchlist ($type) error: $e');
       }
     }
-    debugPrint('[Simkl] Imported $imported items to My List');
+    log.info('[Simkl] Imported $imported items to My List');
     return imported;
   }
 
@@ -584,7 +584,7 @@ class SimklService {
       final loggedIn = await isLoggedIn();
       if (!loggedIn) return;
 
-      debugPrint('[Simkl] Starting smart sync...');
+      log.info('[Simkl] Starting smart sync...');
       final activities = await _getLastActivities();
       final lastAll = activities?['all']?.toString() ?? '';
 
@@ -599,11 +599,11 @@ class SimklService {
           await _storage.write(key: 'simkl_last_activity', value: lastAll);
         }
       } else {
-        debugPrint('[Simkl] No activity changes, skipping sync');
+        log.info('[Simkl] No activity changes, skipping sync');
       }
 
       _initialSyncDone = true;
-      debugPrint(
+      log.info(
         '[Simkl] Smart sync done — watchlist: $watchlistCount, episodes: $episodesImported',
       );
     } finally {
@@ -644,7 +644,7 @@ class SimklService {
 
     final ok = await _addToList(movies: movies, shows: shows);
     final total = movies.length + shows.length;
-    debugPrint('[Simkl] Exported $total items: ${ok ? 'success' : 'failed'}');
+    log.info('[Simkl] Exported $total items: ${ok ? 'success' : 'failed'}');
     return ok ? total : 0;
   }
 
@@ -704,9 +704,9 @@ class SimklService {
           }
         }
       }
-      debugPrint('[Simkl] Imported $imported watched episodes');
+      log.info('[Simkl] Imported $imported watched episodes');
     } catch (e) {
-      debugPrint('[Simkl] Import watched episodes error: $e');
+      log.info('[Simkl] Import watched episodes error: $e');
     }
     return imported;
   }
@@ -757,7 +757,7 @@ class SimklService {
 
     if (shows.isEmpty) return 0;
     final ok = await addToHistory(shows: shows);
-    debugPrint(
+    log.info(
       '[Simkl] Exported $exported watched episodes: ${ok ? 'success' : 'failed'}',
     );
     return ok ? exported : 0;
@@ -821,10 +821,10 @@ class SimklService {
         body: json.encode(body),
       );
       _handleUnauthorized(resp.statusCode);
-      debugPrint('[Simkl] Scrobble $action (tmdb:$tmdbId): ${resp.statusCode}');
+      log.info('[Simkl] Scrobble $action (tmdb:$tmdbId): ${resp.statusCode}');
       return resp.statusCode == 200 || resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Simkl] Scrobble $action error: $e');
+      log.info('[Simkl] Scrobble $action error: $e');
       return false;
     }
   }

@@ -12,13 +12,19 @@ import 'package:streame_core/utils/env_loader.dart';
 class ApiKeys {
   /// TMDB API Key — REQUIRED for all metadata lookups.
   /// Get your key at: https://www.themoviedb.org/settings/api
-  static String get tmdbApiKey => EnvLoader.get('TMDB_API_KEY');
+  static String get tmdbApiKey {
+    final env = EnvLoader.get('TMDB_API_KEY');
+    return env.isNotEmpty ? env : '3308647fabe47a844ab269e6eab19132';
+  }
 
   /// TMDB Base URL
   static const String tmdbBaseUrl = 'https://api.themoviedb.org/3';
 
   /// Real-Debrid OAuth client ID
-  static String get rdClientId => EnvLoader.get('RD_CLIENT_ID');
+  static String get rdClientId {
+    final env = EnvLoader.get('RD_CLIENT_ID');
+    return env.isNotEmpty ? env : 'X245A4XAIBGVM';
+  }
 
   /// Whether the TMDB key is available
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;

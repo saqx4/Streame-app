@@ -142,7 +142,7 @@ void _playStremioStream(
         }
       }
     } catch (e) {
-      debugPrint('Stremio hash error: $e');
+      log.info('Stremio hash error: $e');
     }
     if (_streamCancelled) return;
     if (navigator.canPop()) navigator.pop();
@@ -372,7 +372,7 @@ void _playTorrent(TorrentResult result, {Duration? startPosition}) async {
       }
     }
   } catch (e) {
-    debugPrint('Stream error: $e');
+    log.info('Stream error: $e');
     if (mounted && !_streamCancelled) {
       ScaffoldMessenger.of(
         context,

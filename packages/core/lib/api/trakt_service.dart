@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,7 +60,7 @@ class TraktService {
     await _storage.write(key: _keyClientSecret, value: secret);
     _cachedClientId = id;
     _cachedClientSecret = secret;
-    debugPrint('[Trakt] Credentials saved');
+    log.info('[Trakt] Credentials saved');
   }
 
   /// Check if credentials are configured (runtime or env)
@@ -91,7 +92,7 @@ class TraktService {
   Future<Map<String, dynamic>?> startDeviceAuth() async {
     final cId = await clientId;
     if (cId.isEmpty) {
-      debugPrint('[Trakt] Error: Client ID not configured');
+      log.info('[Trakt] Error: Client ID not configured');
       return null;
     }
     try {
@@ -103,9 +104,9 @@ class TraktService {
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
       }
-      debugPrint('[Trakt] Device code request failed: ${response.statusCode}');
+      log.info('[Trakt] Device code request failed: ${response.statusCode}');
     } catch (e) {
-      debugPrint('[Trakt] Device code error: $e');
+      log.info('[Trakt] Device code error: $e');
     }
     return null;
   }
@@ -147,11 +148,11 @@ class TraktService {
         case 429:
           return 'pending'; // slow down — caller already uses interval
         default:
-          debugPrint('[Trakt] Poll unexpected status: ${response.statusCode}');
+          log.info('[Trakt] Poll unexpected status: ${response.statusCode}');
           return 'error';
       }
     } catch (e) {
-      debugPrint('[Trakt] Poll error: $e');
+      log.info('[Trakt] Poll error: $e');
       return 'error';
     }
   }
@@ -178,12 +179,12 @@ class TraktService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         await _saveTokens(data);
-        debugPrint('[Trakt] Token refreshed successfully');
+        log.info('[Trakt] Token refreshed successfully');
         return true;
       }
-      debugPrint('[Trakt] Token refresh failed: ${response.statusCode}');
+      log.info('[Trakt] Token refresh failed: ${response.statusCode}');
     } catch (e) {
-      debugPrint('[Trakt] Token refresh error: $e');
+      log.info('[Trakt] Token refresh error: $e');
     }
     return false;
   }
@@ -212,7 +213,7 @@ class TraktService {
     _initialSyncDone = false;
     _syncInProgress = null;
     loginNotifier.value = false;
-    debugPrint('[Trakt] Logged out');
+    log.info('[Trakt] Logged out');
   }
 
   /// Whether the user is currently logged in.
@@ -296,9 +297,9 @@ class TraktService {
         }
       }
 
-      debugPrint('[Trakt] Imported $imported items from watchlist');
+      log.info('[Trakt] Imported $imported items from watchlist');
     } catch (e) {
-      debugPrint('[Trakt] Watchlist import error: $e');
+      log.info('[Trakt] Watchlist import error: $e');
     }
     return imported;
   }
@@ -329,12 +330,12 @@ class TraktService {
           ],
         }),
       );
-      debugPrint(
+      log.info(
         '[Trakt] Add to watchlist ($type ids:$ids): ${resp.statusCode}',
       );
       return resp.statusCode == 201 || resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Add to watchlist error: $e');
+      log.info('[Trakt] Add to watchlist error: $e');
       return false;
     }
   }
@@ -365,12 +366,12 @@ class TraktService {
           ],
         }),
       );
-      debugPrint(
+      log.info(
         '[Trakt] Remove from watchlist ($type ids:$ids): ${resp.statusCode}',
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove from watchlist error: $e');
+      log.info('[Trakt] Remove from watchlist error: $e');
       return false;
     }
   }
@@ -491,10 +492,10 @@ class TraktService {
         headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
-      debugPrint('[Trakt] Add to history: ${resp.statusCode}');
+      log.info('[Trakt] Add to history: ${resp.statusCode}');
       return resp.statusCode == 201 || resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Add to history error: $e');
+      log.info('[Trakt] Add to history error: $e');
       return false;
     }
   }
@@ -545,7 +546,7 @@ class TraktService {
       }
 
       if (playbackId == null) {
-        debugPrint(
+        log.info(
           '[Trakt] No matching playback item found for tmdb:$tmdbId S:$season E:$episode',
         );
         return false;
@@ -555,12 +556,12 @@ class TraktService {
         Uri.parse('$_baseUrl/sync/playback/$playbackId'),
         headers: await _authHeadersAsync(token),
       );
-      debugPrint(
+      log.info(
         '[Trakt] Remove playback (id:$playbackId tmdb:$tmdbId): ${resp.statusCode}',
       );
       return resp.statusCode == 204 || resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove playback error: $e');
+      log.info('[Trakt] Remove playback error: $e');
       return false;
     }
   }
@@ -598,9 +599,9 @@ class TraktService {
         }
       }
 
-      debugPrint('[Trakt] Got ${results.length} playback progress items');
+      log.info('[Trakt] Got ${results.length} playback progress items');
     } catch (e) {
-      debugPrint('[Trakt] Get playback error: $e');
+      log.info('[Trakt] Get playback error: $e');
     }
     return results;
   }
@@ -655,7 +656,7 @@ class TraktService {
             : '$tmdbId';
 
         if (await WatchHistoryService().isDismissed(uniqueId)) {
-          debugPrint('[Trakt] Skipping dismissed item: $title ($uniqueId)');
+          log.info('[Trakt] Skipping dismissed item: $title ($uniqueId)');
           continue;
         }
 
@@ -664,38 +665,50 @@ class TraktService {
         posterPath = tmdbInfo['poster'] as String;
         final durationMs = tmdbInfo['runtimeMs'] as int;
 
+        // Derive position from Trakt progress % + real TMDB runtime.
+        final estimatedPositionMs = (progress / 100 * durationMs).round();
+
         // Check if already in local history
         final existing = await WatchHistoryService().getProgress(
           tmdbId,
           season: season,
           episode: episode,
         );
-        if (existing != null) continue;
 
-        // Derive position from Trakt progress % + real TMDB runtime.
-        final estimatedPositionMs = (progress / 100 * durationMs).round();
+        if (existing != null) {
+          // Update local progress only if Trakt progress is further ahead
+          final localPos = (existing['position'] as num?)?.toInt() ?? 0;
+          if (estimatedPositionMs <= localPos) continue;
+          log.info('[Trakt] Updating local progress for $title: $localPos → $estimatedPositionMs ms (Trakt ${progress.toStringAsFixed(1)}%)');
+        }
 
         await WatchHistoryService().saveProgress(
           tmdbId: tmdbId,
           imdbId: imdbId,
           title: title,
           posterPath: posterPath,
-          method: 'trakt_import',
-          sourceId: 'trakt',
+          method: existing != null ? (existing['method'] as String? ?? 'trakt_import') : 'trakt_import',
+          sourceId: existing != null ? (existing['sourceId'] as String? ?? 'trakt') : 'trakt',
           position: estimatedPositionMs,
           duration: durationMs,
           season: season,
           episode: episode,
           episodeTitle: episodeTitle,
           mediaType: mediaType,
+          magnetLink: existing?['magnetLink']?.toString(),
+          fileIndex: existing?['fileIndex'] as int?,
+          streamUrl: existing?['streamUrl']?.toString(),
+          stremioId: existing?['stremioId']?.toString(),
+          stremioAddonBaseUrl: existing?['stremioAddonBaseUrl']?.toString(),
+          stremioType: existing?['stremioType']?.toString(),
         );
         imported++;
       } catch (e) {
-        debugPrint('[Trakt] Import playback item error: $e');
+        log.info('[Trakt] Import playback item error: $e');
       }
     }
 
-    debugPrint('[Trakt] Imported $imported playback items to watch history');
+    log.info('[Trakt] Imported $imported playback items to watch history');
     return imported;
   }
 
@@ -730,12 +743,12 @@ class TraktService {
           ],
         }),
       );
-      debugPrint(
+      log.info(
         '[Trakt] Rate item (tmdb:$tmdbId $rating/10): ${resp.statusCode}',
       );
       return resp.statusCode == 201 || resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Rate item error: $e');
+      log.info('[Trakt] Rate item error: $e');
       return false;
     }
   }
@@ -763,10 +776,10 @@ class TraktService {
           ],
         }),
       );
-      debugPrint('[Trakt] Remove rating (tmdb:$tmdbId): ${resp.statusCode}');
+      log.info('[Trakt] Remove rating (tmdb:$tmdbId): ${resp.statusCode}');
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove rating error: $e');
+      log.info('[Trakt] Remove rating error: $e');
       return false;
     }
   }
@@ -787,11 +800,11 @@ class TraktService {
           result[type] = json.decode(resp.body);
         }
       }
-      debugPrint(
+      log.info(
         '[Trakt] Got ratings: ${(result['movies'] as List).length} movies, ${(result['shows'] as List).length} shows',
       );
     } catch (e) {
-      debugPrint('[Trakt] Get ratings error: $e');
+      log.info('[Trakt] Get ratings error: $e');
     }
     return result;
   }
@@ -829,12 +842,12 @@ class TraktService {
           ],
         }),
       );
-      debugPrint(
+      log.info(
         '[Trakt] Add to collection ($type ids:$ids): ${resp.statusCode}',
       );
       return resp.statusCode == 201 || resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Add to collection error: $e');
+      log.info('[Trakt] Add to collection error: $e');
       return false;
     }
   }
@@ -865,10 +878,10 @@ class TraktService {
           ],
         }),
       );
-      debugPrint('[Trakt] Remove from collection: ${resp.statusCode}');
+      log.info('[Trakt] Remove from collection: ${resp.statusCode}');
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove from collection error: $e');
+      log.info('[Trakt] Remove from collection error: $e');
       return false;
     }
   }
@@ -890,7 +903,7 @@ class TraktService {
         }
       }
     } catch (e) {
-      debugPrint('[Trakt] Get collection error: $e');
+      log.info('[Trakt] Get collection error: $e');
     }
     return result;
   }
@@ -941,10 +954,10 @@ class TraktService {
         headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
-      debugPrint('[Trakt] Remove from history: ${resp.statusCode}');
+      log.info('[Trakt] Remove from history: ${resp.statusCode}');
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove from history error: $e');
+      log.info('[Trakt] Remove from history error: $e');
       return false;
     }
   }
@@ -968,7 +981,7 @@ class TraktService {
         return items.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Trakt] Get lists error: $e');
+      log.info('[Trakt] Get lists error: $e');
     }
     return [];
   }
@@ -988,7 +1001,7 @@ class TraktService {
         return items.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Trakt] Get list items error: $e');
+      log.info('[Trakt] Get list items error: $e');
     }
     return [];
   }
@@ -1022,7 +1035,7 @@ class TraktService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[Trakt] Create list error: $e');
+      log.info('[Trakt] Create list error: $e');
     }
     return null;
   }
@@ -1047,7 +1060,7 @@ class TraktService {
       );
       return resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Trakt] Add to list error: $e');
+      log.info('[Trakt] Add to list error: $e');
       return false;
     }
   }
@@ -1072,7 +1085,7 @@ class TraktService {
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[Trakt] Remove from list error: $e');
+      log.info('[Trakt] Remove from list error: $e');
       return false;
     }
   }
@@ -1096,7 +1109,7 @@ class TraktService {
         return items.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Trakt] Get recommendations error: $e');
+      log.info('[Trakt] Get recommendations error: $e');
     }
     return [];
   }
@@ -1121,7 +1134,7 @@ class TraktService {
         return items.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Trakt] Get calendar shows error: $e');
+      log.info('[Trakt] Get calendar shows error: $e');
     }
     return [];
   }
@@ -1142,7 +1155,7 @@ class TraktService {
         return items.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[Trakt] Get calendar movies error: $e');
+      log.info('[Trakt] Get calendar movies error: $e');
     }
     return [];
   }
@@ -1182,10 +1195,10 @@ class TraktService {
         headers: await _authHeadersAsync(token),
         body: json.encode(body),
       );
-      debugPrint('[Trakt] Checkin (tmdb:$tmdbId): ${resp.statusCode}');
+      log.info('[Trakt] Checkin (tmdb:$tmdbId): ${resp.statusCode}');
       return resp.statusCode == 201;
     } catch (e) {
-      debugPrint('[Trakt] Checkin error: $e');
+      log.info('[Trakt] Checkin error: $e');
       return false;
     }
   }
@@ -1202,7 +1215,7 @@ class TraktService {
       );
       return resp.statusCode == 204;
     } catch (e) {
-      debugPrint('[Trakt] Cancel checkin error: $e');
+      log.info('[Trakt] Cancel checkin error: $e');
       return false;
     }
   }
@@ -1225,7 +1238,7 @@ class TraktService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[Trakt] Get stats error: $e');
+      log.info('[Trakt] Get stats error: $e');
     }
     return null;
   }
@@ -1249,7 +1262,7 @@ class TraktService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[Trakt] Get last activities error: $e');
+      log.info('[Trakt] Get last activities error: $e');
     }
     return null;
   }
@@ -1275,7 +1288,7 @@ class TraktService {
       final loggedIn = await isLoggedIn();
       if (!loggedIn) return;
 
-      debugPrint('[Trakt] Starting smart sync...');
+      log.info('[Trakt] Starting smart sync...');
       final activities = await _getLastActivities();
       final lastWatchlist =
           activities?['watchlist']?['updated_at']?.toString() ?? '';
@@ -1302,7 +1315,7 @@ class TraktService {
           );
         }
       } else {
-        debugPrint('[Trakt] Watchlist unchanged, skipping');
+        log.info('[Trakt] Watchlist unchanged, skipping');
       }
 
       if (force || savedScrobble != lastScrobble) {
@@ -1311,7 +1324,7 @@ class TraktService {
           await _storage.write(key: 'trakt_last_scrobble', value: lastScrobble);
         }
       } else {
-        debugPrint('[Trakt] Playback unchanged, skipping');
+        log.info('[Trakt] Playback unchanged, skipping');
       }
 
       if (force || savedWatched != lastWatched) {
@@ -1320,11 +1333,11 @@ class TraktService {
           await _storage.write(key: 'trakt_last_watched', value: lastWatched);
         }
       } else {
-        debugPrint('[Trakt] Watched episodes unchanged, skipping');
+        log.info('[Trakt] Watched episodes unchanged, skipping');
       }
 
       _initialSyncDone = true;
-      debugPrint(
+      log.info(
         '[Trakt] Smart sync done — watchlist: $watchlistCount, playback: $playbackCount, episodes: $episodesImported',
       );
     } finally {
@@ -1379,9 +1392,9 @@ class TraktService {
           }
         }
       }
-      debugPrint('[Trakt] Imported $imported watched episodes');
+      log.info('[Trakt] Imported $imported watched episodes');
     } catch (e) {
-      debugPrint('[Trakt] Import watched episodes error: $e');
+      log.info('[Trakt] Import watched episodes error: $e');
     }
     return imported;
   }
@@ -1442,10 +1455,10 @@ class TraktService {
           exported += entry.value.length;
         }
       } catch (e) {
-        debugPrint('[Trakt] Export watched episodes error: $e');
+        log.info('[Trakt] Export watched episodes error: $e');
       }
     }
-    debugPrint('[Trakt] Exported $exported watched episodes');
+    log.info('[Trakt] Exported $exported watched episodes');
     return exported;
   }
 
@@ -1498,12 +1511,12 @@ class TraktService {
         }),
       );
       final total = movies.length + shows.length;
-      debugPrint(
+      log.info(
         '[Trakt] Exported $total items to watchlist: ${resp.statusCode}',
       );
       return resp.statusCode == 201 || resp.statusCode == 200 ? total : 0;
     } catch (e) {
-      debugPrint('[Trakt] Export watchlist error: $e');
+      log.info('[Trakt] Export watchlist error: $e');
       return 0;
     }
   }
@@ -1526,7 +1539,7 @@ class TraktService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[Trakt] Get profile error: $e');
+      log.info('[Trakt] Get profile error: $e');
     }
     return null;
   }
@@ -1558,7 +1571,7 @@ class TraktService {
         .add(Duration(seconds: expiresIn))
         .toIso8601String();
     await _storage.write(key: _keyExpiresAt, value: expiresAt);
-    debugPrint('[Trakt] Tokens saved, expires in ${expiresIn ~/ 86400} days');
+    log.info('[Trakt] Tokens saved, expires in ${expiresIn ~/ 86400} days');
   }
 
   /// Get a valid access token, refreshing if near expiry.
@@ -1572,7 +1585,7 @@ class TraktService {
       if (expiresAt != null &&
           DateTime.now().isAfter(expiresAt.subtract(const Duration(days: 7)))) {
         // Token expires within 7 days — refresh it
-        debugPrint('[Trakt] Token nearing expiry, refreshing...');
+        log.info('[Trakt] Token nearing expiry, refreshing...');
         final refreshed = await _refreshToken();
         if (refreshed) {
           return await _storage.read(key: _keyAccessToken);
@@ -1588,7 +1601,7 @@ class TraktService {
   /// Handle 401 unauthorized — token revoked server-side.
   void _handleUnauthorized(int statusCode) {
     if (statusCode == 401) {
-      debugPrint('[Trakt] 401 Unauthorized — token revoked, clearing auth');
+      log.info('[Trakt] 401 Unauthorized — token revoked, clearing auth');
       _storage.delete(key: _keyAccessToken);
       _storage.delete(key: _keyRefreshToken);
       _storage.delete(key: _keyExpiresAt);
@@ -1628,13 +1641,13 @@ class TraktService {
         body: json.encode(body),
       );
       _handleUnauthorized(resp.statusCode);
-      debugPrint(
+      log.info(
         '[Trakt] Scrobble $action (tmdb:$tmdbId S:$season E:$episode ${progressPercent.toStringAsFixed(1)}%): ${resp.statusCode}',
       );
       // 429 = rate limited — wait and retry once
       if (resp.statusCode == 429) {
         final retryAfter = int.tryParse(resp.headers['retry-after'] ?? '') ?? 1;
-        debugPrint('[Trakt] Rate limited, retrying after ${retryAfter}s');
+        log.info('[Trakt] Rate limited, retrying after ${retryAfter}s');
         await Future.delayed(Duration(seconds: retryAfter));
         final retry = await http.post(
           Uri.parse('$_baseUrl/scrobble/$action'),
@@ -1651,7 +1664,7 @@ class TraktService {
           resp.statusCode == 201 ||
           resp.statusCode == 409;
     } catch (e) {
-      debugPrint('[Trakt] Scrobble error: $e');
+      log.info('[Trakt] Scrobble error: $e');
       return false;
     }
   }
@@ -1697,7 +1710,7 @@ class TraktService {
         return {'poster': poster, 'runtimeMs': runtimeMs};
       }
     } catch (e) {
-      debugPrint('[Trakt] TMDB info fetch failed for $tmdbId: $e');
+      log.info('[Trakt] TMDB info fetch failed for $tmdbId: $e');
     }
     return {'poster': '', 'runtimeMs': 6000000};
   }

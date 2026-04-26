@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'app_logger.dart';
 import 'package:path/path.dart' as path;
 
 class WebViewCleanup {
@@ -17,19 +17,19 @@ class WebViewCleanup {
         final webView2Dir = Directory(path.join(exeDir, '$exeName.WebView2'));
         
         if (await webView2Dir.exists()) {
-          debugPrint('[WebViewCleanup] Found WebView2 cache: ${webView2Dir.path}');
+          log.info('[WebViewCleanup] Found WebView2 cache: ${webView2Dir.path}');
           
           // Try multiple times with increasing delays
           bool deleted = false;
           for (int attempt = 1; attempt <= 5; attempt++) {
             try {
-              debugPrint('[WebViewCleanup] Deletion attempt $attempt/5...');
+              log.info('[WebViewCleanup] Deletion attempt $attempt/5...');
               await webView2Dir.delete(recursive: true);
-              debugPrint('[WebViewCleanup] ✓ Cache deleted successfully');
+              log.info('[WebViewCleanup] ✓ Cache deleted successfully');
               deleted = true;
               break;
             } catch (e) {
-              debugPrint('[WebViewCleanup] Attempt $attempt failed: $e');
+              log.info('[WebViewCleanup] Attempt $attempt failed: $e');
               if (attempt < 5) {
                 await Future.delayed(Duration(seconds: attempt)); // Exponential backoff
               }
@@ -38,7 +38,7 @@ class WebViewCleanup {
           
           // If normal delete failed, try force delete with cmd
           if (!deleted) {
-            debugPrint('[WebViewCleanup] Trying force delete with rmdir...');
+            log.info('[WebViewCleanup] Trying force delete with rmdir...');
             try {
               final result = await Process.run(
                 'cmd',
@@ -46,16 +46,16 @@ class WebViewCleanup {
                 runInShell: true,
               );
               if (result.exitCode == 0) {
-                debugPrint('[WebViewCleanup] ✓ Force deleted with rmdir');
+                log.info('[WebViewCleanup] ✓ Force deleted with rmdir');
               } else {
-                debugPrint('[WebViewCleanup] rmdir failed: ${result.stderr}');
+                log.info('[WebViewCleanup] rmdir failed: ${result.stderr}');
               }
             } catch (e) {
-              debugPrint('[WebViewCleanup] Force delete failed: $e');
+              log.info('[WebViewCleanup] Force delete failed: $e');
             }
           }
         } else {
-          debugPrint('[WebViewCleanup] No WebView2 cache found');
+          log.info('[WebViewCleanup] No WebView2 cache found');
         }
       } else if (Platform.isLinux) {
         // Linux: WebKitGTK cache in ~/.cache/webkitgtk or app-specific cache
@@ -63,12 +63,12 @@ class WebViewCleanup {
         if (home != null) {
           final cacheDirs = [
             Directory(path.join(home, '.cache', 'webkitgtk')),
-            Directory(path.join(home, '.cache', 'play_torrio_native')),
+            Directory(path.join(home, '.cache', 'Streame')),
           ];
           
           for (final cacheDir in cacheDirs) {
             if (await cacheDir.exists()) {
-              debugPrint('[WebViewCleanup] Deleting Linux cache: ${cacheDir.path}');
+              log.info('[WebViewCleanup] Deleting Linux cache: ${cacheDir.path}');
               await cacheDir.delete(recursive: true);
             }
           }
@@ -78,22 +78,22 @@ class WebViewCleanup {
         final home = Platform.environment['HOME'];
         if (home != null) {
           final cacheDirs = [
-            Directory(path.join(home, 'Library', 'Caches', 'play_torrio_native')),
+            Directory(path.join(home, 'Library', 'Caches', 'Streame')),
             Directory(path.join(home, 'Library', 'WebKit')),
           ];
           
           for (final cacheDir in cacheDirs) {
             if (await cacheDir.exists()) {
-              debugPrint('[WebViewCleanup] Deleting macOS cache: ${cacheDir.path}');
+              log.info('[WebViewCleanup] Deleting macOS cache: ${cacheDir.path}');
               await cacheDir.delete(recursive: true);
             }
           }
         }
       }
       
-      debugPrint('[WebViewCleanup] Cleanup complete');
+      log.info('[WebViewCleanup] Cleanup complete');
     } catch (e) {
-      debugPrint('[WebViewCleanup] Error cleaning cache: $e');
+      log.info('[WebViewCleanup] Error cleaning cache: $e');
       // Silently fail - not critical
     }
   }

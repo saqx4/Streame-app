@@ -151,6 +151,7 @@ class _PlayerPillState extends State<PlayerPill> {
 class PlayerPlayPause extends StatefulWidget {
   final bool isPlaying;
   final bool isBuffering;
+  final int bufferPct; // 0–100
   final VoidCallback onPressed;
   final double size;
 
@@ -158,6 +159,7 @@ class PlayerPlayPause extends StatefulWidget {
     super.key,
     required this.isPlaying,
     required this.isBuffering,
+    this.bufferPct = 0,
     required this.onPressed,
     this.size = 56,
   });
@@ -207,19 +209,36 @@ class _PlayerPlayPauseState extends State<PlayerPlayPause>
       child: ScaleTransition(
         scale: _controller,
         child: Container(
-          width: widget.size,
-          height: widget.size,
+          width: widget.isBuffering ? widget.size * 1.3 : widget.size,
+          height: widget.isBuffering ? widget.size * 1.3 : widget.size,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: _pressed ? 0.22 : 0.12),
             shape: BoxShape.circle,
           ),
           child: widget.isBuffering
-              ? Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: _kAccent.withValues(alpha: 0.9),
-                  ),
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: _kAccent.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    if (widget.bufferPct > 0 && widget.bufferPct < 100)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${widget.bufferPct}%',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
                 )
               : Icon(
                   widget.isPlaying

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../models/stream_source.dart';
 
@@ -66,14 +66,14 @@ class StreamExtractor {
         } else if (_capturedVideo != null) {
            _completeWithCaptured(url);
         } else {
-          debugPrint('[StreamExtractor] Sniffing Session Timeout for: $url');
+          log.info('[StreamExtractor] Sniffing Session Timeout for: $url');
           _cleanup();
           _completer?.complete(null);
         }
       }
     });
 
-    debugPrint('[StreamExtractor] RAW SNIFFER START: $url');
+    log.info('[StreamExtractor] RAW SNIFFER START: $url');
     
     _headlessWebView = HeadlessInAppWebView(
       initialUrlRequest: URLRequest(url: WebUri(url)),
@@ -97,16 +97,16 @@ class StreamExtractor {
       ),
       onLoadResource: (controller, resource) {
         final rUrl = resource.url.toString();
-        debugPrint('[StreamExtractor Resource] $rUrl');
+        log.info('[StreamExtractor Resource] $rUrl');
         _processUrl(rUrl, url);
       },
       onLoadStop: (controller, url) async {
-        debugPrint('[StreamExtractor] Page Loaded: $url');
+        log.info('[StreamExtractor] Page Loaded: $url');
         await controller.evaluateJavascript(source: _getRawSpyJs());
       },
       onConsoleMessage: (controller, consoleMessage) {
         final msg = consoleMessage.message;
-        debugPrint('[StreamExtractor Console] $msg');
+        log.info('[StreamExtractor Console] $msg');
         
         if (msg.contains('PT_EXTRACT:')) {
           // Clean up the message from potential quotes and prefixes
@@ -143,7 +143,7 @@ class StreamExtractor {
     try {
       await _headlessWebView?.run();
     } catch (e) {
-      debugPrint('[StreamExtractor] Engine Error: $e');
+      log.info('[StreamExtractor] Engine Error: $e');
     }
     return _completer?.future;
   }
@@ -165,12 +165,12 @@ class StreamExtractor {
        // Check audio only in the URL path (not query params)
        final pathOnly = Uri.tryParse(rUrl)?.path ?? rUrl;
        if (pathOnly.contains('/audio/') || pathOnly.contains('audio_')) {
-          debugPrint('[StreamExtractor] AUDIO DETECTED: $rUrl');
+          log.info('[StreamExtractor] AUDIO DETECTED: $rUrl');
           _capturedAudio = rUrl;
           // ✅ FIX: was `headers` (undefined getter) — now builds the map correctly
           _capturedHeaders ??= _buildHeaders(referer);
        } else {
-          debugPrint('[StreamExtractor] VIDEO/STREAM DETECTED: $rUrl');
+          log.info('[StreamExtractor] VIDEO/STREAM DETECTED: $rUrl');
           
           // Add to detected URLs list for quality selection
           if (!_detectedVideoUrls.contains(rUrl)) {
@@ -204,7 +204,7 @@ class StreamExtractor {
         orElse: () => '',
       );
       if (match.isNotEmpty) {
-        debugPrint('[StreamExtractor] Selected quality: $quality from ${urls.length} options');
+        log.info('[StreamExtractor] Selected quality: $quality from ${urls.length} options');
         return match;
       }
     }
@@ -367,11 +367,11 @@ class StreamExtractor {
     _timeoutTimer = null;
     
     if (_headlessWebView != null) {
-      debugPrint('[StreamExtractor] Disposing Headless WebView...');
+      log.info('[StreamExtractor] Disposing Headless WebView...');
       try {
         await _headlessWebView?.dispose();
       } catch (e) {
-        debugPrint('[StreamExtractor] Error during disposal: $e');
+        log.info('[StreamExtractor] Error during disposal: $e');
       }
       _headlessWebView = null;
     }

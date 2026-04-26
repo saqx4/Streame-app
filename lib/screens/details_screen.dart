@@ -26,6 +26,7 @@ import 'package:streame_core/api/mdblist_service.dart';
 import 'package:streame_core/utils/extensions.dart';
 import 'package:streame_core/utils/app_theme.dart';
 import 'package:streame_core/utils/device_detector.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:streame_core/widgets/loading_overlay.dart';
 import 'player_screen.dart';
 import 'stremio_catalog_screen.dart';

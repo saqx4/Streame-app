@@ -8,10 +8,15 @@ import 'package:media_kit/media_kit.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:streame_core/api/api_keys.dart';
+import 'package:streame_core/api/trakt_service.dart';
+import 'package:streame_core/api/simkl_service.dart';
 import 'package:streame_core/services/settings_service.dart';
 import 'package:streame_core/services/torrent_stream_service.dart';
 import 'package:streame_core/services/player_pool_service.dart';
 import 'package:streame_core/services/watch_history_service.dart';
+import 'package:streame_core/services/jackett_service.dart';
+import 'package:streame_core/services/prowlarr_service.dart';
+import 'package:streame_core/services/link_resolver.dart';
 import 'package:streame_core/utils/webview_cleanup.dart';
 import 'package:streame_core/utils/app_logger.dart';
 import 'package:streame_core/utils/app_theme.dart';
@@ -72,6 +77,9 @@ void main() async {
   await AppTheme.initTheme();
 
   PlayerPoolService().warmUp();
+  // Trakt & Simkl auto-sync (runs once per session, no-op if not logged in)
+  TraktService().fullSync();
+  SimklService().fullSync();
   log.info('[Boot] All init complete — launching app');
 
   runApp(
@@ -125,6 +133,9 @@ class _StreameAppWrapperState extends State<_StreameAppWrapper> with WidgetsBind
         PlayerPoolService().dispose();
         await TorrentStreamService().cleanup();
         WatchHistoryService().dispose();
+        JackettService().dispose();
+        ProwlarrService().dispose();
+        LinkResolver().dispose();
         await WebViewCleanup.cleanupWebView2Cache();
       } catch (_) {}
       await windowManager.destroy();
@@ -149,6 +160,9 @@ class _StreameAppWrapperState extends State<_StreameAppWrapper> with WidgetsBind
       PlayerPoolService().dispose();
       TorrentStreamService().cleanup();
       WatchHistoryService().dispose();
+      JackettService().dispose();
+      ProwlarrService().dispose();
+      LinkResolver().dispose();
       WebViewCleanup.cleanupWebView2Cache();
     }
   }

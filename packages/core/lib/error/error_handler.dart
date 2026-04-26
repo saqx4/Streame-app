@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'failures.dart';
 
 /// Global error handler that centralizes error logging and reporting
@@ -19,14 +20,14 @@ class ErrorHandler {
     final timestamp = DateTime.now().toIso8601String();
     final severityStr = severity.toString().split('.').last.toUpperCase();
     
-    debugPrint('[$timestamp] [$severityStr] $message');
+    log.info('[$timestamp] [$severityStr] $message');
     
     if (error != null) {
-      debugPrint('Error: $error');
+      log.info('Error: $error');
     }
     
     if (stackTrace != null && kDebugMode) {
-      debugPrint('Stack trace:\n$stackTrace');
+      log.info('Stack trace:\n$stackTrace');
     }
   }
 

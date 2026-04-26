@@ -5,11 +5,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:screen_brightness/screen_brightness.dart';
+import 'package:audio_session/audio_session.dart';
 
 import 'package:streame_core/api/subtitle_api.dart';
 import 'package:streame_core/services/watch_history_service.dart';
@@ -118,13 +120,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       ValueNotifier(Duration.zero);
   final ValueNotifier<bool> _isPlayingNotifier = ValueNotifier(false);
   final ValueNotifier<bool> _isBufferingNotifier = ValueNotifier(false);
+  final ValueNotifier<int> _bufferPctNotifier = ValueNotifier(0); // 0–100
 
   // ── Gesture State ─────────────────────────────────────────────────────────
-  double _volume = 50.0;       // 0–150 (mpv supports >100%)
+  double _volume = 100.0;       // synced with system volume (0–100)
   double _brightness = 0.5;    // 0.0..1.0 (screen brightness)
   bool _showVolumeIndicator = false;
   bool _showBrightnessIndicator = false;
   Timer? _indicatorHideTimer;
+
+  // ── Gesture axis lock ────────────────────────────────────────────────────
+  Axis? _dragAxis; // null until first move determines direction
 
   // ── Double-tap ripple ─────────────────────────────────────────────────────
   late final AnimationController _rippleController;
@@ -251,7 +257,18 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       _initPlayback();
       _startHideTimer();
       _fetchSubtitles();
-      // Initialize brightness from current screen level
+    // ── Audio Session ────────────────────────────────────────────────────
+    // Configure as media type so hardware volume buttons control the media stream.
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+      ));
+    } catch (e) {
+      log.info('[MobilePlayer] Audio session setup failed: $e');
+    }
+
+    // Initialize brightness from current screen level
       ScreenBrightness().application.then((b) {
         if (mounted) setState(() => _brightness = b);
       }).catchError((_) {
@@ -326,6 +343,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     _bufferedNotifier.dispose();
     _isPlayingNotifier.dispose();
     _isBufferingNotifier.dispose();
+    _bufferPctNotifier.dispose();
 
     _player.dispose();
 
@@ -377,6 +395,15 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         );
       }
     }
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    super.didHaveMemoryPressure();
+    log.info('[Player] Memory pressure — pausing playback');
+    _player.pause();
+    _saveWatchHistory(isBgPause: true);
+    _showPlayerToast('Low memory — playback paused');
   }
 
   void _saveWatchHistory({bool isBgPause = false}) {
@@ -479,7 +506,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       while (_currentFallbackSourceIndex < _currentSources!.length) {
         final i = _currentFallbackSourceIndex;
         var source = _currentSources![i];
-        debugPrint('[Player] Trying source ${i + 1}/${_currentSources!.length}: ${source.title}');
+        log.info('[Player] Trying source ${i + 1}/${_currentSources!.length}: ${source.title}');
         final savedPos = _positionNotifier.value;
         try {
           _subscribeToStreams();
@@ -496,7 +523,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           });
           return; // Opened successfully (might still error out during buffering)
         } catch (e) {
-          debugPrint('[Player] Source $i catch error: $e');
+          log.info('[Player] Source $i catch error: $e');
           _currentFallbackSourceIndex++;
         }
       }
@@ -551,7 +578,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // Try the next provider in the list
     for (int i = currentIndex + 1; i < providerKeys.length; i++) {
       final nextKey = providerKeys[i];
-      debugPrint('[Player] Auto-falling back to provider: $nextKey');
+      log.info('[Player] Auto-falling back to provider: $nextKey');
       
       final success = await _silentSwitchProvider(nextKey);
       if (success) return;
@@ -623,7 +650,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         return true;
       }
     } catch (e) {
-      debugPrint('[Player] Silent fallback to $newProvider failed: $e');
+      log.info('[Player] Silent fallback to $newProvider failed: $e');
     }
     return false;
   }
@@ -689,6 +716,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     _bufferSub = _player.stream.buffer.listen((buf) {
       if (_disposed) return;
       _bufferedNotifier.value = buf;
+      // Update buffer percentage for overlay
+      final dur = _durationNotifier.value;
+      if (dur.inMilliseconds > 0 && _isBufferingNotifier.value) {
+        _bufferPctNotifier.value = (buf.inMilliseconds / dur.inMilliseconds * 100).round().clamp(0, 100);
+      }
     });
 
     _playingSub = _player.stream.playing.listen((playing) {
@@ -741,6 +773,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     _bufferingSub = _player.stream.buffering.listen((buffering) {
       if (_disposed) return;
       _isBufferingNotifier.value = buffering;
+      if (!buffering) _bufferPctNotifier.value = 100;
     });
 
     // Surface only fatal errors — transient network blips are handled by mpv
@@ -753,17 +786,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         return;
       }
       
-      debugPrint('🔴 [MobilePlayer] $err');
+      log.info('🔴 [MobilePlayer] $err');
       
       if (err.contains('Failed') || err.contains('No such file')) {
         // Don't retry if we've already given up or are currently retrying
         if (_hasError || _isInitPlaybackRunning) {
           if (_isInitPlaybackRunning) {
-            debugPrint('[Player] Ignoring stale error — _initPlayback already running');
+            log.info('[Player] Ignoring stale error — _initPlayback already running');
           }
           return;
         }
-        debugPrint('[Player] Fatal error detected on source $_currentFallbackSourceIndex, progressing fallback...');
+        log.info('[Player] Fatal error detected on source $_currentFallbackSourceIndex, progressing fallback...');
         _currentFallbackSourceIndex++;
         _initPlayback();
       }
@@ -836,8 +869,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // We supply our own URL — no yt-dlp needed.
     await mpv.setProperty('ytdl', 'no');
 
-    // Allow volume boosting up to 150% for quiet sources.
-    await mpv.setProperty('volume-max', '150');
+    // Set mpv volume to 100% pass-through — system controls actual volume
+    await mpv.setProperty('volume-max', '100');
+    _player.setVolume(100);
 
     // ── External Audio ────────────────────────────────────────────────────
     if (widget.audioUrl != null) {
@@ -956,6 +990,8 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     final delta = -details.primaryDelta! / 3;
 
     if (isRight) {
+      // On mobile, system controls actual volume via hardware buttons.
+      // Swipe adjusts mpv volume as a software boost/cut on top of system.
       _volume = (_volume + delta).clamp(0.0, 150.0);
       _player.setVolume(_volume);
       setState(() {
@@ -1952,7 +1988,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         }
       }
 
-      debugPrint('[NextEp] Playing S${nextSeason}E$nextEpisode');
+      log.info('[NextEp] Playing S${nextSeason}E$nextEpisode');
 
       // Save current watch history before switching
       _saveWatchHistory();
@@ -2031,11 +2067,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
               }
             }
           } else {
-            streamUrl = await TorrentStreamService().streamTorrent(
-              magnetLink,
-              season: nextSeason,
-              episode: nextEpisode,
-            );
+            try {
+              streamUrl = await TorrentStreamService().streamTorrent(
+                magnetLink,
+                season: nextSeason,
+                episode: nextEpisode,
+              );
+            } catch (e) {
+              log.info('[NextEp] Torrent engine failed: $e');
+              if (mounted) _showPlayerToast('Torrent engine failed — try a different source');
+              return;
+            }
             if (streamUrl != null) {
               final idx = Uri.parse(streamUrl).queryParameters['index'];
               if (idx != null) fileIndex = int.tryParse(idx);
@@ -2048,7 +2090,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         final s = nextSeason.toString().padLeft(2, '0');
         final e = nextEpisode.toString().padLeft(2, '0');
         final query = '${widget.movie!.title} S${s}E$e';
-        debugPrint('[NextEp] Searching torrents: $query');
+        log.info('[NextEp] Searching torrents: $query');
 
         final torrentApi = TorrentApi();
         final results = await torrentApi.searchTorrents(query);
@@ -2089,11 +2131,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
             }
           }
         } else {
-          streamUrl = await TorrentStreamService().streamTorrent(
-            magnetLink,
-            season: nextSeason,
-            episode: nextEpisode,
-          );
+          try {
+            streamUrl = await TorrentStreamService().streamTorrent(
+              magnetLink,
+              season: nextSeason,
+              episode: nextEpisode,
+            );
+          } catch (e) {
+            log.info('[NextEp] Torrent engine failed: $e');
+            if (mounted) _showPlayerToast('Torrent engine failed — try a different source');
+            return;
+          }
           if (streamUrl != null) {
             final idx = Uri.parse(streamUrl).queryParameters['index'];
             if (idx != null) fileIndex = int.tryParse(idx);
@@ -2160,7 +2208,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         ),
       );
     } catch (e) {
-      debugPrint('[NextEp] Error: $e');
+      log.info('[NextEp] Error: $e');
       if (mounted) {
         _showPlayerToast('Next episode error: $e');
         setState(() => _isLoadingNextEp = false);
@@ -2232,8 +2280,25 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     _handleDoubleTap(
                         d, d.localPosition.dx > constraints.maxWidth / 2);
                   },
-                  onVerticalDragUpdate: (d) =>
-                      _onVerticalDragUpdate(d, constraints.maxWidth),
+                  onPanStart: (_) => _dragAxis = null,
+                  onPanUpdate: (d) {
+                    if (_isLocked) return;
+                    // Determine axis on first significant move
+                    if (_dragAxis == null) {
+                      if (d.delta.dx.abs() > d.delta.dy.abs() * 2) {
+                        _dragAxis = Axis.horizontal;
+                      } else if (d.delta.dy.abs() > d.delta.dx.abs() * 2) {
+                        _dragAxis = Axis.vertical;
+                      } else {
+                        return; // ambiguous — wait for clearer direction
+                      }
+                    }
+                    if (_dragAxis == Axis.vertical) {
+                      _onVerticalDragUpdate(d, constraints.maxWidth);
+                    }
+                    // horizontal seek is handled by the seekbar drag
+                  },
+                  onPanEnd: (_) => _dragAxis = null,
                   onLongPressStart: (_) {
                     if (!_isLocked) _player.setRate(2.0);
                   },
@@ -2321,7 +2386,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                   child: Center(
                       child: SideIndicator(
                           icon: Icons.volume_up_rounded,
-                          value: _volume / 150.0)),
+                          value: _volume / 100.0)),
                 ),
 
               // ── 7. Brightness indicator ───────────────────────────────────
@@ -2506,21 +2571,24 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
         child: ValueListenableBuilder<bool>(
           valueListenable: _isBufferingNotifier,
           builder: (context, buffering, _) =>
+              ValueListenableBuilder<int>(
+            valueListenable: _bufferPctNotifier,
+            builder: (context, bufPct, _) =>
               ValueListenableBuilder<bool>(
             valueListenable: _isPlayingNotifier,
             builder: (context, playing, _) => PlayerPlayPause(
               isPlaying: playing,
               isBuffering: buffering,
+              bufferPct: bufPct,
               onPressed: () {
                 playing ? _player.pause() : _player.play();
                 _startHideTimer();
               },
             ),
+            ),
           ),
         ),
       ),
-
-      // ── BOTTOM SECTION ────────────────────────────────────────────────────
       Positioned(
         bottom: 0, left: 0, right: 0,
         child: SafeArea(

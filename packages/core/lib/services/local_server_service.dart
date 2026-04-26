@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 
 class LocalServerService {
   static final LocalServerService _instance = LocalServerService._internal();
@@ -30,9 +30,9 @@ class LocalServerService {
     try {
       _server = await io.serve(_router.call, InternetAddress.loopbackIPv4, 0);
       _port = _server!.port;
-      debugPrint('[LocalServer] Started on $baseUrl');
+      log.info('[LocalServer] Started on $baseUrl');
     } catch (e) {
-      debugPrint('[LocalServer] Error starting server: $e');
+      log.info('[LocalServer] Error starting server: $e');
     }
   }
 
@@ -77,7 +77,7 @@ class LocalServerService {
       final range = request.headers['range'];
       if (range != null) {
         proxyHeaders['Range'] = range;
-        debugPrint('[LocalProxy] Range: $range');
+        log.info('[LocalProxy] Range: $range');
       }
 
       final req = http.Request(request.method, Uri.parse(decodedUrl));
@@ -151,7 +151,7 @@ class LocalServerService {
       final streamedResponse = await _httpClient.send(req);
 
       if (streamedResponse.statusCode >= 400) {
-        debugPrint('[HlsProxy] Upstream ${streamedResponse.statusCode} for $decodedUrl');
+        log.info('[HlsProxy] Upstream ${streamedResponse.statusCode} for $decodedUrl');
       }
 
       final contentType = streamedResponse.headers['content-type'] ?? '';
@@ -210,7 +210,7 @@ class LocalServerService {
 
       return Response(streamedResponse.statusCode, body: streamedResponse.stream, headers: responseHeaders);
     } catch (e) {
-      debugPrint('[HlsProxy] Error: $e');
+      log.info('[HlsProxy] Error: $e');
       return Response.internalServerError(body: 'HLS proxy error: $e');
     }
   }

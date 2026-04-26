@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 
 /// Mobile torrent service placeholder
 /// TODO: Implement using native Android torrent library (frostwire-jlibtorrent)
@@ -10,14 +10,14 @@ class MobileTorrentService {
 
   /// Initialize the torrent engine
   Future<void> initialize() async {
-    debugPrint('[MobileTorrent] Mobile torrent streaming requires native implementation');
-    debugPrint('[MobileTorrent] Please use Stream Extraction feature for now');
+    log.info('[MobileTorrent] Mobile torrent streaming requires native implementation');
+    log.info('[MobileTorrent] Please use Stream Extraction feature for now');
   }
 
   /// Add a magnet link and start downloading
   Future<String?> streamTorrent(String magnetLink, {int? season, int? episode}) async {
-    debugPrint('[MobileTorrent] Torrent streaming not yet implemented on mobile');
-    debugPrint('[MobileTorrent] Use Stream Extraction (vidlink/111movies) instead');
+    log.info('[MobileTorrent] Torrent streaming not yet implemented on mobile');
+    log.info('[MobileTorrent] Use Stream Extraction (vidlink/111movies) instead');
     return null;
   }
 

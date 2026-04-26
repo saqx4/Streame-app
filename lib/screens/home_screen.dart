@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final StremioService _stremio = StremioService();
   final PageController _heroController = PageController();
   bool _isFullscreen = false;
+  bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
   
   late Future<List<Movie>> _trendingFuture;
   late Future<List<Movie>> _popularFuture;
@@ -44,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   late Future<List<Movie>> _airingTodayTvFuture;
   
   Timer? _heroTimer;
+  Timer? _syncTimer;
   int _heroIndex = 0;
 
   // Cached streaming mode —- avoids async SharedPreferences read before Navigator.push
@@ -90,10 +93,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Reload catalogs whenever addons are added/removed in Settings
     SettingsService.addonChangeNotifier.addListener(_onAddonsChanged);
 
-    // Trakt auto-sync (runs once per session, no-op if not logged in)
-    TraktService().fullSync();
-    // Simkl auto-sync (runs once per session, no-op if not logged in)
-    SimklService().fullSync();
+    // Trakt & Simkl initial sync already runs in main.dart.
+    // Periodic re-sync every 5 minutes so cross-device progress is picked up.
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      TraktService().fullSync(force: true);
+      SimklService().fullSync(force: true);
+    });
 
     // Trakt personalized sections
     _loadTraktRecommendations();
@@ -201,6 +206,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   void dispose() {
     SettingsService.addonChangeNotifier.removeListener(_onAddonsChanged);
     _heroTimer?.cancel();
+    _syncTimer?.cancel();
     _heroController.dispose();
     super.dispose();
   }
@@ -533,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         }
       }));
     } catch (e) {
-      debugPrint('[HomeScreen] Error loading Stremio catalogs: $e');
+      log.info('[HomeScreen] Error loading Stremio catalogs: $e');
     }
   }
 
@@ -715,8 +721,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-          // Fullscreen button (desktop only — window_manager not available on Android TV)
-          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+          // Fullscreen button (desktop only)
+          if (_isDesktop)
             Positioned(
               top: 16,
               right: 16,

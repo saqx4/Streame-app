@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:flutter/widgets.dart';
 
 /// Platform detection helpers for adaptive UI layouts.
@@ -68,13 +68,13 @@ class DeviceDetector {
       _detectHwDecSupport();
       _detected = true;
       
-      debugPrint('[DeviceDetector] Detection complete:');
-      debugPrint('[DeviceDetector]   GPU: $_gpuVendor');
-      debugPrint('[DeviceDetector]   CPU: $_cpuInfo');
-      debugPrint('[DeviceDetector]   RAM: ${_ramGb?.toStringAsFixed(1)} GB');
-      debugPrint('[DeviceDetector]   HW Dec: $_hwDecSupported');
+      log.info('[DeviceDetector] Detection complete:');
+      log.info('[DeviceDetector]   GPU: $_gpuVendor');
+      log.info('[DeviceDetector]   CPU: $_cpuInfo');
+      log.info('[DeviceDetector]   RAM: ${_ramGb?.toStringAsFixed(1)} GB');
+      log.info('[DeviceDetector]   HW Dec: $_hwDecSupported');
     } catch (e) {
-      debugPrint('[DeviceDetector] Detection error: $e');
+      log.info('[DeviceDetector] Detection error: $e');
       _detected = true; // Don't retry
     }
   }
@@ -149,7 +149,7 @@ class DeviceDetector {
         }
       }
     } catch (e) {
-      debugPrint('[DeviceDetector] GPU detection error: $e');
+      log.info('[DeviceDetector] GPU detection error: $e');
     }
   }
 
@@ -177,7 +177,7 @@ class DeviceDetector {
         }
       }
     } catch (e) {
-      debugPrint('[DeviceDetector] CPU detection error: $e');
+      log.info('[DeviceDetector] CPU detection error: $e');
     }
   }
 
@@ -217,7 +217,7 @@ class DeviceDetector {
         }
       }
     } catch (e) {
-      debugPrint('[DeviceDetector] RAM detection error: $e');
+      log.info('[DeviceDetector] RAM detection error: $e');
     }
   }
 

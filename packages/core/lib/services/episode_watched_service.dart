@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/trakt_service.dart';
 import '../api/simkl_service.dart';
@@ -56,7 +56,7 @@ class EpisodeWatchedService {
     final current = map[id] == true;
     map[id] = !current;
     await _save();
-    debugPrint('[EpisodeWatched] ${!current ? "Marked" : "Unmarked"} $id');
+    log.info('[EpisodeWatched] ${!current ? "Marked" : "Unmarked"} $id');
     // Sync to tracking services in background
     _syncEpisodeState(tmdbId, season, episode, !current);
   }

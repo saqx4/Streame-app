@@ -1,5 +1,5 @@
 #define MyAppName "Streame"
-#define MyAppVersion "2.0.1"
+#define MyAppVersion "2.0.2"
 #define MyAppPublisher "Streame"
 #define MyAppExeName "Streame.exe"
 

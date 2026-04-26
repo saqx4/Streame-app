@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_logger.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:streame_core/services/stream_extractor.dart';
 import 'package:streame_core/utils/webview_cleanup.dart';
@@ -124,7 +125,7 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
 
               // Block obvious ad redirects that try to open new tabs/windows
               if (navigationAction.navigationType == NavigationType.OTHER && !navigationAction.isForMainFrame) {
-                 debugPrint('[StreamExtractor] BLOCKED BACKGROUND REDIRECT: $url');
+                 log.info('[StreamExtractor] BLOCKED BACKGROUND REDIRECT: $url');
                  return NavigationActionPolicy.CANCEL;
               }
 
@@ -141,15 +142,15 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
             },
             onLoadStop: (controller, url) async {
               setState(() => _isLoading = false);
-              debugPrint('[StreamExtractor] Page Loaded: $url');
+              log.info('[StreamExtractor] Page Loaded: $url');
               await controller.evaluateJavascript(source: _getRawSpyJs());
             },
             onLoadResource: (controller, resource) {
               final rUrl = resource.url.toString();
-              debugPrint('[StreamExtractor Resource] $rUrl');
+              log.info('[StreamExtractor Resource] $rUrl');
               
               if (rUrl.contains('.m3u8') || rUrl.contains('playlist') || rUrl.contains('master') || rUrl.contains('.mpd') || rUrl.contains('manifest') || (rUrl.contains('.mp4') && !rUrl.contains('googlevideo.com'))) {
-                 debugPrint('[StreamExtractor] MATCHED RESOURCE: $rUrl');
+                 log.info('[StreamExtractor] MATCHED RESOURCE: $rUrl');
                  if (_detectedStreamUrl == null) {
                     setState(() {
                       _detectedStreamUrl = rUrl;
@@ -158,14 +159,14 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
               }
             },
             onReceivedError: (controller, request, error) {
-              debugPrint('[StreamExtractor Error] ${request.url} : ${error.description}');
+              log.info('[StreamExtractor Error] ${request.url} : ${error.description}');
             },
             onReceivedHttpError: (controller, request, errorResponse) {
-              debugPrint('[StreamExtractor HTTP Error] ${request.url} : ${errorResponse.statusCode}');
+              log.info('[StreamExtractor HTTP Error] ${request.url} : ${errorResponse.statusCode}');
             },
             onConsoleMessage: (controller, consoleMessage) {
               final msg = consoleMessage.message;
-              debugPrint('[WebView Console] $msg');
+              log.info('[WebView Console] $msg');
               
               if (msg.contains('PT_EXTRACT:')) {
                 // Clean up the message from potential quotes and prefixes
@@ -185,7 +186,7 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
                 streamUrl = streamUrl.replaceFirst('[FETCH]', '').replaceFirst('[XHR]', '').replaceFirst('[POSTMESSAGE]', '').replaceFirst('[ATTR_SRC]', '').replaceFirst('[MUTATION_SRC]', '').replaceFirst('[ATTR_DATA-SRC]', '').replaceFirst('[VIDEO_SRC]', '').replaceFirst('[SOURCE_SRC]', '').replaceFirst('[MEDIA_PLAY]', '').replaceFirst('[SRC_PROPERTY]', '').trim();
 
                 if ((streamUrl.contains('.m3u8') || streamUrl.contains('.mp4') || streamUrl.contains('playlist') || streamUrl.contains('master') || streamUrl.contains('.mpd') || streamUrl.contains('manifest')) && !streamUrl.contains('google')) {
-                   debugPrint('[StreamExtractor] SPY CAUGHT: $streamUrl');
+                   log.info('[StreamExtractor] SPY CAUGHT: $streamUrl');
                    if (_detectedStreamUrl == null) {
                       setState(() {
                         _detectedStreamUrl = streamUrl;
@@ -230,7 +231,7 @@ class _StreamExtractorViewState extends State<StreamExtractorView> {
                     
                     // Run cleanup in background
                     WebViewCleanup.cleanupWebView2Cache().then((_) {
-                      debugPrint('[StreamExtractor] Cleanup completed');
+                      log.info('[StreamExtractor] Cleanup completed');
                     });
                   }
                 },

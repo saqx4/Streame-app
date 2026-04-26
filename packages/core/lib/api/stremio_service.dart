@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import '../services/settings_service.dart';
 
 class StremioService {
@@ -88,7 +88,7 @@ class StremioService {
         };
       }
     } catch (e) {
-      debugPrint('[StremioService] Manifest fetch error: $e');
+      log.info('[StremioService] Manifest fetch error: $e');
     }
     return null;
   }
@@ -102,7 +102,7 @@ class StremioService {
     final encodedId = id.contains('/') ? Uri.encodeComponent(id) : id;
     final resourcePath = '/stream/$type/$encodedId.json';
     final url = _buildResourceUrl(baseUrl, resourcePath);
-    debugPrint('[StremioService.getStreams] URL: $url');
+    log.info('[StremioService.getStreams] URL: $url');
     try {
       final response = await _retryGet(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -110,7 +110,7 @@ class StremioService {
         return data['streams'] ?? [];
       }
     } catch (e) {
-      debugPrint('[StremioService] Stream fetch error ($url): $e');
+      log.info('[StremioService] Stream fetch error ($url): $e');
     }
     return [];
   }
@@ -142,7 +142,7 @@ class StremioService {
         }
       }
     } catch (e) {
-      debugPrint('[StremioService] Subtitle fetch error ($url): $e');
+      log.info('[StremioService] Subtitle fetch error ($url): $e');
     }
     return results;
   }
@@ -301,7 +301,7 @@ class StremioService {
     final extra = parts.isNotEmpty ? '/${parts.join('&')}' : '';
     final resourcePath = '/catalog/$type/$id$extra.json';
     final url = _buildResourceUrl(baseUrl, resourcePath);
-    debugPrint('[StremioService.getCatalog] URL: $url');
+    log.info('[StremioService.getCatalog] URL: $url');
 
     try {
       final response = await _retryGet(Uri.parse(url));
@@ -311,7 +311,7 @@ class StremioService {
         return metas.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[StremioService] Catalog fetch error ($url): $e');
+      log.info('[StremioService] Catalog fetch error ($url): $e');
     }
     return [];
   }
@@ -345,7 +345,7 @@ class StremioService {
         return meta;
       }
     } catch (e) {
-      debugPrint('[StremioService] Meta fetch error ($url): $e');
+      log.info('[StremioService] Meta fetch error ($url): $e');
     }
     return null;
   }

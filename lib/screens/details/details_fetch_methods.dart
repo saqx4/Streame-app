@@ -19,15 +19,15 @@ Future<void> _fetchDetails() async {
     // If this is a custom-ID Stremio item, skip TMDB fetch — we already
     // have all the info we need from the search result.
     if (isCustomId) {
-      debugPrint('[DetailsScreen] Custom ID detected: ${stremioItem['id']}');
-      debugPrint(
+      log.info('[DetailsScreen] Custom ID detected: ${stremioItem['id']}');
+      log.info(
         '[DetailsScreen] stremioItem keys: ${stremioItem.keys.toList()}',
       );
-      debugPrint(
+      log.info(
         '[DetailsScreen] _addonBaseUrl: ${stremioItem['_addonBaseUrl']}',
       );
-      debugPrint('[DetailsScreen] _addonName: ${stremioItem['_addonName']}');
-      debugPrint('[DetailsScreen] type: ${stremioItem['type']}');
+      log.info('[DetailsScreen] _addonName: ${stremioItem['_addonName']}');
+      log.info('[DetailsScreen] type: ${stremioItem['type']}');
 
       // Update movie mediaType if it's a collection
       if (stremioItem['type'] == 'collections') {
@@ -519,7 +519,7 @@ Future<void> _fetchStremioRecommendations() async {
       });
     }
   } catch (e) {
-    debugPrint('[DetailsScreen] Recommendations error: $e');
+    log.info('[DetailsScreen] Recommendations error: $e');
     if (mounted) setState(() => _isLoadingRecommendations = false);
   }
 }
@@ -601,7 +601,7 @@ Future<void> _openCollectionItem(String id) async {
         return;
       }
     } catch (e) {
-      debugPrint('[CollectionItem] TMDB lookup failed: $e');
+      log.info('[CollectionItem] TMDB lookup failed: $e');
     }
   }
 

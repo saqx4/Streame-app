@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -29,7 +29,7 @@ class MdblistService {
   Future<void> setApiKey(String apiKey) async {
     await _storage.write(key: _keyApiKey, value: apiKey);
     _cachedApiKey = apiKey;
-    debugPrint('[MDBlist] API key saved.');
+    log.info('[MDBlist] API key saved.');
   }
 
   /// Get stored API key.
@@ -48,7 +48,7 @@ class MdblistService {
   Future<void> logout() async {
     await _storage.delete(key: _keyApiKey);
     _cachedApiKey = null;
-    debugPrint('[MDBlist] API key removed.');
+    log.info('[MDBlist] API key removed.');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -67,9 +67,9 @@ class MdblistService {
       if (resp.statusCode == 200) {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
-      debugPrint('[MDBlist] User info failed: ${resp.statusCode}');
+      log.info('[MDBlist] User info failed: ${resp.statusCode}');
     } catch (e) {
-      debugPrint('[MDBlist] User info error: $e');
+      log.info('[MDBlist] User info error: $e');
     }
     return null;
   }
@@ -92,7 +92,7 @@ class MdblistService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[MDBlist] Get ratings error: $e');
+      log.info('[MDBlist] Get ratings error: $e');
     }
     return null;
   }
@@ -111,7 +111,7 @@ class MdblistService {
         return json.decode(resp.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[MDBlist] Get ratings by TMDB error: $e');
+      log.info('[MDBlist] Get ratings by TMDB error: $e');
     }
     return null;
   }
@@ -134,7 +134,7 @@ class MdblistService {
         if (data is List) return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[MDBlist] Get lists error: $e');
+      log.info('[MDBlist] Get lists error: $e');
     }
     return [];
   }
@@ -153,7 +153,7 @@ class MdblistService {
         if (data is List) return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[MDBlist] Get list items error: $e');
+      log.info('[MDBlist] Get list items error: $e');
     }
     return [];
   }
@@ -184,7 +184,7 @@ class MdblistService {
       );
       return resp.statusCode == 200;
     } catch (e) {
-      debugPrint('[MDBlist] Remove from list error: $e');
+      log.info('[MDBlist] Remove from list error: $e');
       return false;
     }
   }
@@ -207,7 +207,7 @@ class MdblistService {
         if (data is List) return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('[MDBlist] Get top lists error: $e');
+      log.info('[MDBlist] Get top lists error: $e');
     }
     return [];
   }

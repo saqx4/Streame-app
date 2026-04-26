@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../utils/app_logger.dart';
 import '../services/settings_service.dart';
 import 'android_player_launcher.dart';
 
@@ -274,7 +275,7 @@ class ExternalPlayerService {
         return await _launchDesktop(player, url, title, headers);
       }
     } catch (e) {
-      debugPrint('[ExternalPlayer] Error launching ${player.displayName}: $e');
+      log.info('[ExternalPlayer] Error launching ${player.displayName}: $e');
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -335,7 +336,7 @@ class ExternalPlayerService {
         );
         if (success) return true;
       } catch (e) {
-        debugPrint('[ExternalPlayer] Failed with package $pkg: $e');
+        log.info('[ExternalPlayer] Failed with package $pkg: $e');
       }
     }
     return false;
@@ -351,7 +352,7 @@ class ExternalPlayerService {
   ) async {
     final executable = await _findDesktopExecutable(player);
     if (executable == null) {
-      debugPrint(
+      log.info(
           '[ExternalPlayer] ${player.displayName} not found on this system');
       return false;
     }
@@ -363,7 +364,7 @@ class ExternalPlayerService {
       args = ['-a', player.macAppPath!, ...args];
     }
 
-    debugPrint('[ExternalPlayer] Launching: $executable ${args.join(' ')}');
+    log.info('[ExternalPlayer] Launching: $executable ${args.join(' ')}');
     await Process.start(executable, args, mode: ProcessStartMode.detached);
     return true;
   }
