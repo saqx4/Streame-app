@@ -673,11 +673,8 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       if (_isNextEpisodeAvailable && !_nearEndOfEpisode) {
         final dur = _durationNotifier.value;
         if (dur.inSeconds > 0) {
-          final remaining = dur - pos;
-          final threshold = dur.inMinutes < 10
-              ? Duration(seconds: (dur.inSeconds * 0.05).round())
-              : const Duration(minutes: 2);
-          if (remaining <= threshold) {
+          final watchedPercent = pos.inMilliseconds / dur.inMilliseconds;
+          if (watchedPercent >= 0.90) {
             setState(() => _nearEndOfEpisode = true);
           }
         }

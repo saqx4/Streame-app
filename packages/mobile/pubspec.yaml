@@ -2,7 +2,7 @@ name: streame_mobile
 description: "Streame mobile app — Android + iOS."
 publish_to: 'none'
 
-version: 2.1.0+22
+version: 2.2.0+23
 
 environment:
   sdk: ^3.11.0
@@ -41,10 +41,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/icon/icon.png"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icon/
-    - .env

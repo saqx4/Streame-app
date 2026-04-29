@@ -13,33 +13,23 @@ Widget _buildMobileLayout() {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildMobileHero(),
+        ModernDetailsHero(
+          movie: _movie,
+          genreChips: _movie.genres.take(3).map(_genreChip).toList(),
+          ratingsRow: (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) 
+              ? _buildRatingsRow() 
+              : null,
+          actionButtons: _buildActionButtons(),
+        ),
         const SizedBox(height: 20),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Genre chips row
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _movie.genres.take(3).map(_genreChip).toList(),
-              ),
-              const SizedBox(height: 16),
-              // Ratings row
-              if (_mdblistRatings != null ||
-                  _userTraktRating != null ||
-                  _userSimklRating != null) ...[
-                _buildRatingsRow(),
-                const SizedBox(height: 16),
-              ],
-              // Action buttons
-              _buildActionButtons(),
-              const SizedBox(height: 20),
               // Synopsis
               ExpandableSynopsis(text: _movie.overview),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               // Collection items
               if (_isCollection && _collectionItems.isNotEmpty) ...[
                 CollectionItemsSection(
@@ -229,27 +219,62 @@ Widget _buildMobileHero() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @override
-Widget _buildDesktopLayout() {
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(
-        width: 500,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(32, 24, 24, 48),
-          child: _buildDesktopLeftPanel(),
+ Widget _buildDesktopLayout() {
+  return SingleChildScrollView(
+    physics: const BouncingScrollPhysics(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ModernDetailsHero(
+          movie: _movie,
+          genreChips: _movie.genres.take(5).map(_genreChip).toList(),
+          ratingsRow: (_mdblistRatings != null || _userTraktRating != null || _userSimklRating != null) 
+              ? _buildRatingsRow() 
+              : null,
+          actionButtons: _buildActionButtons(),
         ),
-      ),
-      Container(width: 0.5, color: AppTheme.borderStrong.withValues(alpha: 0.15)),
-      Expanded(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
-          child: _buildRightPanel(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sectionLabel('Overview'),
+                    const SizedBox(height: 16),
+                    ExpandableSynopsis(text: _movie.overview),
+                    const SizedBox(height: 40),
+                    if (_castMembers.isNotEmpty) ...[
+                      _sectionLabel('Cast'),
+                      const SizedBox(height: 16),
+                      DesktopCastRow(
+                        castMembers: _castMembers,
+                        scrollController: _castScrollController,
+                      ),
+                      const SizedBox(height: 40),
+                    ],
+                    RecommendationsSection(
+                      recommendations: _stremioRecommendations,
+                      isLoading: _isLoadingRecommendations,
+                      scrollController: _recommendationsScrollController,
+                      onItemTap: _openRecommendation,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 40),
+              Expanded(
+                flex: 3,
+                child: _buildRightPanel(),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 

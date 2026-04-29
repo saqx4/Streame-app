@@ -390,6 +390,8 @@ class SettingsService {
     'trakt_access_token',
     'trakt_refresh_token',
     'trakt_expires_at',
+    'trakt_client_id',
+    'trakt_client_secret',
   ];
 
   /// Collects every setting (SharedPreferences + FlutterSecureStorage) into a

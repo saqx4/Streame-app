@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -124,6 +123,30 @@ class AnimationPresets {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class AppShadows {
+  static LinearGradient get netflixOverlay => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Colors.black.withValues(alpha: 0.7),
+      Colors.transparent,
+      Colors.transparent,
+      Colors.black.withValues(alpha: 0.8),
+      Colors.black,
+    ],
+    stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+  );
+
+  static LinearGradient get netflixCardGradient => LinearGradient(
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+    colors: [
+      Colors.black.withValues(alpha: 0.9),
+      Colors.transparent,
+    ],
+    stops: const [0.0, 0.4],
+  );
+
+  static Color get netflixRed => const Color(0xFFE50914);
   static BoxShadow get subtle => BoxShadow(
     color: AppTheme.overlay.withValues(alpha: 0.3),
     blurRadius: 8,

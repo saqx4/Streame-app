@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../utils/app_theme.dart';
+import '../utils/netflix_animations.dart';
 import 'movie_poster.dart';
 
 class MovieSection extends StatefulWidget {
@@ -89,9 +90,12 @@ class _MovieSectionState extends State<MovieSection> {
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 clipBehavior: Clip.none,
                 itemBuilder: (context, index) {
-                  return SizedBox(
-                    width: 180,
-                    child: MoviePoster(movie: widget.movies[index], onMovieTap: widget.onMovieTap),
+                  return NetflixAnimate.staggered(
+                    index,
+                    child: SizedBox(
+                      width: 180,
+                      child: MoviePoster(movie: widget.movies[index], onMovieTap: widget.onMovieTap),
+                    ),
                   );
                 },
               ),

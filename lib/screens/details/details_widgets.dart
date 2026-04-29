@@ -95,36 +95,98 @@ Widget codecBadge(String codec) => Container(
     );
 
 Widget iconBtn(IconData icon, bool highlight, VoidCallback onTap) =>
-    GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: highlight
-              ? AppTheme.current.primaryColor.withValues(alpha: 0.15)
-              : AppTheme.surfaceContainerHigh.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: highlight
-                ? AppTheme.current.primaryColor.withValues(alpha: 0.4)
-                : AppTheme.border,
+    _IconBtn(icon: icon, highlight: highlight, onTap: onTap);
+
+class _IconBtn extends StatefulWidget {
+  final IconData icon;
+  final bool highlight;
+  final VoidCallback onTap;
+
+  const _IconBtn({required this.icon, required this.highlight, required this.onTap});
+
+  @override
+  State<_IconBtn> createState() => _IconBtnState();
+}
+
+class _IconBtnState extends State<_IconBtn> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: widget.highlight
+                ? primary.withValues(alpha: _isHovered ? 0.25 : 0.15)
+                : AppTheme.surfaceContainerHigh.withValues(alpha: _isHovered ? 0.5 : 0.3),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: widget.highlight
+                  ? primary.withValues(alpha: _isHovered ? 0.6 : 0.4)
+                  : (_isHovered ? primary.withValues(alpha: 0.3) : AppTheme.border),
+            ),
+            boxShadow: _isHovered && widget.highlight ? [AppShadows.glow(0.1)] : null,
+          ),
+          child: Icon(
+            widget.icon,
+            size: 17,
+            color: widget.highlight
+                ? primary
+                : (_isHovered ? AppTheme.textPrimary : AppTheme.textSecondary),
           ),
         ),
-        child: Icon(
-          icon,
-          size: 17,
-          color: highlight
-              ? AppTheme.current.primaryColor
-              : AppTheme.textSecondary,
+      ),
+    );
+  }
+}
+
+Widget scrollArrow(IconData icon, VoidCallback onTap) =>
+    _ScrollArrow(icon: icon, onTap: onTap);
+
+class _ScrollArrow extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ScrollArrow({required this.icon, required this.onTap});
+
+  @override
+  State<_ScrollArrow> createState() => _ScrollArrowState();
+}
+
+class _ScrollArrowState extends State<_ScrollArrow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: _isHovered ? primary.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Icon(widget.icon,
+            color: _isHovered ? primary : AppTheme.textDisabled, size: 16),
         ),
       ),
     );
-
-Widget scrollArrow(IconData icon, VoidCallback onTap) => GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(icon, color: AppTheme.textDisabled, size: 16),
-      ),
-    );
+  }
+}

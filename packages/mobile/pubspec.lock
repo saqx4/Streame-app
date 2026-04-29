@@ -1219,7 +1219,7 @@ packages:
       path: "../.."
       relative: true
     source: path
-    version: "2.1.0+21"
+    version: "2.2.0+23"
   streame_core:
     dependency: "direct main"
     description:

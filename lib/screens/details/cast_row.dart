@@ -142,24 +142,64 @@ class DesktopCastRow extends StatelessWidget {
   }
 
   Widget _castNavButton(IconData icon, double delta) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: Icon(icon, size: 16, color: AppTheme.textSecondary),
-        onPressed: () {
-          if (!scrollController.hasClients) return;
-          final target = (scrollController.offset + delta).clamp(
+    return _CastNavButton(
+      icon: icon,
+      delta: delta,
+      scrollController: scrollController,
+    );
+  }
+}
+
+class _CastNavButton extends StatefulWidget {
+  final IconData icon;
+  final double delta;
+  final ScrollController scrollController;
+
+  const _CastNavButton({required this.icon, required this.delta, required this.scrollController});
+
+  @override
+  State<_CastNavButton> createState() => _CastNavButtonState();
+}
+
+class _CastNavButtonState extends State<_CastNavButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () {
+          if (!widget.scrollController.hasClients) return;
+          final target = (widget.scrollController.offset + widget.delta).clamp(
             0.0,
-            scrollController.position.maxScrollExtent,
+            widget.scrollController.position.maxScrollExtent,
           );
-          scrollController.animateTo(
+          widget.scrollController.animateTo(
             target,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         },
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _isHovered ? primary.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.3) : Colors.transparent,
+              width: 0.5,
+            ),
+          ),
+          child: Icon(widget.icon, size: 16,
+            color: _isHovered ? primary : AppTheme.textSecondary),
+        ),
       ),
     );
   }

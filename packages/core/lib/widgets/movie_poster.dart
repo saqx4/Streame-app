@@ -131,6 +131,20 @@ class _MoviePosterState extends State<MoviePoster>
                       ),
                     ),
 
+                    // Netflix-style gradient overlay — only on hover/focus
+                    Positioned.fill(
+                      child: AnimatedOpacity(
+                        duration: AppDurations.normal,
+                        curve: AnimationPresets.smoothInOut,
+                        opacity: isActive ? 1.0 : 0.0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppShadows.netflixCardGradient,
+                          ),
+                        ),
+                      ),
+                    ),
+
                     // Glassmorphic hover overlay with play icon
                     AnimatedOpacity(
                       duration: AppDurations.normal,

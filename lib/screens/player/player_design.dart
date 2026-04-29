@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:streame_core/utils/app_theme.dart';
 
 /// Unified player design system — clean, modern, minimal.
 /// Shared primitives for both mobile and desktop players.
-
-const _kAccent = Color(0xFF7C3AED);
-const _kAccentLight = Color(0xFF9D4EDD);
 
 // ── Icon Button ──────────────────────────────────────────────────────────────
 
@@ -56,22 +54,22 @@ class _PlayerBtnState extends State<PlayerBtn> {
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
-              color: widget.active
-                  ? _kAccent.withValues(alpha: 0.25)
-                  : _pressed
-                      ? Colors.white.withValues(alpha: 0.18)
-                      : _hovered && isDesktop
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(widget.size * 0.3),
-            ),
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: widget.active
-                  ? _kAccentLight
-                  : widget.color ?? Colors.white.withValues(alpha: 0.85),
-            ),
+            color: widget.active
+                ? AppTheme.current.primaryColor.withValues(alpha: 0.3)
+                : _pressed
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : _hovered && isDesktop
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : Colors.transparent,
+            borderRadius: BorderRadius.circular(widget.size * 0.5),
+          ),
+          child: Icon(
+            widget.icon,
+            size: widget.iconSize,
+            color: widget.active
+                ? AppTheme.current.primaryColor
+                : widget.color ?? Colors.white,
+          ),
           ),
         ),
       ),
@@ -106,7 +104,7 @@ class _PlayerPillState extends State<PlayerPill> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 600;
-    final accent = widget.accent ?? _kAccent;
+    final accent = widget.accent ?? AppTheme.current.primaryColor;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -209,43 +207,29 @@ class _PlayerPlayPauseState extends State<PlayerPlayPause>
       child: ScaleTransition(
         scale: _controller,
         child: Container(
-          width: widget.isBuffering ? widget.size * 1.3 : widget.size,
-          height: widget.isBuffering ? widget.size * 1.3 : widget.size,
+          width: widget.isBuffering ? widget.size * 1.5 : widget.size * 1.5,
+          height: widget.isBuffering ? widget.size * 1.5 : widget.size * 1.5,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: _pressed ? 0.22 : 0.12),
+            color: _pressed ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: widget.isBuffering
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: _kAccent.withValues(alpha: 0.9),
-                      ),
+              ? Center(
+                  child: SizedBox(
+                    width: widget.size * 1.2,
+                    height: widget.size * 1.2,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      color: AppTheme.current.primaryColor,
                     ),
-                    if (widget.bufferPct > 0 && widget.bufferPct < 100)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '${widget.bufferPct}%',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 )
               : Icon(
                   widget.isPlaying
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
-                  size: widget.size * 0.5,
-                  color: Colors.white.withValues(alpha: 0.9),
+                  size: widget.size * 1.2,
+                  color: Colors.white,
                 ),
         ),
       ),
@@ -364,7 +348,7 @@ class PlayerSkipChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_kAccent, _kAccentLight]),
+            gradient: LinearGradient(colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.8)]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -405,7 +389,7 @@ class PlayerNextChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_kAccent, _kAccentLight]),
+            gradient: LinearGradient(colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.8)]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -459,7 +443,7 @@ class SideIndicator extends StatelessWidget {
               alignment: Alignment.bottomCenter,
               child: Container(
                 height: 80 * value.clamp(0.0, 1.0),
-                color: _kAccent,
+                color: AppTheme.current.primaryColor,
               ),
             ),
           ),

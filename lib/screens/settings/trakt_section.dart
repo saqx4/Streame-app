@@ -44,11 +44,16 @@ class _TraktSectionState extends State<TraktSection> {
           profile?['username']?.toString();
       stats = await _trakt.getUserStats();
     }
+    // Pre-fill credential fields from saved storage
+    final savedId = await _trakt.clientId;
+    final savedSecret = await _trakt.clientSecret;
     if (mounted) {
       setState(() {
         _isTraktLoggedIn = loggedIn;
         _traktUsername = user;
         _traktStats = stats;
+        if (savedId.isNotEmpty) _traktClientIdController.text = savedId;
+        if (savedSecret.isNotEmpty) _traktClientSecretController.text = savedSecret;
       });
     }
   }

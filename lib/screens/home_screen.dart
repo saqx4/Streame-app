@@ -305,11 +305,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   width: 220,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgCard,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.bgCard.withValues(alpha: 0.8),
+                        AppTheme.surfaceContainer.withValues(alpha: 0.5),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.border, width: 0.5),
+                    border: Border.all(
+                      color: AppTheme.borderStrong.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
                     boxShadow: AppTheme.isLightMode ? null : [
-                      BoxShadow(color: AppTheme.overlay, blurRadius: 12, offset: const Offset(0, 6)),
+                      BoxShadow(color: AppTheme.overlay.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 8)),
                     ],
                   ),
                   child: Column(
@@ -317,11 +327,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     children: [
                       Text(showTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text('S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}',
-                        style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 0.5),
+                        ),
+                        child: Text('S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}',
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.w700)),
+                      ),
                       if (epTitle.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(epTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                       ],
@@ -440,11 +458,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   width: 220,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgCard,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.bgCard.withValues(alpha: 0.8),
+                        AppTheme.surfaceContainer.withValues(alpha: 0.5),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.border, width: 0.5),
+                    border: Border.all(
+                      color: AppTheme.borderStrong.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
                     boxShadow: AppTheme.isLightMode ? null : [
-                      BoxShadow(color: AppTheme.overlay, blurRadius: 12, offset: const Offset(0, 6)),
+                      BoxShadow(color: AppTheme.overlay.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 8)),
                     ],
                   ),
                   child: Column(
@@ -453,8 +481,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
                       if (year != null) ...[
-                        const SizedBox(height: 4),
-                        Text('$year', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text('$year', style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
                       ],
                       const Spacer(),
                       Flexible(

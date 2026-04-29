@@ -52,15 +52,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
   }
 
   Widget _buildCWSectionArrow(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: GlassColors.surfaceSubtle,
-        shape: BoxShape.circle,
-        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
-      ),
-      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
-    );
+    return _GlassArrowButton(icon: icon, onTap: icon == Icons.arrow_back_ios_new_rounded ? _scrollLeft : _scrollRight);
   }
 
   Future<void> _resumePlayback(Map<String, dynamic> item) async {
@@ -524,15 +516,9 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
                     ),
                   ),
                   if (history.isNotEmpty) ...[
-                    GestureDetector(
-                      onTap: _scrollLeft,
-                      child: _buildCWSectionArrow(Icons.arrow_back_ios_new_rounded),
-                    ),
+                    _buildCWSectionArrow(Icons.arrow_back_ios_new_rounded),
                     const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: _scrollRight,
-                      child: _buildCWSectionArrow(Icons.arrow_forward_ios_rounded),
-                    ),
+                    _buildCWSectionArrow(Icons.arrow_forward_ios_rounded),
                   ],
                 ],
               ),
@@ -566,19 +552,7 @@ class _ContinueWatchingSectionState extends State<ContinueWatchingSection> {
   }
 }
 
-Widget _buildCWPlayButton() {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: AppTheme.current.primaryColor.withValues(alpha: 0.8),
-      shape: BoxShape.circle,
-      border: Border.all(color: AppTheme.border),
-    ),
-    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 28),
-  );
-}
-
-class HistoryCard extends StatelessWidget {
+class HistoryCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
   final VoidCallback onRemove;
@@ -594,14 +568,22 @@ class HistoryCard extends StatelessWidget {
   });
 
   @override
+  State<HistoryCard> createState() => _HistoryCardState();
+}
+
+class _HistoryCardState extends State<HistoryCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final posterPath = item['posterPath'] as String;
-    final title = item['title'] as String;
-    final season = item['season'] as int?;
-    final episode = item['episode'] as int?;
-    final episodeTitle = item['episodeTitle'] as String?;
-    final position = item['position'] as int;
-    final duration = item['duration'] as int;
+    final posterPath = widget.item['posterPath'] as String;
+    final title = widget.item['title'] as String;
+    final season = widget.item['season'] as int?;
+    final episode = widget.item['episode'] as int?;
+    final episodeTitle = widget.item['episodeTitle'] as String?;
+    final position = widget.item['position'] as int;
+    final duration = widget.item['duration'] as int;
+    final primary = AppTheme.current.primaryColor;
     
     final progress = duration > 0 ? (position / duration).clamp(0.0, 1.0) : 0.0;
     final remaining = duration > 0 ? Duration(milliseconds: duration - position) : Duration.zero;
@@ -614,177 +596,200 @@ class HistoryCard extends StatelessWidget {
         ? 'S$season E$episode${episodeTitle != null && episodeTitle.isNotEmpty ? ' • $episodeTitle' : ''}'
         : '';
 
-    return FocusableControl(
-      onTap: isLoading ? () {} : onTap,
-      borderRadius: AppRadius.lg,
-      scaleOnFocus: 1.05,
-      child: Container(
-        width: 280,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-          boxShadow: AppTheme.isLightMode ? null : [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: AppTheme.current.primaryColor.withValues(alpha: 0.06), blurRadius: 24, spreadRadius: -4),
-          ],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Full bleed poster image
-            if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
-              )
-            else
-              Container(color: AppTheme.surfaceContainer, child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 40)),
-            
-            // Dark overlay gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.bgDark.withValues(alpha: 0.1),
-                    AppTheme.bgDark.withValues(alpha: 0.3),
-                    AppTheme.bgDark.withValues(alpha: 0.85),
-                    AppTheme.bgDark.withValues(alpha: 0.95),
-                  ],
-                  stops: const [0.0, 0.3, 0.7, 1.0],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.isLoading ? () {} : widget.onTap,
+        borderRadius: AppRadius.lg,
+        scaleOnFocus: 1.05,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          width: 280,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.4) : AppTheme.border,
+              width: _isHovered ? 1.0 : 0.5,
+            ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.12),
+              BoxShadow(color: Colors.black.withValues(alpha: _isHovered ? 0.5 : 0.3), blurRadius: _isHovered ? 16 : 10, offset: const Offset(0, 6)),
+            ],
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Full bleed poster image
+              if (imageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
+                )
+              else
+                Container(color: AppTheme.surfaceContainer, child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 40)),
+              
+              // Dark overlay gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppTheme.bgDark.withValues(alpha: _isHovered ? 0.2 : 0.1),
+                      AppTheme.bgDark.withValues(alpha: _isHovered ? 0.4 : 0.3),
+                      AppTheme.bgDark.withValues(alpha: 0.85),
+                      AppTheme.bgDark.withValues(alpha: 0.95),
+                    ],
+                    stops: const [0.0, 0.3, 0.7, 1.0],
+                  ),
                 ),
               ),
-            ),
 
-            // Play button (center)
-            Center(
-              child: _buildCWPlayButton(),
-            ),
+              // Play button (center) — only visible on hover
+              AnimatedOpacity(
+                duration: AppDurations.fast,
+                curve: AnimationPresets.smoothInOut,
+                opacity: _isHovered ? 1.0 : 0.0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.8),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: primary.withValues(alpha: 0.4), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 28),
+                  ),
+                ),
+              ),
 
-            // Top-left: progress percentage badge
-            if (progress > 0)
+              // Top-left: progress percentage badge
+              if (progress > 0)
+                Positioned(
+                  top: 6, left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgDark.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${(progress * 100).round()}%',
+                      style: TextStyle(
+                        color: progress > 0.9
+                            ? Colors.greenAccent
+                            : primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Top-right actions
               Positioned(
-                top: 6, left: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgDark.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${(progress * 100).round()}%',
-                    style: TextStyle(
-                      color: progress > 0.9
-                          ? Colors.greenAccent
-                          : AppTheme.current.primaryColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                top: 6, right: 6,
+                child: Column(
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: widget.onRemove,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
+                          child: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 14),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: widget.onInfo,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
+                          child: Icon(Icons.info_outline_rounded, color: AppTheme.textSecondary, size: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
-            // Top-right actions
-            Positioned(
-              top: 6, right: 6,
-              child: Column(
-                children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: onRemove,
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 14),
+              // Bottom content: title + episode + progress
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          if (subtitle.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                              ),
+                            ),
+                          if (remainingText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                remainingText,
+                                style: TextStyle(color: primary.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: onInfo,
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: AppTheme.overlay.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: Icon(Icons.info_outline_rounded, color: AppTheme.textSecondary, size: 14),
+                    // Progress bar
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.white24,
+                        color: progress > 0.9
+                            ? Colors.greenAccent
+                            : primary,
+                        minHeight: 4,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-
-            // Bottom content: title + episode + progress
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
-                        ),
-                        if (subtitle.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                            ),
-                          ),
-                        if (remainingText.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              remainingText,
-                              style: TextStyle(color: AppTheme.current.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  // Progress bar
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: Colors.white24,
-                      color: progress > 0.9
-                          ? Colors.greenAccent
-                          : AppTheme.current.primaryColor,
-                      minHeight: 4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            if (isLoading)
-               Container(
-                 decoration: BoxDecoration(
-                   color: AppTheme.bgDark.withValues(alpha: 0.6),
-                   borderRadius: BorderRadius.circular(AppRadius.lg),
+              
+              if (widget.isLoading)
+                 Container(
+                   decoration: BoxDecoration(
+                     color: AppTheme.bgDark.withValues(alpha: 0.6),
+                     borderRadius: BorderRadius.circular(AppRadius.lg),
+                   ),
+                   child: Center(child: CircularProgressIndicator(color: primary)),
                  ),
-                 child: Center(child: CircularProgressIndicator(color: AppTheme.current.primaryColor)),
-               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -792,3 +797,52 @@ class HistoryCard extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+
+class _GlassArrowButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GlassArrowButton({required this.icon, required this.onTap});
+
+  @override
+  State<_GlassArrowButton> createState() => _GlassArrowButtonState();
+}
+
+class _GlassArrowButtonState extends State<_GlassArrowButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? AppTheme.current.primaryColor.withValues(alpha: 0.15)
+                : GlassColors.surfaceSubtle,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _isHovered
+                  ? AppTheme.current.primaryColor.withValues(alpha: 0.4)
+                  : GlassColors.borderSubtle,
+              width: 0.5,
+            ),
+            boxShadow: _isHovered ? [AppShadows.glow(0.1)] : null,
+          ),
+          child: Icon(
+            widget.icon,
+            color: _isHovered ? AppTheme.current.primaryColor : AppTheme.textSecondary,
+            size: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -240,68 +240,100 @@ Widget _movieListTile({
   required VoidCallback onTap,
   VoidCallback? onRemove,
 }) {
-  final posterUrl = movie.posterPath.isNotEmpty
-      ? TmdbApi.getImageUrl(movie.posterPath)
-      : '';
+  return _MovieListTile(movie: movie, onTap: onTap, onRemove: onRemove);
+}
 
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: posterUrl.isNotEmpty
-              ? Image.network(posterUrl, width: 50, height: 75, fit: BoxFit.cover)
-              : Container(
-                  width: 50, height: 75,
-                  color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
-                  child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 24),
-                ),
+class _MovieListTile extends StatefulWidget {
+  final Movie movie;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+
+  const _MovieListTile({required this.movie, required this.onTap, this.onRemove});
+
+  @override
+  State<_MovieListTile> createState() => _MovieListTileState();
+}
+
+class _MovieListTileState extends State<_MovieListTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final posterUrl = widget.movie.posterPath.isNotEmpty
+        ? TmdbApi.getImageUrl(widget.movie.posterPath)
+        : '';
+    final primary = AppTheme.current.primaryColor;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.4) : AppTheme.border,
+              width: _isHovered ? 1.0 : 0.5,
+            ),
+            boxShadow: _isHovered ? [AppShadows.glow(0.08)] : null,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 4),
-                Row(
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: posterUrl.isNotEmpty
+                  ? Image.network(posterUrl, width: 50, height: 75, fit: BoxFit.cover)
+                  : Container(
+                      width: 50, height: 75,
+                      color: AppTheme.surfaceContainerHigh.withValues(alpha: 0.2),
+                      child: Icon(Icons.movie, color: AppTheme.textDisabled, size: 24),
+                    ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (movie.releaseDate.isNotEmpty)
-                      Text(movie.releaseDate.split('-').first,
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                    if (movie.mediaType == 'tv') ...[
-                      if (movie.releaseDate.isNotEmpty)
-                        Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
-                      Text('TV', style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold)),
-                    ],
-                    if (movie.voteAverage > 0) ...[
-                      Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
-                      const Icon(Icons.star_rounded, size: 13, color: Colors.amber),
-                      const SizedBox(width: 2),
-                      Text(movie.voteAverage.toStringAsFixed(1),
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                    ],
+                    Text(widget.movie.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (widget.movie.releaseDate.isNotEmpty)
+                          Text(widget.movie.releaseDate.split('-').first,
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                        if (widget.movie.mediaType == 'tv') ...[
+                          if (widget.movie.releaseDate.isNotEmpty)
+                            Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                          Text('TV', style: TextStyle(color: AppTheme.primaryColor.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                        if (widget.movie.voteAverage > 0) ...[
+                          Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 12)),
+                          const Icon(Icons.star_rounded, size: 13, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(widget.movie.voteAverage.toStringAsFixed(1),
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              if (widget.onRemove != null)
+                IconButton(
+                  icon: Icon(Icons.remove_circle_outline, color: Colors.redAccent.withValues(alpha: 0.7), size: 22),
+                  onPressed: widget.onRemove,
+                ),
+            ],
           ),
-          if (onRemove != null)
-            IconButton(
-              icon: Icon(Icons.remove_circle_outline, color: Colors.redAccent.withValues(alpha: 0.7), size: 22),
-              onPressed: onRemove,
-            ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

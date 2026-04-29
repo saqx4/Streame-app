@@ -1,7 +1,6 @@
 // ignore_for_file: unused_element, unused_element_parameter
 library;
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -38,6 +37,7 @@ import 'details/stream_tiles.dart';
 import 'details/cast_row.dart';
 import 'details/sections.dart';
 
+import 'details/modern_details_hero.dart';
 part 'details/details_fetch_methods.dart';
 part 'details/details_stream_methods.dart';
 part 'details/details_playback_methods.dart';

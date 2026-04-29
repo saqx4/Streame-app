@@ -54,15 +54,7 @@ class _MovieSectionState extends State<MovieSection> {
   }
 
   Widget _buildGlassArrow(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: GlassColors.surfaceSubtle,
-        shape: BoxShape.circle,
-        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
-      ),
-      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
-    );
+    return _GlassArrowButton(icon: icon, onTap: icon == Icons.arrow_back_ios_new_rounded ? _scrollLeft : _scrollRight);
   }
 
   @override
@@ -168,15 +160,9 @@ class _MovieSectionState extends State<MovieSection> {
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _scrollLeft,
-                    child: _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
-                  ),
+                  _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
                   const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: _scrollRight,
-                    child: _buildGlassArrow(Icons.arrow_forward_ios_rounded),
-                  ),
+                  _buildGlassArrow(Icons.arrow_forward_ios_rounded),
                 ],
               ),
             ),
@@ -251,15 +237,7 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
   }
 
   Widget _buildGlassArrow(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: GlassColors.surfaceSubtle,
-        shape: BoxShape.circle,
-        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
-      ),
-      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
-    );
+    return _GlassArrowButton(icon: icon, onTap: icon == Icons.arrow_back_ios_new_rounded ? _scrollLeft : _scrollRight);
   }
 
   @override
@@ -303,15 +281,9 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
                   ],
                 ),
               ),
-              GestureDetector(
-                onTap: _scrollLeft,
-                child: _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
-              ),
+              _buildGlassArrow(Icons.arrow_back_ios_new_rounded),
               const SizedBox(width: 6),
-              GestureDetector(
-                onTap: _scrollRight,
-                child: _buildGlassArrow(Icons.arrow_forward_ios_rounded),
-              ),
+              _buildGlassArrow(Icons.arrow_forward_ios_rounded),
             ],
           ),
         ),
@@ -335,7 +307,7 @@ class _StaticMovieSectionState extends State<StaticMovieSection> {
   }
 }
 
-class MovieCard extends StatelessWidget {
+class MovieCard extends StatefulWidget {
   final Movie movie;
   final bool isPortrait;
   final int? rank;
@@ -349,17 +321,25 @@ class MovieCard extends StatelessWidget {
   });
 
   @override
+  State<MovieCard> createState() => _MovieCardState();
+}
+
+class _MovieCardState extends State<MovieCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
+    final primary = AppTheme.current.primaryColor;
     
-    final cardWidth = isPortrait 
+    final cardWidth = widget.isPortrait 
         ? (isDesktop ? 165.0 : 140.0) 
         : (isDesktop ? 320.0 : 270.0);
         
-    final image = isPortrait ? movie.posterPath : movie.backdropPath;
+    final image = widget.isPortrait ? widget.movie.posterPath : widget.movie.backdropPath;
     final imageUrl = image.isNotEmpty ? TmdbApi.getImageUrl(image) : '';
-    final hasRank = rank != null;
+    final hasRank = widget.rank != null;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -368,9 +348,9 @@ class MovieCard extends StatelessWidget {
         // Big rank number
         if (hasRank)
           Text(
-            '$rank',
+            '${widget.rank}',
             style: TextStyle(
-              fontSize: isPortrait ? 120 : 90,
+              fontSize: widget.isPortrait ? 120 : 90,
               fontWeight: FontWeight.w900,
               foreground: Paint()
                 ..style = PaintingStyle.stroke
@@ -380,112 +360,137 @@ class MovieCard extends StatelessWidget {
               letterSpacing: -8,
             ),
           ),
-        FocusableControl(
-          onTap: onTap,
-          borderRadius: AppRadius.card,
-          scaleOnFocus: 1.05,
-          child: Container(
-            width: cardWidth,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppTheme.border, width: 0.5),
-              boxShadow: AppTheme.isLightMode ? null : [
-                AppShadows.strong,
-                AppShadows.glow(0.08),
-              ],
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (imageUrl.isNotEmpty)
-                  RepaintBoundary(
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 640,
-                      placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
-                      errorWidget: (_, _, _) => Container(
-                        color: AppTheme.surfaceContainer,
-                        child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    color: AppTheme.surfaceContainer,
-                    child: Center(child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
-                  ),
-                
-                // Gradient overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        AppTheme.bgDark.withValues(alpha: 0.7),
-                        AppTheme.bgDark.withValues(alpha: 0.95),
-                      ],
-                      stops: const [0.0, 0.45, 0.8, 1.0],
-                    ),
-                  ),
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: FocusableControl(
+            onTap: widget.onTap,
+            borderRadius: AppRadius.card,
+            scaleOnFocus: 1.05,
+            child: AnimatedContainer(
+              duration: AppDurations.fast,
+              curve: AnimationPresets.smoothInOut,
+              width: cardWidth,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(
+                  color: _isHovered ? primary.withValues(alpha: 0.5) : AppTheme.border,
+                  width: _isHovered ? 1.0 : 0.5,
                 ),
-                
-                // Rating badge (top right) — frosted glass
-                if (movie.voteAverage > 0)
-                  Positioned(
-                    top: 8, right: 8,
-                    child: buildRatingBadge(movie.voteAverage),
-                  ),
-
-                // Bottom content
-                Positioned(
-                  bottom: 10, left: 10, right: 10,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        movie.title,
-                        maxLines: isPortrait ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppTheme.textPrimary, 
-                          fontWeight: FontWeight.w600, 
-                          fontSize: isDesktop ? 14 : 13,
-                          height: 1.2,
+                boxShadow: AppTheme.isLightMode ? null : [
+                  if (_isHovered) AppShadows.glow(0.15),
+                  if (_isHovered) AppShadows.primary(0.1),
+                  BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.2), blurRadius: _isHovered ? 16 : 8, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (imageUrl.isNotEmpty)
+                    RepaintBoundary(
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 640,
+                        placeholder: (_, _) => Container(color: AppTheme.surfaceContainer),
+                        errorWidget: (_, _, _) => Container(
+                          color: AppTheme.surfaceContainer,
+                          child: Center(child: Text(widget.movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          if (movie.releaseDate.isNotEmpty)
-                            Text(
-                              movie.releaseDate.split('-').first,
-                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-                            ),
-                          if (movie.mediaType == 'tv') ...[
-                            if (movie.releaseDate.isNotEmpty) ...[
-                              Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
-                            ],
-                            Text('TV', style: TextStyle(color: AppTheme.current.primaryColor.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
-                          ],
+                    )
+                  else
+                    Container(
+                      color: AppTheme.surfaceContainer,
+                      child: Center(child: Text(widget.movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
+                    ),
+                  
+                  // Gradient overlay — stronger on hover
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.transparent,
+                          AppTheme.bgDark.withValues(alpha: _isHovered ? 0.8 : 0.6),
+                          AppTheme.bgDark.withValues(alpha: _isHovered ? 0.98 : 0.9),
                         ],
+                        stops: const [0.0, 0.45, 0.8, 1.0],
                       ),
-                    ],
+                    ),
                   ),
-                ),
 
-                // My List button
-                Positioned(
-                  top: 8, left: 8,
-                  child: MyListButton.movie(movie: movie),
-                ),
-              ],
+                  // Play icon on hover
+                  if (_isHovered)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: primary.withValues(alpha: 0.25),
+                          border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                          boxShadow: [AppShadows.glow(0.2)],
+                        ),
+                        child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 24),
+                      ),
+                    ),
+                  
+                  // Rating badge (top right) — frosted glass
+                  if (widget.movie.voteAverage > 0)
+                    Positioned(
+                      top: 8, right: 8,
+                      child: buildRatingBadge(widget.movie.voteAverage),
+                    ),
+
+                  // Bottom content
+                  Positioned(
+                    bottom: 10, left: 10, right: 10,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.movie.title,
+                          maxLines: widget.isPortrait ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary, 
+                            fontWeight: FontWeight.w600, 
+                            fontSize: isDesktop ? 14 : 13,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (widget.movie.releaseDate.isNotEmpty)
+                              Text(
+                                widget.movie.releaseDate.split('-').first,
+                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                              ),
+                            if (widget.movie.mediaType == 'tv') ...[
+                              if (widget.movie.releaseDate.isNotEmpty) ...[
+                                Text('  •  ', style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+                              ],
+                              Text('TV', style: TextStyle(color: primary.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // My List button
+                  Positioned(
+                    top: 8, left: 8,
+                    child: MyListButton.movie(movie: widget.movie),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -597,15 +602,7 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
   }
 
   Widget _buildStremioArrow(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: GlassColors.surfaceSubtle,
-        shape: BoxShape.circle,
-        border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
-      ),
-      child: Icon(icon, color: AppTheme.textSecondary, size: 14),
-    );
+    return _GlassArrowButton(icon: icon, onTap: icon == Icons.arrow_back_ios_new_rounded ? _scrollLeft : _scrollRight);
   }
 
   @override
@@ -706,15 +703,9 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
                 const SizedBox(width: 10),
               ],
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _scrollLeft,
-                child: _buildStremioArrow(Icons.arrow_back_ios_new_rounded),
-              ),
+              _buildStremioArrow(Icons.arrow_back_ios_new_rounded),
               const SizedBox(width: 6),
-              GestureDetector(
-                onTap: _scrollRight,
-                child: _buildStremioArrow(Icons.arrow_forward_ios_rounded),
-              ),
+              _buildStremioArrow(Icons.arrow_forward_ios_rounded),
             ],
           ),
         ),
@@ -742,7 +733,7 @@ class _StremioCatalogSectionState extends State<StremioCatalogSection> {
   }
 }
 
-class StremioCatalogCard extends StatelessWidget {
+class StremioCatalogCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
   final double height;
@@ -750,96 +741,177 @@ class StremioCatalogCard extends StatelessWidget {
   const StremioCatalogCard({super.key, required this.item, required this.onTap, this.height = 200});
 
   @override
+  State<StremioCatalogCard> createState() => _StremioCatalogCardState();
+}
+
+class _StremioCatalogCardState extends State<StremioCatalogCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final poster = item['poster']?.toString() ?? '';
-    final name = item['name']?.toString() ?? 'Unknown';
-    final rating = item['imdbRating']?.toString() ?? '';
-    final shape = item['posterShape']?.toString() ?? 'poster';
+    final poster = widget.item['poster']?.toString() ?? '';
+    final name = widget.item['name']?.toString() ?? 'Unknown';
+    final rating = widget.item['imdbRating']?.toString() ?? '';
+    final shape = widget.item['posterShape']?.toString() ?? 'poster';
+    final primary = AppTheme.current.primaryColor;
 
     final double width;
     if (shape == 'landscape') {
-      width = height * (16 / 9);
+      width = widget.height * (16 / 9);
     } else if (shape == 'square') {
-      width = height;
+      width = widget.height;
     } else {
-      width = height * (2 / 3);
+      width = widget.height * (2 / 3);
     }
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.card,
-      scaleOnFocus: 1.05,
-      child: Container(
-        width: width,
-        height: height,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.1), width: 0.5),
-          boxShadow: AppTheme.isLightMode ? null : [
-            AppShadows.strong,
-            AppShadows.glow(0.08),
-          ],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (poster.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: poster,
-                fit: BoxFit.cover,
-                memCacheWidth: 320,
-                placeholder: (_, _) => Container(color: AppTheme.bgCard),
-                errorWidget: (_, _, _) => Container(
-                  color: AppTheme.bgCard,
-                  child: Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
-                ),
-              )
-            else
-              Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: AppRadius.card,
+        scaleOnFocus: 1.05,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          width: width,
+          height: widget.height,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppTheme.bgCard,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.5) : AppTheme.borderStrong.withValues(alpha: 0.1),
+              width: _isHovered ? 1.0 : 0.5,
+            ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.15),
+              BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.2), blurRadius: _isHovered ? 16 : 8, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (poster.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: poster,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 320,
+                  placeholder: (_, _) => Container(color: AppTheme.bgCard),
+                  errorWidget: (_, _, _) => Container(
+                    color: AppTheme.bgCard,
+                    child: Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
+                  ),
+                )
+              else
+                Center(child: Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white38))),
 
-            // Improved gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.black.withValues(alpha: 0.95),
-                  ],
-                  stops: const [0.0, 0.4, 0.75, 1.0],
+              // Gradient — stronger on hover
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: _isHovered ? 0.8 : 0.7),
+                      Colors.black.withValues(alpha: _isHovered ? 0.98 : 0.95),
+                    ],
+                    stops: const [0.0, 0.4, 0.75, 1.0],
+                  ),
                 ),
               ),
-            ),
 
-            // Rating badge — frosted glass
-            if (rating.isNotEmpty)
+              // Play icon on hover
+              if (_isHovered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.25),
+                      border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 24),
+                  ),
+                ),
+
+              // Rating badge
+              if (rating.isNotEmpty)
+                Positioned(
+                  top: 8, right: 8,
+                  child: buildRatingBadgeText(rating),
+                ),
+
+              // Name
               Positioned(
-                top: 8, right: 8,
-                child: buildRatingBadgeText(rating),
+                bottom: 10, left: 10, right: 10,
+                child: Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, height: 1.2),
+                ),
               ),
 
-            // Name
-            Positioned(
-              bottom: 10, left: 10, right: 10,
-              child: Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, height: 1.2),
+              // My List button
+              Positioned(
+                top: 8, left: 8,
+                child: MyListButton.stremio(stremioItem: widget.item),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            // My List button
-            Positioned(
-              top: 8, left: 8,
-              child: MyListButton.stremio(stremioItem: item),
+class _GlassArrowButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GlassArrowButton({required this.icon, required this.onTap});
+
+  @override
+  State<_GlassArrowButton> createState() => _GlassArrowButtonState();
+}
+
+class _GlassArrowButtonState extends State<_GlassArrowButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? AppTheme.current.primaryColor.withValues(alpha: 0.15)
+                : GlassColors.surfaceSubtle,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _isHovered
+                  ? AppTheme.current.primaryColor.withValues(alpha: 0.4)
+                  : GlassColors.borderSubtle,
+              width: 0.5,
             ),
-          ],
+            boxShadow: _isHovered ? [AppShadows.glow(0.1)] : null,
+          ),
+          child: Icon(
+            widget.icon,
+            color: _isHovered ? AppTheme.current.primaryColor : AppTheme.textSecondary,
+            size: 14,
+          ),
         ),
       ),
     );

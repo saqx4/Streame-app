@@ -281,60 +281,7 @@ Widget _actionButton({
   required bool active,
   required VoidCallback onTap,
 }) {
-  final primary = AppTheme.current.primaryColor;
-  return FocusableControl(
-    onTap: onTap,
-    borderRadius: 24,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: active
-            ? primary.withValues(alpha: 0.18)
-            : GlassColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: active
-              ? primary.withValues(alpha: 0.5)
-              : GlassColors.borderSubtle,
-          width: active ? 1.5 : 0.5,
-        ),
-        boxShadow: active
-            ? [AppShadows.glow(0.12)]
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: active
-                  ? primary.withValues(alpha: 0.25)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: active ? primary : AppTheme.textSecondary,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+  return _HoverActionButton(icon: icon, label: label, active: active, onTap: onTap);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -424,12 +371,123 @@ Widget _castChip(String name) {
 }
 
 @override
-Widget _scrollArrow(IconData icon, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Icon(icon, color: AppTheme.textDisabled, size: 16),
-    ),
-  );
+Widget _scrollArrow(IconData icon, VoidCallback onTap) => _HoverScrollArrow(icon: icon, onTap: onTap);
 
+}
+
+class _HoverScrollArrow extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HoverScrollArrow({required this.icon, required this.onTap});
+
+  @override
+  State<_HoverScrollArrow> createState() => _HoverScrollArrowState();
+}
+
+class _HoverScrollArrowState extends State<_HoverScrollArrow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: _isHovered ? primary.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Icon(widget.icon,
+            color: _isHovered ? primary : AppTheme.textDisabled, size: 16),
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _HoverActionButton({required this.icon, required this.label, required this.active, required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: 24,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.active
+                ? primary.withValues(alpha: _isHovered ? 0.25 : 0.18)
+                : (_isHovered ? GlassColors.surfaceSubtle.withValues(alpha: 0.9) : GlassColors.surfaceSubtle),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: widget.active
+                  ? primary.withValues(alpha: _isHovered ? 0.65 : 0.5)
+                  : (_isHovered ? primary.withValues(alpha: 0.25) : GlassColors.borderSubtle),
+              width: widget.active ? 1.5 : 0.5,
+            ),
+            boxShadow: widget.active
+                ? [AppShadows.glow(_isHovered ? 0.18 : 0.12)]
+                : (_isHovered ? [AppShadows.glow(0.06)] : null),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: AppDurations.fast,
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: widget.active
+                      ? primary.withValues(alpha: 0.25)
+                      : (_isHovered ? primary.withValues(alpha: 0.1) : Colors.transparent),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.active ? primary : (_isHovered ? AppTheme.textPrimary : AppTheme.textSecondary),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.active ? AppTheme.textPrimary : (_isHovered ? AppTheme.textPrimary : AppTheme.textSecondary),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -99,34 +99,11 @@ class _HeroBannerState extends State<HeroBanner>
                       placeholder: (_, __) => Container(color: AppTheme.bgDark),
                       errorWidget: (_, __, ___) => Container(color: AppTheme.bgDark),
                     ),
-                    // Enhanced multi-stop gradient
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            AppTheme.bgDark.withValues(alpha: 0.1),
-                            AppTheme.bgDark.withValues(alpha: 0.0),
-                            AppTheme.bgDark.withValues(alpha: 0.3),
-                            AppTheme.bgDark.withValues(alpha: 0.85),
-                            AppTheme.bgDark,
-                          ],
-                          stops: const [0.0, 0.2, 0.45, 0.75, 1.0],
-                        ),
-                      ),
-                    ),
-                    // Primary color tint at bottom
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            primary.withValues(alpha: 0.08),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.4],
+                    // Netflix-style overlay
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppShadows.netflixOverlay,
                         ),
                       ),
                     ),
@@ -165,6 +142,41 @@ class _HeroBannerState extends State<HeroBanner>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Trending rank badge
+                    if (_currentIndex < featuredMovies.length)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [primary.withValues(alpha: 0.9), primary.withValues(alpha: 0.6)],
+                                ),
+                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                                boxShadow: [AppShadows.primary(0.3)],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.local_fire_department_rounded, size: 14, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '#${_currentIndex + 1} in Trending',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     // Logo or Title
                     if (widget.logoUrls != null && widget.logoUrls![movie.id] != null)
                       ConstrainedBox(

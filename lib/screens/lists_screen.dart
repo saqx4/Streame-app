@@ -351,43 +351,98 @@ class _ListsScreenState extends State<ListsScreen> with SingleTickerProviderStat
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return _HoverListCard(
+      name: name,
+      subtitle: subtitle,
+      description: description,
+      icon: icon,
+      color: color,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: GlassColors.surfaceSubtle,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(icon, color: color, size: 22),
+    );
+  }
+}
+
+class _HoverListCard extends StatefulWidget {
+  final String name;
+  final String subtitle;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverListCard({
+    required this.name,
+    required this.subtitle,
+    this.description = '',
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverListCard> createState() => _HoverListCardState();
+}
+
+class _HoverListCardState extends State<_HoverListCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _isHovered ? GlassColors.surfaceSubtle.withValues(alpha: 0.9) : GlassColors.surfaceSubtle,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.3) : GlassColors.borderSubtle,
+              width: _isHovered ? 1.0 : 0.5,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(description, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+            boxShadow: _isHovered ? [AppShadows.glow(0.06)] : null,
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: AppDurations.fast,
+                curve: AnimationPresets.smoothInOut,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: widget.color.withValues(alpha: _isHovered ? 0.25 : 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.name, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(widget.subtitle, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    if (widget.description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(widget.description, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: AppTheme.textDisabled, fontSize: 11)),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: AppTheme.textDisabled),
-          ],
+              AnimatedScale(
+                duration: AppDurations.fast,
+                scale: _isHovered ? 1.1 : 1.0,
+                child: Icon(Icons.chevron_right_rounded, color: _isHovered ? primary : AppTheme.textDisabled),
+              ),
+            ],
+          ),
         ),
       ),
     );

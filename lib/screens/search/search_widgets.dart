@@ -113,7 +113,7 @@ class _ScrollableSliderState extends State<ScrollableSlider> {
   }
 }
 
-class ArrowButton extends StatelessWidget {
+class ArrowButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final Alignment alignment;
@@ -121,35 +121,54 @@ class ArrowButton extends StatelessWidget {
   const ArrowButton({super.key, required this.icon, required this.onTap, required this.alignment});
 
   @override
+  State<ArrowButton> createState() => _ArrowButtonState();
+}
+
+class _ArrowButtonState extends State<ArrowButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final primary = AppTheme.current.primaryColor;
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        alignment: alignment,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: alignment == Alignment.centerLeft ? Alignment.centerLeft : Alignment.centerRight,
-            end: alignment == Alignment.centerLeft ? Alignment.centerRight : Alignment.centerLeft,
-            colors: [
-              AppTheme.bgDark.withValues(alpha: 0.9),
-              AppTheme.bgDark.withValues(alpha: 0.0),
-            ],
+      onTap: widget.onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Container(
+          width: 32,
+          alignment: widget.alignment,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: widget.alignment == Alignment.centerLeft ? Alignment.centerLeft : Alignment.centerRight,
+              end: widget.alignment == Alignment.centerLeft ? Alignment.centerRight : Alignment.centerLeft,
+              colors: [
+                AppTheme.bgDark.withValues(alpha: 0.9),
+                AppTheme.bgDark.withValues(alpha: 0.0),
+              ],
+            ),
           ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: GlassColors.surfaceSubtle,
-                shape: BoxShape.circle,
-                border: Border.all(color: GlassColors.borderSubtle, width: 0.5),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: AnimatedContainer(
+                duration: AppDurations.fast,
+                curve: AnimationPresets.smoothInOut,
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _isHovered ? primary.withValues(alpha: 0.15) : GlassColors.surfaceSubtle,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isHovered ? primary.withValues(alpha: 0.4) : GlassColors.borderSubtle,
+                    width: 0.5,
+                  ),
+                  boxShadow: _isHovered ? [AppShadows.glow(0.1)] : null,
+                ),
+                child: Icon(widget.icon, color: _isHovered ? primary : AppTheme.textSecondary, size: 18),
               ),
-              child: Icon(icon, color: AppTheme.textSecondary, size: 18),
             ),
           ),
         ),
@@ -162,201 +181,265 @@ class ArrowButton extends StatelessWidget {
 // Result Cards
 // ═════════════════════════════════════════════════════════════════════════════
 
-class SearchCard extends StatelessWidget {
+class SearchCard extends StatefulWidget {
   final Movie movie;
   final VoidCallback onTap;
 
   const SearchCard({super.key, required this.movie, required this.onTap});
 
   @override
+  State<SearchCard> createState() => _SearchCardState();
+}
+
+class _SearchCardState extends State<SearchCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final imageUrl = movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(movie.posterPath) : '';
+    final imageUrl = widget.movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(widget.movie.posterPath) : '';
+    final primary = AppTheme.current.primaryColor;
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.card,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-          boxShadow: AppTheme.isLightMode ? null : [
-            AppShadows.strong,
-            AppShadows.glow(0.08),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageUrl.isNotEmpty)
-              Hero(
-                tag: 'movie-poster-${movie.id}',
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                  errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: AppRadius.card,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.5) : AppTheme.border,
+              width: _isHovered ? 1.0 : 0.5,
+            ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.15),
+              BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.2), blurRadius: _isHovered ? 16 : 8, offset: const Offset(0, 4)),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageUrl.isNotEmpty)
+                Hero(
+                  tag: 'movie-poster-${widget.movie.id}',
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                    errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+                  ),
+                )
+              else
+                Center(child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(widget.movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                )),
+
+              // Play icon on hover
+              if (_isHovered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.25),
+                      border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 20),
+                  ),
                 ),
-              )
-            else
-              Center(child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              )),
 
-            if (movie.voteAverage > 0)
+              if (widget.movie.voteAverage > 0)
+                Positioned(
+                  top: 6, right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgDark.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                    ),
+                    child: Text(widget.movie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
+                  ),
+                ),
+
               Positioned(
-                top: 6, right: 6,
+                bottom: 0, left: 0, right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgDark.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [AppTheme.bgDark.withValues(alpha: _isHovered ? 0.95 : 0.85), Colors.transparent],
+                    ),
                   ),
-                  child: Text(movie.voteAverage.toStringAsFixed(1), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
+                  child: Text(
+                    widget.movie.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
+                  ),
                 ),
               ),
 
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [AppTheme.bgDark.withValues(alpha: 0.85), Colors.transparent],
-                  ),
-                ),
-                child: Text(
-                  movie.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
-                ),
+              Positioned(
+                top: 6, left: 6,
+                child: MyListButton.movie(movie: widget.movie),
               ),
-            ),
-
-            Positioned(
-              top: 6, left: 6,
-              child: MyListButton.movie(movie: movie),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class StremioSearchCard extends StatelessWidget {
+class StremioSearchCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
 
   const StremioSearchCard({super.key, required this.item, required this.onTap});
 
   @override
+  State<StremioSearchCard> createState() => _StremioSearchCardState();
+}
+
+class _StremioSearchCardState extends State<StremioSearchCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final poster = item['poster']?.toString() ?? '';
-    final name = item['name']?.toString() ?? 'Unknown';
-    final rating = item['imdbRating']?.toString() ?? '';
-    final type = item['type']?.toString() ?? '';
+    final poster = widget.item['poster']?.toString() ?? '';
+    final name = widget.item['name']?.toString() ?? 'Unknown';
+    final rating = widget.item['imdbRating']?.toString() ?? '';
+    final type = widget.item['type']?.toString() ?? '';
+    final primary = AppTheme.current.primaryColor;
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.card,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-          boxShadow: AppTheme.isLightMode ? null : [
-            AppShadows.strong,
-            AppShadows.glow(0.08),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (poster.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: poster,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, __, ___) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
-                  ),
-                ),
-              )
-            else
-              Center(child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
-              )),
-
-            if (type.isNotEmpty)
-              Positioned(
-                top: 5, left: 5,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: type == 'series' ? Colors.blue.withValues(alpha: 0.7) : AppTheme.current.primaryColor.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(type.toUpperCase(), style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                ),
-              ),
-
-            if (rating.isNotEmpty)
-              Positioned(
-                top: 5, right: 5,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgDark.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, size: 9, color: Colors.amber),
-                      const SizedBox(width: 2),
-                      Text(rating, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
-                    ],
-                  ),
-                ),
-              ),
-
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [AppTheme.bgDark.withValues(alpha: 0.85), Colors.transparent],
-                  ),
-                ),
-                child: Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
-                ),
-              ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: AppRadius.card,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.5) : AppTheme.border,
+              width: _isHovered ? 1.0 : 0.5,
             ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.15),
+              BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.2), blurRadius: _isHovered ? 16 : 8, offset: const Offset(0, 4)),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (poster.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: poster,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                  errorWidget: (_, __, ___) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
+                    ),
+                  ),
+                )
+              else
+                Center(child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textDisabled)),
+                )),
 
-            Positioned(
-              bottom: 30, right: 5,
-              child: MyListButton.stremio(stremioItem: item),
-            ),
-          ],
+              // Play icon on hover
+              if (_isHovered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.25),
+                      border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 20),
+                  ),
+                ),
+
+              if (type.isNotEmpty)
+                Positioned(
+                  top: 5, left: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: type == 'series' ? Colors.blue.withValues(alpha: 0.7) : primary.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(type.toUpperCase(), style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  ),
+                ),
+
+              if (rating.isNotEmpty)
+                Positioned(
+                  top: 5, right: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgDark.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star, size: 9, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(rating, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      ],
+                    ),
+                  ),
+                ),
+
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [AppTheme.bgDark.withValues(alpha: _isHovered ? 0.95 : 0.85), Colors.transparent],
+                    ),
+                  ),
+                  child: Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: AppTheme.textPrimary),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                bottom: 30, right: 5,
+                child: MyListButton.stremio(stremioItem: widget.item),
+              ),
+            ],
+          ),
         ),
       ),
     );

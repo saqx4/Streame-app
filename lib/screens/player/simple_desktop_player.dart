@@ -1155,7 +1155,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   void _checkNearEndOfEpisode(Duration pos) {
     if (!_isNextEpisodeAvailable || _durationNotifier.value.inMilliseconds == 0) return;
     final watchedPercent = pos.inMilliseconds / _durationNotifier.value.inMilliseconds;
-    final nearEnd = watchedPercent >= 0.85 && watchedPercent < 1.0;
+    final nearEnd = watchedPercent >= 0.90 && watchedPercent < 1.0;
     if (nearEnd != _nearEndOfEpisode) {
       setState(() => _nearEndOfEpisode = nearEnd);
       if (nearEnd && !_showNextEpNotifier.value) {

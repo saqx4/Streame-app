@@ -98,70 +98,106 @@ class CompactFilterDialog extends StatelessWidget {
   }
 }
 
-class DiscoverCard extends StatelessWidget {
+class DiscoverCard extends StatefulWidget {
   final Movie movie;
   final VoidCallback onTap;
 
   const DiscoverCard({super.key, required this.movie, required this.onTap});
 
   @override
+  State<DiscoverCard> createState() => _DiscoverCardState();
+}
+
+class _DiscoverCardState extends State<DiscoverCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final imageUrl = movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(movie.posterPath) : '';
+    final imageUrl = widget.movie.posterPath.isNotEmpty ? TmdbApi.getImageUrl(widget.movie.posterPath) : '';
+    final primary = AppTheme.current.primaryColor;
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.card,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          boxShadow: AppTheme.isLightMode ? null : [AppShadows.medium],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                memCacheWidth: 320,
-                placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
-                errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
-              )
-            else
-              Center(child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              )),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: AppRadius.card,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.5) : AppTheme.border,
+              width: _isHovered ? 1.0 : 0.5,
+            ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.15),
+              BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.15), blurRadius: _isHovered ? 16 : 6, offset: const Offset(0, 4)),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  memCacheWidth: 320,
+                  placeholder: (_, __) => Container(color: AppTheme.surfaceContainer),
+                  errorWidget: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppTheme.textDisabled)),
+                )
+              else
+                Center(child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(widget.movie.title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                )),
 
-            // Rating Badge
-            Positioned(
-              top: 8, right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.bgDark.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+              // Play icon on hover
+              if (_isHovered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.25),
+                      border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 20),
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 10),
-                    const SizedBox(width: 4),
-                    Text(movie.voteAverage.toStringAsFixed(1), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  ],
+
+              // Rating Badge
+              Positioned(
+                top: 8, right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgDark.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 10),
+                      const SizedBox(width: 4),
+                      Text(widget.movie.voteAverage.toStringAsFixed(1), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // My List add/remove button
-            Positioned(
-              top: 8, left: 8,
-              child: MyListButton.movie(movie: movie),
-            ),
-          ],
+              // My List add/remove button
+              Positioned(
+                top: 8, left: 8,
+                child: MyListButton.movie(movie: widget.movie),
+              ),
+            ],
+          ),
         ),
       ),
     );

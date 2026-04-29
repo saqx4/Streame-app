@@ -309,7 +309,7 @@ class _MyListScreenState extends State<MyListScreen> {
 // My List Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MyListCard extends StatelessWidget {
+class _MyListCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
   final VoidCallback onRemove;
@@ -317,128 +317,166 @@ class _MyListCard extends StatelessWidget {
   const _MyListCard({required this.item, required this.onTap, required this.onRemove});
 
   @override
-  Widget build(BuildContext context) {
-    final title = item['title']?.toString() ?? 'Unknown';
-    final poster = item['posterPath']?.toString() ?? '';
-    final mediaType = item['mediaType']?.toString() ?? 'movie';
-    final source = item['source']?.toString() ?? 'tmdb';
-    final rating = (item['voteAverage'] as num?)?.toDouble() ?? 0;
+  State<_MyListCard> createState() => _MyListCardState();
+}
 
-    // TMDB relative paths start with "/" and need the base URL
+class _MyListCardState extends State<_MyListCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.item['title']?.toString() ?? 'Unknown';
+    final poster = widget.item['posterPath']?.toString() ?? '';
+    final mediaType = widget.item['mediaType']?.toString() ?? 'movie';
+    final source = widget.item['source']?.toString() ?? 'tmdb';
+    final rating = (widget.item['voteAverage'] as num?)?.toDouble() ?? 0;
+    final primary = AppTheme.current.primaryColor;
+
     final imageUrl = source == 'tmdb' && poster.startsWith('/')
         ? TmdbApi.getImageUrl(poster)
         : poster;
 
-    return FocusableControl(
-      onTap: onTap,
-      borderRadius: AppRadius.card,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          boxShadow: AppTheme.isLightMode ? null : [AppShadows.medium],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Poster image
-            if (imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.bgCard),
-                errorWidget: (_, _, _) => Container(
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: FocusableControl(
+        onTap: widget.onTap,
+        borderRadius: AppRadius.card,
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AnimationPresets.smoothInOut,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppTheme.bgCard,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: _isHovered ? primary.withValues(alpha: 0.5) : Colors.transparent,
+              width: _isHovered ? 1.0 : 0,
+            ),
+            boxShadow: AppTheme.isLightMode ? null : [
+              if (_isHovered) AppShadows.glow(0.15),
+              BoxShadow(color: AppTheme.overlay.withValues(alpha: _isHovered ? 0.4 : 0.15), blurRadius: _isHovered ? 16 : 6, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Poster image
+              if (imageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(color: AppTheme.bgCard),
+                  errorWidget: (_, _, _) => Container(
+                    color: AppTheme.bgCard,
+                    child: Center(child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
+                  ),
+                )
+              else
+                Container(
                   color: AppTheme.bgCard,
                   child: Center(child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
                 ),
-              )
-            else
-              Container(
-                color: AppTheme.bgCard,
-                child: Center(child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppTheme.textDisabled))),
-              ),
 
-            // Gradient
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
-                  stops: [0.55, 1.0],
+              // Gradient — stronger on hover
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      AppTheme.bgDark.withValues(alpha: _isHovered ? 0.9 : 0.7),
+                    ],
+                    stops: const [0.55, 1.0],
+                  ),
                 ),
               ),
-            ),
 
-            // Rating badge
-            if (rating > 0)
+              // Play icon on hover
+              if (_isHovered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.25),
+                      border: Border.all(color: primary.withValues(alpha: 0.5), width: 1),
+                      boxShadow: [AppShadows.glow(0.2)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: AppTheme.textPrimary, size: 24),
+                  ),
+                ),
+
+              // Rating badge
+              if (rating > 0)
+                Positioned(
+                  top: 6, right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgDark.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star, size: 10, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Type badge
               Positioned(
-                top: 6, right: 6,
+                top: 6, left: 6,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgDark.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: AppTheme.borderStrong.withValues(alpha: 0.2), width: 0.5),
+                    color: mediaType == 'tv' || mediaType == 'series'
+                        ? Colors.blue.withValues(alpha: 0.7)
+                        : AppTheme.primaryColor.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, size: 10, color: Colors.amber),
-                      const SizedBox(width: 2),
-                      Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
-                    ],
+                  child: Text(
+                    mediaType == 'tv' || mediaType == 'series' ? 'TV' : 'MOVIE',
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ),
               ),
 
-            // Type badge
-            Positioned(
-              top: 6, left: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: mediaType == 'tv' || mediaType == 'series'
-                      ? Colors.blue.withValues(alpha: 0.7)
-                      : AppTheme.primaryColor.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+              // Title
+              Positioned(
+                bottom: 8, left: 8, right: 28,
                 child: Text(
-                  mediaType == 'tv' || mediaType == 'series' ? 'TV' : 'MOVIE',
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
-            ),
 
-            // Title
-            Positioned(
-              bottom: 8, left: 8, right: 28,
-              child: Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-
-            // Remove button — must be AFTER title so it renders on top
-            Positioned(
-              bottom: 4, right: 4,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.8),
-                    shape: BoxShape.circle,
+              // Remove button
+              Positioned(
+                bottom: 4, right: 4,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onRemove,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.close, size: 14, color: AppTheme.textPrimary),
                   ),
-                  child: Icon(Icons.close, size: 14, color: AppTheme.textPrimary),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
