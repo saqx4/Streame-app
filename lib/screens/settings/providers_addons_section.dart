@@ -300,19 +300,22 @@ class _ProvidersAddonsSectionState extends State<ProvidersAddonsSection> {
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _isInstalling ? null : _installAddon,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.textPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
+              FocusableControl(
+                borderRadius: 12,
+                onTap: _isInstalling ? null : _installAddon,
+                child: ElevatedButton(
+                  onPressed: _isInstalling ? null : _installAddon,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: AppTheme.textPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
                 child: _isInstalling
                     ? const SizedBox(
                         width: 20,
@@ -323,6 +326,7 @@ class _ProvidersAddonsSectionState extends State<ProvidersAddonsSection> {
                         'Install',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
+                ),
               ),
             ],
           ),
@@ -450,45 +454,53 @@ class _ProvidersAddonsSectionState extends State<ProvidersAddonsSection> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _isTestingJackett ? null : _testJackettConnection,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                      alpha: 0.3,
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _isTestingJackett ? null : _testJackettConnection,
+                  child: ElevatedButton(
+                    onPressed: _isTestingJackett ? null : _testJackettConnection,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                        alpha: 0.3,
+                      ),
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    child: _isTestingJackett
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Test Connection',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
-                  child: _isTestingJackett
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(
-                          'Test Connection',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveJackettSettings,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _saveJackettSettings,
+                  child: ElevatedButton(
+                    onPressed: _saveJackettSettings,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ),
@@ -581,47 +593,55 @@ class _ProvidersAddonsSectionState extends State<ProvidersAddonsSection> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _isTestingProwlarr
-                      ? null
-                      : _testProwlarrConnection,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                      alpha: 0.3,
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _isTestingProwlarr ? null : _testProwlarrConnection,
+                  child: ElevatedButton(
+                    onPressed: _isTestingProwlarr
+                        ? null
+                        : _testProwlarrConnection,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                        alpha: 0.3,
+                      ),
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    child: _isTestingProwlarr
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Test Connection',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
-                  child: _isTestingProwlarr
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(
-                          'Test Connection',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveProwlarrSettings,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _saveProwlarrSettings,
+                  child: ElevatedButton(
+                    onPressed: _saveProwlarrSettings,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ),

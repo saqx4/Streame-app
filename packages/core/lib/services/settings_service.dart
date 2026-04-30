@@ -337,7 +337,7 @@ class SettingsService {
 
   Future<String> getThemePreset() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_themePresetKey) ?? 'cinematic';
+    return prefs.getString(_themePresetKey) ?? 'streaming_red';
   }
 
   Future<void> setThemePreset(String preset) async {

@@ -6,15 +6,18 @@ import 'package:flutter/widgets.dart';
 class PlatformInfo {
   PlatformInfo._();
 
-  /// True on Android with a large screen that isn't a desktop OS.
-  /// Heuristic: Android + shortestSide >= 600 + not Windows/Linux/macOS.
+  /// True on Android TV only (not tablets).
+  /// Heuristic: Android + shortestSide >= 960 (TVs use 10-foot UI at high dp)
+  /// + landscape-only. Tablets are typically 600–800dp shortestSide.
   static bool isTv(BuildContext context) {
     if (!Platform.isAndroid) return false;
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) return false;
     final mq = MediaQuery.maybeOf(context);
     if (mq == null) return false;
     final shortestSide = mq.size.shortestSide;
-    return shortestSide >= 600;
+    // Android TV devices have very large dp screens (≥960) and are landscape-only.
+    // Tablets typically have shortestSide 600–800dp and support portrait.
+    return shortestSide >= 960;
   }
 
   /// True on phone/tablet (Android/iOS) or narrow screens.
@@ -55,19 +58,18 @@ class DeviceDetector {
   /// Perform device detection
   Future<void> detect() async {
     if (_detected) return;
-    
-    if (!Platform.isLinux && !Platform.isWindows && !Platform.isMacOS) {
-      _detected = true;
-      return;
-    }
 
     try {
-      await _detectGPU();
-      await _detectCPU();
-      await _detectRAM();
+      if (Platform.isAndroid) {
+        await _detectAndroid();
+      } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        await _detectGPU();
+        await _detectCPU();
+        await _detectRAM();
+      }
       _detectHwDecSupport();
       _detected = true;
-      
+
       log.info('[DeviceDetector] Detection complete:');
       log.info('[DeviceDetector]   GPU: $_gpuVendor');
       log.info('[DeviceDetector]   CPU: $_cpuInfo');
@@ -76,6 +78,64 @@ class DeviceDetector {
     } catch (e) {
       log.info('[DeviceDetector] Detection error: $e');
       _detected = true; // Don't retry
+    }
+  }
+
+  /// Android-specific detection via /proc filesystem
+  Future<void> _detectAndroid() async {
+    // CPU / GPU info from /proc/cpuinfo
+    try {
+      final cpuinfo = await File('/proc/cpuinfo').readAsString();
+      final lines = cpuinfo.split('\n');
+      for (final line in lines) {
+        if (line.startsWith('Hardware')) {
+          _cpuInfo = line.split(':').skip(1).join(':').trim();
+          break;
+        }
+        if (line.startsWith('model name')) {
+          _cpuInfo = line.split(':').skip(1).join(':').trim();
+        }
+      }
+      // Infer GPU from CPU info — common Android GPU vendors
+      final cpuLower = (_cpuInfo ?? '').toLowerCase();
+      if (cpuLower.contains('mali')) {
+        _gpuVendor = 'ARM';
+      } else if (cpuLower.contains('adreno')) {
+        _gpuVendor = 'Qualcomm';
+      } else if (cpuLower.contains('powervr') || cpuLower.contains('imgtec')) {
+        _gpuVendor = 'Imagination';
+      }
+      // Also check /sys/class/kgsl/kgsl-3d0/gpu_model for Adreno (Qualcomm)
+      if (_gpuVendor == null) {
+        try {
+          final gpuModel = await File('/sys/class/kgsl/kgsl-3d0/gpu_model').readAsString();
+          if (gpuModel.toLowerCase().contains('adreno')) {
+            _gpuVendor = 'Qualcomm';
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      log.info('[DeviceDetector] Android cpuinfo error: $e');
+    }
+
+    // RAM from /proc/meminfo
+    try {
+      final meminfo = await File('/proc/meminfo').readAsString();
+      final lines = meminfo.split('\n');
+      for (final line in lines) {
+        if (line.startsWith('MemTotal')) {
+          final parts = line.split(':');
+          if (parts.length > 1) {
+            final kb = int.tryParse(parts[1].trim().split(' ')[0]);
+            if (kb != null) {
+              _ramGb = kb / 1024 / 1024;
+            }
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      log.info('[DeviceDetector] Android meminfo error: $e');
     }
   }
 
@@ -262,7 +322,12 @@ class DeviceDetector {
     if (_gpuVendor == 'Apple') {
       return 'autoHw';
     }
-    
+
+    // Android GPU vendors — auto-safe is best for MediaCodec
+    if (_gpuVendor == 'ARM' || _gpuVendor == 'Qualcomm' || _gpuVendor == 'Imagination') {
+      return 'autoSafe';
+    }
+
     // Default to auto
     return 'autoHw';
   }
@@ -300,7 +365,12 @@ class DeviceDetector {
     if (_gpuVendor == 'Apple') {
       return 'displayResample';
     }
-    
+
+    // Android GPU vendors — audio sync is most reliable on mobile
+    if (_gpuVendor == 'ARM' || _gpuVendor == 'Qualcomm' || _gpuVendor == 'Imagination') {
+      return 'audio';
+    }
+
     // Default to display-adrop for stability
     return 'displayAdrop';
   }

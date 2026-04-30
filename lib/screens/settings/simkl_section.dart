@@ -271,37 +271,45 @@ class _SimklSectionState extends State<SimklSection> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isSimklSyncing ? null : _syncSimkl,
-                icon: _isSimklSyncing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
-                label: Text(_isSimklSyncing ? 'Syncing...' : 'Sync Now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.textPrimary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: FocusableControl(
+                borderRadius: 12,
+                onTap: _isSimklSyncing ? null : _syncSimkl,
+                child: ElevatedButton.icon(
+                  onPressed: _isSimklSyncing ? null : _syncSimkl,
+                  icon: _isSimklSyncing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync),
+                  label: Text(_isSimklSyncing ? 'Syncing...' : 'Sync Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: AppTheme.textPrimary,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: _logoutSimkl,
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout from Simkl'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
-                foregroundColor: Colors.redAccent,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _logoutSimkl,
+              child: ElevatedButton.icon(
+                onPressed: _logoutSimkl,
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout from Simkl'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -385,32 +393,40 @@ class _SimklSectionState extends State<SimklSection> {
               obscureText: true,
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _saveSimklCredentials,
-              icon: const Icon(Icons.save),
-              label: const Text('Save Credentials'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _saveSimklCredentials,
+              child: ElevatedButton.icon(
+                onPressed: _saveSimklCredentials,
+                icon: const Icon(Icons.save),
+                label: const Text('Save Credentials'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _startSimklLogin,
-              icon: const Icon(Icons.login),
-              label: const Text('Login with Simkl'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                  alpha: 0.2,
-                ),
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _startSimklLogin,
+              child: ElevatedButton.icon(
+                onPressed: _startSimklLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('Login with Simkl'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                    alpha: 0.2,
+                  ),
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

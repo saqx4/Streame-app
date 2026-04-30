@@ -531,7 +531,7 @@ class AppTheme {
 
   /// Notifier that broadcasts the current theme preset.
   static final ValueNotifier<AppThemePreset> themeNotifier =
-      ValueNotifier<AppThemePreset>(presets.first);
+      ValueNotifier<AppThemePreset>(presets.firstWhere((p) => p.id == 'streaming_red', orElse: () => presets.first));
 
   /// Current active preset (shorthand).
   static AppThemePreset get current => themeNotifier.value;
@@ -541,9 +541,9 @@ class AppTheme {
   // For theme-aware colors, use Theme.of(context).colorScheme or AppTheme.current.
 
   /// Default primary color (const). For dynamic theme color, use `current.primaryColor`.
-  static const Color primaryColor = Color(0xFF6366F1);
+  static const Color primaryColor = Color(0xFFE50914);
   /// Default accent color (const). For dynamic theme color, use `current.accentColor`.
-  static const Color accentColor = Color(0xFF8B5CF6);
+  static const Color accentColor = Color(0xFFB81D24);
 
   static Color get bgDark => current.bgDark;
   static Color get bgCard => current.bgCard;

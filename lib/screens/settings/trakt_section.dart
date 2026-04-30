@@ -315,22 +315,26 @@ class _TraktSectionState extends State<TraktSection> {
             // Sync button
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isTraktSyncing ? null : _syncTrakt,
-                icon: _isTraktSyncing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
-                label: Text(_isTraktSyncing ? 'Syncing...' : 'Sync Now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.textPrimary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: FocusableControl(
+                borderRadius: 12,
+                onTap: _isTraktSyncing ? null : _syncTrakt,
+                child: ElevatedButton.icon(
+                  onPressed: _isTraktSyncing ? null : _syncTrakt,
+                  icon: _isTraktSyncing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync),
+                  label: Text(_isTraktSyncing ? 'Syncing...' : 'Sync Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: AppTheme.textPrimary,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -338,16 +342,20 @@ class _TraktSectionState extends State<TraktSection> {
             const SizedBox(height: 8),
 
             // Logout button
-            ElevatedButton.icon(
-              onPressed: _logoutTrakt,
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout from Trakt'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
-                foregroundColor: Colors.redAccent,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _logoutTrakt,
+              child: ElevatedButton.icon(
+                onPressed: _logoutTrakt,
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout from Trakt'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -433,32 +441,40 @@ class _TraktSectionState extends State<TraktSection> {
               obscureText: true,
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _saveTraktCredentials,
-              icon: const Icon(Icons.save),
-              label: const Text('Save Credentials'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _saveTraktCredentials,
+              child: ElevatedButton.icon(
+                onPressed: _saveTraktCredentials,
+                icon: const Icon(Icons.save),
+                label: const Text('Save Credentials'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _startTraktLogin,
-              icon: const Icon(Icons.login),
-              label: const Text('Login with Trakt'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                  alpha: 0.2,
-                ),
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _startTraktLogin,
+              child: ElevatedButton.icon(
+                onPressed: _startTraktLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('Login with Trakt'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                    alpha: 0.2,
+                  ),
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

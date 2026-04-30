@@ -481,15 +481,18 @@ Widget _buildRightPanel() {
 
 @override
 Widget _buildTvLayout() {
+  final sw = MediaQuery.of(context).size.width;
+  final panelWidth = sw * 0.38;
+  final hPad = sw * 0.035;
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       // Left panel — poster + info
       SizedBox(
-        width: 550,
+        width: panelWidth,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(48, 24, 32, 48),
+          padding: EdgeInsets.fromLTRB(hPad, hPad * 0.6, hPad * 0.7, hPad),
           child: _buildTvLeftPanel(),
         ),
       ),
@@ -498,7 +501,7 @@ Widget _buildTvLayout() {
       Expanded(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(48, 24, 48, 48),
+          padding: EdgeInsets.fromLTRB(hPad, hPad * 0.6, hPad, hPad),
           child: _buildTvRightPanel(),
         ),
       ),
@@ -507,10 +510,15 @@ Widget _buildTvLayout() {
 }
 
 Widget _buildTvLeftPanel() {
+  final sw = MediaQuery.of(context).size.width;
+  final posterW = sw * 0.15;
+  final posterH = posterW * 1.47;
+  final titleFs = scaledFontSize(context, sw > 1200 ? 24 : 20);
+  final metaFs = scaledFontSize(context, sw > 1200 ? 14 : 13);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      // Poster with glow — larger for TV (300x440)
+      // Poster with glow
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,17 +536,17 @@ Widget _buildTvLeftPanel() {
                 borderRadius: BorderRadius.circular(AppRadius.card),
                 child: CachedNetworkImage(
                   imageUrl: _imageUrl(_movie.posterPath),
-                  width: 300,
-                  height: 440,
+                  width: posterW,
+                  height: posterH,
                   fit: BoxFit.cover,
-                  memCacheWidth: 600,
+                  memCacheWidth: (posterW * 2).toInt(),
                   errorWidget: (context, url, error) => Container(
-                    width: 300,
-                    height: 440,
+                    width: posterW,
+                    height: posterH,
                     color: AppTheme.surfaceContainerHigh,
                     child: const Icon(
                       Icons.broken_image,
-                      size: 64,
+                      size: 48,
                       color: Colors.grey,
                     ),
                   ),
@@ -546,7 +554,7 @@ Widget _buildTvLeftPanel() {
               ),
             ),
           ),
-          const SizedBox(width: 32),
+          SizedBox(width: sw * 0.02),
           // Title + meta
           Expanded(
             child: Column(
@@ -556,23 +564,23 @@ Widget _buildTvLeftPanel() {
                 Text(
                   _movie.title,
                   style: TextStyle(
-                    fontSize: scaledFontSize(context, 28),
+                    fontSize: titleFs,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 // Year + runtime + rating
                 Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
+                  spacing: 12,
+                  runSpacing: 6,
                   children: [
                     if (_movie.releaseDate.isNotEmpty)
                       Text(
                         _movie.releaseDate.substring(0, 4),
                         style: TextStyle(
-                          fontSize: scaledFontSize(context, 16),
+                          fontSize: metaFs,
                           color: AppTheme.textSecondary,
                         ),
                       ),
@@ -580,19 +588,19 @@ Widget _buildTvLeftPanel() {
                       Text(
                         '${_movie.runtime} min',
                         style: TextStyle(
-                          fontSize: scaledFontSize(context, 16),
+                          fontSize: metaFs,
                           color: AppTheme.textSecondary,
                         ),
                       ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.star_rounded, color: Colors.amber.shade400, size: 20),
-                        const SizedBox(width: 4),
+                        Icon(Icons.star_rounded, color: Colors.amber.shade400, size: 16),
+                        const SizedBox(width: 3),
                         Text(
                           _movie.voteAverage.toStringAsFixed(1),
                           style: TextStyle(
-                            fontSize: scaledFontSize(context, 16),
+                            fontSize: metaFs,
                             color: Colors.amber.shade400,
                             fontWeight: FontWeight.w600,
                           ),
@@ -601,20 +609,20 @@ Widget _buildTvLeftPanel() {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 // Genre chips
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: _movie.genres.take(5).map(_genreChip).toList(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 // Ratings row
                 if (_mdblistRatings != null ||
                     _userTraktRating != null ||
                     _userSimklRating != null) ...[
                   _buildRatingsRow(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
                 // Action buttons
                 _buildActionButtons(),
@@ -623,10 +631,10 @@ Widget _buildTvLeftPanel() {
           ),
         ],
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 16),
       // Synopsis
       ExpandableSynopsis(text: _movie.overview),
-      const SizedBox(height: 24),
+      const SizedBox(height: 16),
       // Cast section
       Builder(
         builder: (ctx) {
@@ -636,17 +644,17 @@ Widget _buildTvLeftPanel() {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _sectionLabel('Cast'),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 44,
+                height: 38,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: cast.length > 10 ? 10 : cast.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (ctx, i) => _castChip(cast[i]),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
             ],
           );
         },
@@ -657,7 +665,7 @@ Widget _buildTvLeftPanel() {
           items: _collectionItems,
           onItemTap: _openCollectionItem,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
       ],
       // Recommendations
       RecommendationsSection(
@@ -678,7 +686,7 @@ Widget _buildTvRightPanel() {
         Text(
           'Collection',
           style: TextStyle(
-            fontSize: scaledFontSize(context, 22),
+            fontSize: scaledFontSize(context, 18),
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
           ),

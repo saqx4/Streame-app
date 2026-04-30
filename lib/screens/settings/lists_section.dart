@@ -19,19 +19,26 @@ class ListsSection extends StatelessWidget {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => Navigator.push(
+            child: FocusableControl(
+              borderRadius: 12,
+              onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ListsScreen()),
               ),
-              icon: const Icon(Icons.list_alt_rounded),
-              label: const Text('Manage Lists'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ListsScreen()),
+                ),
+                icon: const Icon(Icons.list_alt_rounded),
+                label: const Text('Manage Lists'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

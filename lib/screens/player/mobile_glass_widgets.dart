@@ -107,7 +107,7 @@ class GlassIconButtonState extends State<GlassIconButton> {
   bool _pressed = false;
 
   Color get _tint {
-    if (widget.active) return const Color(0xFF7C3AED);
+    if (widget.active) return const Color(0xFFE50914);
     if (_pressed) return const Color(0xFF2A2A2E);
     return const Color(0xFF1C1C1E);
   }
@@ -229,7 +229,7 @@ class GlassPlayPauseState extends State<GlassPlayPause> {
               width: 28,
               height: 28,
               child: CircularProgressIndicator(
-                  color: Color(0xFF7C3AED), strokeWidth: 2.5),
+                  color: Color(0xFFE50914), strokeWidth: 2.5),
             ),
           ),
         ),

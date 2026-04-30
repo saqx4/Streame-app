@@ -143,7 +143,7 @@ class _GlassSeekbarState extends State<GlassSeekbar> {
                       height: trackH,
                       width: playPx,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED),
+                        color: const Color(0xFFE50914),
                         borderRadius: BorderRadius.circular(trackH),
                       ),
                     ),
@@ -175,11 +175,11 @@ class _GlassSeekbarState extends State<GlassSeekbar> {
                         width:  thumbR * 2,
                         height: thumbR * 2,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED),
+                          color: const Color(0xFFE50914),
                           shape: BoxShape.circle,
                           boxShadow: active
                               ? [BoxShadow(
-                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+                                  color: const Color(0xFFE50914).withValues(alpha: 0.5),
                                   blurRadius: 8,
                                 )]
                               : [],

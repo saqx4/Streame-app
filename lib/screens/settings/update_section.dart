@@ -76,28 +76,32 @@ class _UpdateSectionState extends State<UpdateSection> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isCheckingUpdate ? null : _checkForUpdates,
-              icon: _isCheckingUpdate
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.system_update_rounded),
-              label: Text(
-                _isCheckingUpdate ? 'Checking...' : 'Check for Updates',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+            child: FocusableControl(
+              borderRadius: 12,
+              onTap: _isCheckingUpdate ? null : _checkForUpdates,
+              child: ElevatedButton.icon(
+                onPressed: _isCheckingUpdate ? null : _checkForUpdates,
+                icon: _isCheckingUpdate
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.system_update_rounded),
+                label: Text(
+                  _isCheckingUpdate ? 'Checking...' : 'Check for Updates',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: AppTheme.textPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: AppTheme.textPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -105,19 +109,23 @@ class _UpdateSectionState extends State<UpdateSection> {
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => launchUrl(Uri.parse('https://github.com/streame0/Streame/releases')),
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text(
-                'View Releases on GitHub',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textSecondary,
-                side: BorderSide(color: AppTheme.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: FocusableControl(
+              borderRadius: 12,
+              onTap: () => launchUrl(Uri.parse('https://github.com/streame0/Streame/releases')),
+              child: OutlinedButton.icon(
+                onPressed: () => launchUrl(Uri.parse('https://github.com/streame0/Streame/releases')),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text(
+                  'View Releases on GitHub',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.textSecondary,
+                  side: BorderSide(color: AppTheme.border),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

@@ -28,7 +28,7 @@ class _MobileSeekbarState extends State<MobileSeekbar> {
   double _dragFrac = 0.0;
   double _trackWidth = 0.0;
 
-  static const Color _accentColor = Color(0xFF7C3AED);
+  static const Color _accentColor = Color(0xFFE50914); // Netflix red
 
   double get _playFrac {
     final total = widget.duration.inMilliseconds.toDouble();
@@ -86,8 +86,8 @@ class _MobileSeekbarState extends State<MobileSeekbar> {
           child: LayoutBuilder(builder: (context, constraints) {
             _trackWidth = constraints.maxWidth;
 
-            final trackH = _isDragging ? 5.0 : 2.5;
-            final thumbR = _isDragging ? 7.0 : 0.0;
+            final trackH = _isDragging ? 5.0 : 3.0;
+            final thumbR = _isDragging ? 7.0 : 5.0;
             final playPx =
                 (_playFrac * _trackWidth).clamp(0.0, _trackWidth);
 
@@ -127,27 +127,26 @@ class _MobileSeekbarState extends State<MobileSeekbar> {
                     borderRadius: BorderRadius.circular(trackH),
                   ),
                 ),
-                // Thumb dot — only visible when dragging or hovering
-                if (_isDragging)
-                  Positioned(
-                    left: playPx - thumbR,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
-                      width: thumbR * 2,
-                      height: thumbR * 2,
-                      decoration: BoxDecoration(
-                        color: _accentColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _accentColor.withValues(alpha: 0.50),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
+                // Thumb dot — always visible (Netflix-style)
+                Positioned(
+                  left: playPx - thumbR,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    width: thumbR * 2,
+                    height: thumbR * 2,
+                    decoration: BoxDecoration(
+                      color: _accentColor,
+                      shape: BoxShape.circle,
+                      boxShadow: _isDragging ? [
+                        BoxShadow(
+                          color: _accentColor.withValues(alpha: 0.50),
+                          blurRadius: 8,
+                        ),
+                      ] : null,
                     ),
                   ),
+                ),
                 // Drag time label — floats above thumb while dragging
                 if (_isDragging &&
                     widget.duration.inMilliseconds > 0)
@@ -221,7 +220,7 @@ class SideIndicator extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: value.clamp(0.0, 1.0),
                       backgroundColor: Colors.white24,
-                      color: const Color(0xFF7C3AED),
+                      color: const Color(0xFFE50914),
                       minHeight: 3,
                     ),
                   ),

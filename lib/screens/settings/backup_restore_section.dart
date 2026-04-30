@@ -166,46 +166,54 @@ class _BackupRestoreSectionState extends State<BackupRestoreSection> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isExporting ? null : _exportSettings,
-                  icon: _isExporting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.upload_rounded, size: 20),
-                  label: const Text('Export'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurpleAccent,
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _isExporting ? null : _exportSettings,
+                  child: ElevatedButton.icon(
+                    onPressed: _isExporting ? null : _exportSettings,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_rounded, size: 20),
+                    label: const Text('Export'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurpleAccent,
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isImporting ? null : _importSettings,
-                  icon: _isImporting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.download_rounded, size: 20),
-                  label: const Text('Import'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                      alpha: 0.3,
-                    ),
-                    foregroundColor: AppTheme.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: FocusableControl(
+                  borderRadius: 12,
+                  onTap: _isImporting ? null : _importSettings,
+                  child: ElevatedButton.icon(
+                    onPressed: _isImporting ? null : _importSettings,
+                    icon: _isImporting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded, size: 20),
+                    label: const Text('Import'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                        alpha: 0.3,
+                      ),
+                      foregroundColor: AppTheme.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),

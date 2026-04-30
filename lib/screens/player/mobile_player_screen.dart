@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:flutter/material.dart';
 import 'package:streame_core/utils/app_logger.dart';
@@ -23,6 +22,7 @@ import 'package:streame_core/api/webstreamr_service.dart';
 import 'package:streame_core/api/stremio_service.dart';
 import 'package:streame_core/providers/stream_services.dart';
 import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/utils/device_detector.dart';
 import 'package:streame_core/api/debrid_api.dart';
 import 'package:streame_core/api/torrent_api.dart';
 import 'package:streame_core/services/torrent_filter.dart';
@@ -776,15 +776,26 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     // Surface only fatal errors — transient network blips are handled by mpv
     _errorSub = _player.stream.error.listen((err) {
       if (_disposed || err.isEmpty) return;
-      
+
+      // Subtitle load failures — show toast, not fatal
+      final isSubError = err.contains('subtitle') ||
+          err.contains('.srt') ||
+          err.contains('.vtt') ||
+          err.contains('.ass') ||
+          err.contains('external file');
+      if (isSubError) {
+        _showSubErrorToast('Subtitle failed to load');
+        return;
+      }
+
       // Ignore non-fatal audio errors (video continues playing)
       if (err.contains('Error decoding audio') ||
           err.contains('Failed to initialize a decoder for codec')) {
         return;
       }
-      
+
       log.info('🔴 [MobilePlayer] $err');
-      
+
       if (err.contains('Failed') || err.contains('No such file')) {
         // Don't retry if we've already given up or are currently retrying
         if (_hasError || _isInitPlaybackRunning) {
@@ -811,9 +822,33 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     final mpv = _player.platform as NativePlayer;
 
     // ── Decoding ─────────────────────────────────────────────────────────
-    // auto-safe on mobile: uses MediaCodec (Android) / VideoToolbox (iOS),
-    // whitelisted to formats each platform reliably supports.
-    await mpv.setProperty('hwdec', 'auto-safe');
+    // Respect auto-optimize setting: use DeviceDetector recommendation when enabled,
+    // otherwise use user's chosen hwdec mode. Fallback to auto-safe.
+    final settings = SettingsService();
+    final autoOptimize = await settings.isAutoOptimizeEnabled();
+    String hwdecMode = 'auto-safe';
+    if (autoOptimize) {
+      await DeviceDetector().detect();
+      final recommended = DeviceDetector().getRecommendedHwDecMode();
+      // Map DeviceDetector modes to mpv hwdec values
+      hwdecMode = switch (recommended) {
+        'autoSafe' => 'auto-safe',
+        'autoHw' => 'auto',
+        'autoCopy' => 'auto-copy',
+        'software' => 'no',
+        _ => 'auto-safe',
+      };
+    } else {
+      final userMode = await settings.getHwDecMode();
+      hwdecMode = switch (userMode) {
+        'autoSafe' => 'auto-safe',
+        'autoHw' => 'auto',
+        'autoCopy' => 'auto-copy',
+        'software' => 'no',
+        _ => 'auto-safe',
+      };
+    }
+    await mpv.setProperty('hwdec', hwdecMode);
 
     // Zero-copy direct rendering — decoder writes straight to GPU texture.
     // Big win on mobile for battery + throughput on H.265/4K content.
@@ -847,21 +882,30 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     await mpv.setProperty('network-timeout', '30');
     await mpv.setProperty('tls-verify', 'no');
 
-    // 150 MiB forward cache (less than desktop's 300 MiB — spare mobile RAM).
+    // 300 MiB forward cache — larger buffer reduces rebuffer stalls on mobile
+    // networks and high-bitrate torrent streams.
     await mpv.setProperty('cache', 'yes');
-    await mpv.setProperty('cache-secs', '120');
-    await mpv.setProperty('demuxer-max-bytes', '150MiB');
-    await mpv.setProperty('demuxer-readahead-secs', '120');
+    await mpv.setProperty('cache-secs', '180');
+    await mpv.setProperty('demuxer-max-bytes', '300MiB');
+    await mpv.setProperty('demuxer-readahead-secs', '180');
 
-    // 30 MiB back-buffer so backward seeks don't require a full rebuffer.
-    await mpv.setProperty('demuxer-max-back-bytes', '30MiB');
+    // 50 MiB back-buffer so backward seeks don't require a full rebuffer.
+    await mpv.setProperty('demuxer-max-back-bytes', '50MiB');
 
     // ── Cache-pause (anti-stutter) ─────────────────────────────────────────
     // Pause playback on cache underrun instead of stuttering through it.
     // This is the single most important setting for smooth torrent/stream playback.
     await mpv.setProperty('cache-pause-initial', 'yes');   // pause at start until buffer fills
-    await mpv.setProperty('cache-pause-wait', '8');        // wait up to 8s for buffer to recover
-    await mpv.setProperty('cache-pause-done', '3');        // resume when buffer has 3s ahead
+    await mpv.setProperty('cache-pause-wait', '15');       // wait up to 15s for buffer to recover
+    await mpv.setProperty('cache-pause-done', '5');        // resume when buffer has 5s ahead
+
+    // ── Disable heavy filters ─────────────────────────────────────────────
+    await mpv.setProperty('interpolation', 'no');
+    await mpv.setProperty('deband', 'no');
+
+    // ── Torrent stream fixes ───────────────────────────────────────────────
+    // Generate missing PTS timestamps (common in torrent-streamed MKVs).
+    await mpv.setProperty('demuxer-lavf-o', 'fflags=+genpts');
 
     // We supply our own URL — no yt-dlp needed.
     await mpv.setProperty('ytdl', 'no');
@@ -984,7 +1028,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
 
     final isRight = details.localPosition.dx > width / 2;
     // delta is inverted: drag up = positive = increase
-    final delta = -details.primaryDelta! / 3;
+    final rawDelta = details.primaryDelta;
+    if (rawDelta == null) return;
+    final delta = -rawDelta / 3;
 
     if (isRight) {
       // On mobile, system controls actual volume via hardware buttons.
@@ -1128,14 +1174,14 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       icon: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                          color: const Color(0xFFE50914).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.4)),
+                          border: Border.all(color: const Color(0xFFE50914).withValues(alpha: 0.4)),
                         ),
                         child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.tune_rounded, color: Color(0xFF7C3AED), size: 20),
+                          Icon(Icons.tune_rounded, color: Color(0xFFE50914), size: 20),
                           SizedBox(width: 4),
-                          Text('Style', style: TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text('Style', style: TextStyle(color: Color(0xFFE50914), fontSize: 12, fontWeight: FontWeight.w600)),
                         ]),
                       ),
                       tooltip: 'Subtitle settings',
@@ -1174,7 +1220,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: LinearProgressIndicator(
-                      color: Color(0xFF7C3AED),
+                      color: Color(0xFFE50914),
                       backgroundColor: Colors.white10),
                 ),
               Expanded(
@@ -1185,7 +1231,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     title: const Text('Off',
                         style: TextStyle(color: Colors.white)),
                     trailing: current.id == 'no'
-                        ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                        ? const Icon(Icons.check, color: Color(0xFFE50914))
                         : null,
                     onTap: () {
                       _selectedExternalSubUrl = null;
@@ -1217,7 +1263,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text('EMBEDDED',
                           style: TextStyle(
-                              color: Color(0xFF7C3AED),
+                              color: Color(0xFFE50914),
                               fontSize: 12,
                               fontWeight: FontWeight.bold)),
                     ),
@@ -1229,14 +1275,14 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                             t.title ?? t.language ?? 'Track ${t.id}',
                             style: TextStyle(
                                 color: sel
-                                    ? const Color(0xFF7C3AED)
+                                    ? const Color(0xFFE50914)
                                     : Colors.white,
                                 fontWeight: sel
                                     ? FontWeight.bold
                                     : FontWeight.normal)),
                         trailing: sel
                             ? const Icon(Icons.check,
-                                color: Color(0xFF7C3AED))
+                                color: Color(0xFFE50914))
                             : null,
                         onTap: () {
                           _selectedExternalSubUrl = null;
@@ -1251,7 +1297,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text('ONLINE',
                           style: TextStyle(
-                              color: Color(0xFF7C3AED),
+                              color: Color(0xFFE50914),
                               fontSize: 12,
                               fontWeight: FontWeight.bold)),
                     ),
@@ -1261,7 +1307,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                         title: Text(s['display'] ?? 'Unknown',
                             style: TextStyle(
                                 color: sel
-                                    ? const Color(0xFF7C3AED)
+                                    ? const Color(0xFFE50914)
                                     : Colors.white,
                                 fontWeight: sel
                                     ? FontWeight.bold
@@ -1269,13 +1315,13 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                         subtitle: Text(s['language'] ?? '',
                             style: TextStyle(
                                 color: sel
-                                    ? const Color(0xFF7C3AED)
+                                    ? const Color(0xFFE50914)
                                         .withValues(alpha: 0.7)
                                     : Colors.white54,
                                 fontSize: 12)),
                         trailing: sel
                             ? const Icon(Icons.check,
-                                color: Color(0xFF7C3AED))
+                                color: Color(0xFFE50914))
                             : null,
                         onTap: () {
                           _selectedExternalSubUrl = s['url'];
@@ -1305,8 +1351,26 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
     );
   }
 
+  void _showSubErrorToast(String msg) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.subtitles_off, color: kNetflixRed, size: 20),
+            const SizedBox(width: 8),
+            Text(msg, style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+        backgroundColor: Colors.black87,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showSubtitleSettings() {
-    final fonts = ['Default', 'Poppins', 'Roboto', 'Roboto Mono', 'Montserrat', 'Open Sans', 'Lato'];
+    final fonts = ['Default', 'Almarai', 'Poppins', 'Roboto', 'Roboto Mono', 'Montserrat', 'Open Sans', 'Lato', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'Noto Kufi Arabic', 'IBM Plex Sans'];
     final colorOptions = <String, Color>{
       'White': Colors.white,
       'Yellow': const Color(0xFFFFEB3B),
@@ -1332,7 +1396,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                   child: Row(children: [
-                    const Icon(Icons.tune_rounded, color: Color(0xFF7C3AED), size: 20),
+                    const Icon(Icons.tune_rounded, color: Color(0xFFE50914), size: 20),
                     const SizedBox(width: 8),
                     const Text('Subtitle Settings', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
                     const Spacer(),
@@ -1411,11 +1475,11 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                               color: e.value,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: selected ? const Color(0xFF7C3AED) : Colors.white24,
+                                color: selected ? const Color(0xFFE50914) : Colors.white24,
                                 width: selected ? 3 : 1,
                               ),
                             ),
-                            child: selected ? const Icon(Icons.check, size: 16, color: Color(0xFF7C3AED)) : null,
+                            child: selected ? const Icon(Icons.check, size: 16, color: Color(0xFFE50914)) : null,
                           ),
                         );
                       }).toList()),
@@ -1439,7 +1503,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                         const Spacer(),
                         Switch(
                           value: _subtitleBold,
-                          activeThumbColor: const Color(0xFF7C3AED),
+                          activeThumbColor: const Color(0xFFE50914),
                           onChanged: (v) { setDialog(() => _subtitleBold = v); setState(() {}); SettingsService().setSubBold(v); },
                         ),
                       ]),
@@ -1455,9 +1519,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                             decoration: BoxDecoration(
-                              color: selected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.06),
+                              color: selected ? const Color(0xFFE50914).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: selected ? const Color(0xFF7C3AED) : Colors.white12),
+                              border: Border.all(color: selected ? const Color(0xFFE50914) : Colors.white12),
                             ),
                             child: Text(f, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.normal)),
                           ),
@@ -1486,9 +1550,9 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
           trackHeight: 3,
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
           overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-          activeTrackColor: const Color(0xFF7C3AED),
+          activeTrackColor: const Color(0xFFE50914),
           inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
-          thumbColor: const Color(0xFF7C3AED),
+          thumbColor: const Color(0xFFE50914),
         ),
         child: Slider(value: value, min: min, max: max, onChanged: onChanged),
       ),
@@ -1533,16 +1597,22 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
       ],
     );
     if (_subtitleFont == 'Default') return base;
-    final fontMap = <String, TextStyle Function({TextStyle? textStyle})>{
-      'Poppins': GoogleFonts.poppins,
-      'Roboto': GoogleFonts.roboto,
-      'Roboto Mono': GoogleFonts.robotoMono,
-      'Montserrat': GoogleFonts.montserrat,
-      'Open Sans': GoogleFonts.openSans,
-      'Lato': GoogleFonts.lato,
+    final fontFamilyMap = <String, String>{
+      'Almarai': 'Almarai',
+      'Poppins': 'Poppins',
+      'Roboto': 'Roboto',
+      'Roboto Mono': 'RobotoMono',
+      'Montserrat': 'Montserrat',
+      'Open Sans': 'OpenSans',
+      'Lato': 'Lato',
+      'Cairo': 'Cairo',
+      'Tajawal': 'Tajawal',
+      'Noto Sans Arabic': 'NotoSansArabic',
+      'Noto Kufi Arabic': 'NotoKufiArabic',
+      'IBM Plex Sans': 'IBMPlexSans',
     };
-    final fn = fontMap[_subtitleFont];
-    if (fn != null) return fn(textStyle: base);
+    final family = fontFamilyMap[_subtitleFont];
+    if (family != null) return base.copyWith(fontFamily: family);
     return base;
   }
 
@@ -1582,7 +1652,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       style: const TextStyle(color: Colors.white)),
                   trailing: t.id == _player.state.track.audio.id
                       ? const Icon(Icons.check,
-                          color: Color(0xFF7C3AED))
+                          color: Color(0xFFE50914))
                       : null,
                   onTap: () {
                     _player.setAudioTrack(t);
@@ -1636,12 +1706,12 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 return ListTile(
                   leading: Icon(
                     Icons.play_circle_outline,
-                    color: isCurrent ? const Color(0xFF7C3AED) : Colors.white70,
+                    color: isCurrent ? const Color(0xFFE50914) : Colors.white70,
                   ),
                   title: Text(
                     source.title,
                     style: TextStyle(
-                      color: isCurrent ? const Color(0xFF7C3AED) : Colors.white,
+                      color: isCurrent ? const Color(0xFFE50914) : Colors.white,
                       fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
@@ -1649,13 +1719,13 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                     source.type.toUpperCase(),
                     style: TextStyle(
                       color: isCurrent 
-                          ? const Color(0xFF7C3AED).withValues(alpha: 0.7)
+                          ? const Color(0xFFE50914).withValues(alpha: 0.7)
                           : Colors.white54,
                       fontSize: 11,
                     ),
                   ),
                   trailing: isCurrent
-                      ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                      ? const Icon(Icons.check, color: Color(0xFFE50914))
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
@@ -1737,17 +1807,17 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                 return ListTile(
                   leading: Icon(
                     Icons.stream_rounded,
-                    color: isCurrent ? const Color(0xFF7C3AED) : Colors.white70,
+                    color: isCurrent ? const Color(0xFFE50914) : Colors.white70,
                   ),
                   title: Text(
                     provider['name'],
                     style: TextStyle(
-                      color: isCurrent ? const Color(0xFF7C3AED) : Colors.white,
+                      color: isCurrent ? const Color(0xFFE50914) : Colors.white,
                       fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                   trailing: isCurrent
-                      ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                      ? const Icon(Icons.check, color: Color(0xFFE50914))
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
@@ -2370,7 +2440,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen>
                       icon: Icons.lock_rounded,
                       onPressed: _toggleLock,
                       active: true,
-                      color: const Color(0xFF7C3AED),
+                      color: const Color(0xFFE50914),
                     ),
                   ),
                 ),

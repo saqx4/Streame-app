@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:streame_core/utils/app_theme.dart';
 
-/// Unified player design system — clean, modern, minimal.
+/// Unified player design system — Netflix-inspired, cinematic, minimal.
 /// Shared primitives for both mobile and desktop players.
+
+// Netflix accent color
+const Color kNetflixRed = Color(0xFFE50914);
 
 // ── Icon Button ──────────────────────────────────────────────────────────────
 
@@ -55,11 +57,11 @@ class _PlayerBtnState extends State<PlayerBtn> {
             height: widget.size,
             decoration: BoxDecoration(
             color: widget.active
-                ? AppTheme.current.primaryColor.withValues(alpha: 0.3)
+                ? kNetflixRed.withValues(alpha: 0.3)
                 : _pressed
-                    ? Colors.white.withValues(alpha: 0.2)
+                    ? Colors.white.withValues(alpha: 0.25)
                     : _hovered && isDesktop
-                        ? Colors.white.withValues(alpha: 0.15)
+                        ? Colors.white.withValues(alpha: 0.18)
                         : Colors.transparent,
             borderRadius: BorderRadius.circular(widget.size * 0.5),
           ),
@@ -67,7 +69,7 @@ class _PlayerBtnState extends State<PlayerBtn> {
             widget.icon,
             size: widget.iconSize,
             color: widget.active
-                ? AppTheme.current.primaryColor
+                ? kNetflixRed
                 : widget.color ?? Colors.white,
           ),
           ),
@@ -104,7 +106,7 @@ class _PlayerPillState extends State<PlayerPill> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 600;
-    final accent = widget.accent ?? AppTheme.current.primaryColor;
+    final accent = widget.accent ?? kNetflixRed;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -117,17 +119,17 @@ class _PlayerPillState extends State<PlayerPill> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: EdgeInsets.symmetric(
-            horizontal: widget.fontSize * 1.1 + 6,
-            vertical: 5,
+            horizontal: widget.fontSize * 1.1 + 8,
+            vertical: 6,
           ),
           decoration: BoxDecoration(
             color: _pressed
-                ? accent.withValues(alpha: 0.35)
+                ? accent.withValues(alpha: 0.45)
                 : _hovered && isDesktop
-                    ? accent.withValues(alpha: 0.25)
-                    : accent.withValues(alpha: 0.15),
+                    ? accent.withValues(alpha: 0.35)
+                    : accent.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accent.withValues(alpha: 0.3), width: 1),
+            border: Border.all(color: accent.withValues(alpha: 0.4), width: 1),
           ),
           child: Text(
             widget.text,
@@ -207,10 +209,10 @@ class _PlayerPlayPauseState extends State<PlayerPlayPause>
       child: ScaleTransition(
         scale: _controller,
         child: Container(
-          width: widget.isBuffering ? widget.size * 1.5 : widget.size * 1.5,
-          height: widget.isBuffering ? widget.size * 1.5 : widget.size * 1.5,
+          width: widget.size * 1.8,
+          height: widget.size * 1.8,
           decoration: BoxDecoration(
-            color: _pressed ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
+            color: _pressed ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
           child: widget.isBuffering
@@ -219,8 +221,8 @@ class _PlayerPlayPauseState extends State<PlayerPlayPause>
                     width: widget.size * 1.2,
                     height: widget.size * 1.2,
                     child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      color: AppTheme.current.primaryColor,
+                      strokeWidth: 3.5,
+                      color: kNetflixRed,
                     ),
                   ),
                 )
@@ -228,7 +230,7 @@ class _PlayerPlayPauseState extends State<PlayerPlayPause>
                   widget.isPlaying
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
-                  size: widget.size * 1.2,
+                  size: widget.size * 1.3,
                   color: Colors.white,
                 ),
         ),
@@ -257,11 +259,12 @@ class PlayerBottomGradient extends StatelessWidget {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.85),
-                Colors.black.withValues(alpha: 0.4),
+                Colors.black.withValues(alpha: 0.95),
+                Colors.black.withValues(alpha: 0.6),
+                Colors.black.withValues(alpha: 0.2),
                 Colors.transparent,
               ],
-              stops: const [0.0, 0.5, 1.0],
+              stops: const [0.0, 0.35, 0.65, 1.0],
             ),
           ),
         ),
@@ -290,10 +293,11 @@ class PlayerTopGradient extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.7),
+                Colors.black.withValues(alpha: 0.8),
+                Colors.black.withValues(alpha: 0.3),
                 Colors.transparent,
               ],
-              stops: const [0.0, 1.0],
+              stops: const [0.0, 0.5, 1.0],
             ),
           ),
         ),
@@ -348,7 +352,7 @@ class PlayerSkipChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.8)]),
+            gradient: LinearGradient(colors: [kNetflixRed, kNetflixRed.withValues(alpha: 0.85)]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -389,7 +393,7 @@ class PlayerNextChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [AppTheme.current.primaryColor, AppTheme.current.primaryColor.withValues(alpha: 0.8)]),
+            gradient: LinearGradient(colors: [kNetflixRed, kNetflixRed.withValues(alpha: 0.85)]),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -443,7 +447,7 @@ class SideIndicator extends StatelessWidget {
               alignment: Alignment.bottomCenter,
               child: Container(
                 height: 80 * value.clamp(0.0, 1.0),
-                color: AppTheme.current.primaryColor,
+                color: kNetflixRed,
               ),
             ),
           ),
@@ -467,10 +471,10 @@ class PlayerTimeLabel extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.7),
-          fontSize: 11,
+          color: Colors.white.withValues(alpha: 0.8),
+          fontSize: 12,
           fontFamily: 'monospace',
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
         textAlign: align,
       ),

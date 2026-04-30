@@ -269,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Streame Native v1.1.5',
+                          'Streame Native v2.2.0',
                           style: TextStyle(
                             color: AppTheme.textDisabled,
                             fontSize: 12,

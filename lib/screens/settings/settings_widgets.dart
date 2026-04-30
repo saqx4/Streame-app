@@ -49,8 +49,8 @@ class _ExpandableSectionState extends State<ExpandableSection> {
         ),
         child: Column(
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
+            FocusableControl(
+              borderRadius: 16,
               onTap: () => setState(() => _isExpanded = !_isExpanded),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -291,6 +291,47 @@ class FocusableDropdown extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// An ElevatedButton wrapped in FocusableControl for TV D-pad focus support.
+class TvFocusButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final Widget child;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final EdgeInsets padding;
+  final double borderRadius;
+
+  const TvFocusButton({
+    super.key,
+    this.onPressed,
+    required this.child,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.padding = const EdgeInsets.symmetric(vertical: 14),
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusableControl(
+      borderRadius: borderRadius,
+      onTap: onPressed,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor ?? AppTheme.primaryColor,
+          foregroundColor: foregroundColor ?? AppTheme.textPrimary,
+          padding: padding,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+        ),
+        focusNode: FocusNode(skipTraversal: true),
+        child: child,
       ),
     );
   }

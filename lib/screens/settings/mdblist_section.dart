@@ -153,16 +153,20 @@ class _MdblistSectionState extends State<MdblistSection> {
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _logoutMdblist,
-              icon: const Icon(Icons.logout),
-              label: const Text('Remove API Key'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
-                foregroundColor: Colors.redAccent,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _logoutMdblist,
+              child: ElevatedButton.icon(
+                onPressed: _logoutMdblist,
+                icon: const Icon(Icons.logout),
+                label: const Text('Remove API Key'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -185,16 +189,20 @@ class _MdblistSectionState extends State<MdblistSection> {
               obscureText: true,
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _saveMdblistApiKey,
-              icon: const Icon(Icons.save),
-              label: const Text('Save API Key'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _saveMdblistApiKey,
+              child: ElevatedButton.icon(
+                onPressed: _saveMdblistApiKey,
+                icon: const Icon(Icons.save),
+                label: const Text('Save API Key'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

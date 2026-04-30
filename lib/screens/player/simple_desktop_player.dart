@@ -22,6 +22,7 @@ import 'package:streame_core/api/debrid_api.dart';
 import 'package:streame_core/api/torrent_api.dart';
 import 'package:streame_core/services/torrent_filter.dart';
 import 'package:streame_core/services/settings_service.dart';
+import 'package:streame_core/utils/device_detector.dart';
 import 'package:streame_core/services/watch_history_service.dart';
 import 'package:streame_core/api/trakt_service.dart';
 import 'package:streame_core/api/simkl_service.dart';
@@ -96,6 +97,10 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   final ValueNotifier<TorrentStats?> _torrentStatsNotifier = ValueNotifier(null);
   StreamSubscription<TorrentStats>? _torrentStatsSub;
 
+  // Subtitle error toast
+  final ValueNotifier<String> _subErrorNotifier = ValueNotifier('');
+  Timer? _subErrorTimer;
+
   // Buffer position for seekbar progress
   final ValueNotifier<Duration> _bufferedNotifier = ValueNotifier(Duration.zero);
   StreamSubscription<Duration>? _bufferSub;
@@ -123,6 +128,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   int _subtitleDelayMs = 0;
   double _subtitleFontSize = 28.0;
   bool _subtitleBgEnabled = false;
+  String _subtitleFont = 'Default';
   int _currentFallbackSourceIndex = 0;
   bool _isLoadingNextEp = false;
   bool _nearEndOfEpisode = false;
@@ -217,6 +223,20 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     _errorSub = _player.stream.error.listen((err) {
       if (!mounted || err.isEmpty) return;
       log.info('[Player] Error: $err');
+      // Subtitle load failures — show toast, not fatal overlay
+      final isSubError = err.contains('subtitle') ||
+          err.contains('.srt') ||
+          err.contains('.vtt') ||
+          err.contains('.ass') ||
+          err.contains('external file');
+      if (isSubError) {
+        _subErrorNotifier.value = 'Subtitle failed to load';
+        _subErrorTimer?.cancel();
+        _subErrorTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) _subErrorNotifier.value = '';
+        });
+        return;
+      }
       // Don't show error overlay if we're already retrying
       if (_isRetrying) return;
       _hasErrorNotifier.value = true;
@@ -231,6 +251,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         _startStallCheck();
       } else {
         _stallCheckTimer?.cancel();
+        _stallRetryCount = 0;
       }
     });
 
@@ -240,9 +261,12 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
       _bufferedNotifier.value = buf;
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       _externalSubtitles = widget.externalSubtitles ?? [];
+      // Load subtitle font preference
+      final font = await SettingsService().getSubFont();
+      if (mounted) setState(() => _subtitleFont = font);
       _initPlayback();
       _startHideTimer();
       _configureMpv();
@@ -263,6 +287,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     _reconnectTimer?.cancel();
     _watchHistorySaveTimer?.cancel();
     _positionThrottleTimer?.cancel();
+    _subErrorTimer?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
     _playingSub?.cancel();
@@ -317,7 +342,32 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     final mpv = _player.platform as NativePlayer;
 
     // ── Decoding ──────────────────────────────────────────────────────────
-    await mpv.setProperty('hwdec', 'auto-safe');
+    // Respect auto-optimize setting: use DeviceDetector recommendation when enabled,
+    // otherwise use user's chosen hwdec mode. Fallback to auto-safe.
+    final settings = SettingsService();
+    final autoOptimize = await settings.isAutoOptimizeEnabled();
+    String hwdecMode = 'auto-safe';
+    if (autoOptimize) {
+      await DeviceDetector().detect();
+      final recommended = DeviceDetector().getRecommendedHwDecMode();
+      hwdecMode = switch (recommended) {
+        'autoSafe' => 'auto-safe',
+        'autoHw' => 'auto',
+        'autoCopy' => 'auto-copy',
+        'software' => 'no',
+        _ => 'auto-safe',
+      };
+    } else {
+      final userMode = await settings.getHwDecMode();
+      hwdecMode = switch (userMode) {
+        'autoSafe' => 'auto-safe',
+        'autoHw' => 'auto',
+        'autoCopy' => 'auto-copy',
+        'software' => 'no',
+        _ => 'auto-safe',
+      };
+    }
+    await mpv.setProperty('hwdec', hwdecMode);
     // Zero-copy direct rendering — decoder writes straight to GPU texture.
     await mpv.setProperty('vd-lavc-dr', 'yes');
     // Auto thread count (0 = let mpv decide based on CPU cores).
@@ -333,7 +383,25 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     // would cause mpv to open its own window instead of rendering in Flutter.
 
     // ── Video Sync ────────────────────────────────────────────────────────
-    await mpv.setProperty('video-sync', 'display-resample');
+    String videoSyncMode = 'display-resample';
+    if (autoOptimize) {
+      final recommendedSync = DeviceDetector().getRecommendedVideoSyncMode();
+      videoSyncMode = switch (recommendedSync) {
+        'displayResample' => 'display-resample',
+        'displayAdrop' => 'display-adrop',
+        'audio' => 'audio',
+        _ => 'display-resample',
+      };
+    } else {
+      final userSync = await settings.getVideoSyncMode();
+      videoSyncMode = switch (userSync) {
+        'displayResample' => 'display-resample',
+        'displayAdrop' => 'display-adrop',
+        'audio' => 'audio',
+        _ => 'display-resample',
+      };
+    }
+    await mpv.setProperty('video-sync', videoSyncMode);
     await mpv.setProperty('vsync', 'yes');
 
     // ── Cache settings for smooth streaming ────────────────────────────────
@@ -836,7 +904,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF7C3AED).withValues(alpha: 0.15) : Colors.transparent,
+        color: isActive ? const Color(0xFFE50914).withValues(alpha: 0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Material(
@@ -848,13 +916,13 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: isActive ? const Color(0xFF7C3AED) : Colors.white70),
+                Icon(icon, size: 20, color: isActive ? const Color(0xFFE50914) : Colors.white70),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isActive ? const Color(0xFF7C3AED) : Colors.white,
+                      color: isActive ? const Color(0xFFE50914) : Colors.white,
                       fontSize: 15,
                       fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -864,7 +932,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF7C3AED),
+                      color: Color(0xFFE50914),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.check, size: 14, color: Colors.white),
@@ -910,14 +978,14 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                             },
                           ),
                         ),
-                        Text('${_subtitleFontSize.round()}', style: const TextStyle(color: Color(0xFF7C3AED))),
+                        Text('${_subtitleFontSize.round()}', style: const TextStyle(color: Color(0xFFE50914))),
                       ],
                     ),
                     // Background
                     SwitchListTile(
                       title: const Text('Background', style: TextStyle(color: Colors.white)),
                       value: _subtitleBgEnabled,
-                      activeTrackColor: const Color(0xFF7C3AED),
+                      activeTrackColor: const Color(0xFFE50914),
                       onChanged: (v) {
                         setState(() => _subtitleBgEnabled = v);
                         setSheetState(() {});
@@ -930,7 +998,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                         children: [
                           const Text('Delay', style: TextStyle(color: Colors.white)),
                           const SizedBox(width: 8),
-                          Text('${_subtitleDelayMs}ms', style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
+                          Text('${_subtitleDelayMs}ms', style: const TextStyle(color: Color(0xFFE50914), fontWeight: FontWeight.bold)),
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.remove, color: Colors.white),
@@ -946,6 +1014,28 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                           ),
                         ],
                       ),
+                    ),
+                    // Font
+                    const SizedBox(height: 8),
+                    const Text('Font', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6, runSpacing: 6,
+                      children: ['Default', 'Almarai', 'Poppins', 'Roboto', 'Roboto Mono', 'Montserrat', 'Open Sans', 'Lato', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'Noto Kufi Arabic', 'IBM Plex Sans'].map((f) {
+                        final selected = _subtitleFont == f;
+                        return GestureDetector(
+                          onTap: () { setState(() => _subtitleFont = f); setSheetState(() {}); SettingsService().setSubFont(f); },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: selected ? const Color(0xFFE50914).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selected ? const Color(0xFFE50914) : Colors.white12),
+                            ),
+                            child: Text(f, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.normal)),
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -1057,7 +1147,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                             child: Text(key,
                                 style: const TextStyle(
-                                    color: Color(0xFF7C3AED), fontSize: 13, fontWeight: FontWeight.bold)),
+                                    color: Color(0xFFE50914), fontSize: 13, fontWeight: FontWeight.bold)),
                           ),
                         ...items.map((source) {
                           final displayTitle = source.title.contains('\n')
@@ -1069,10 +1159,10 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                             dense: true,
                             title: Text(displayTitle.isEmpty ? source.title : displayTitle,
                                 style: TextStyle(
-                                    color: isActive ? const Color(0xFF7C3AED) : Colors.white,
+                                    color: isActive ? const Color(0xFFE50914) : Colors.white,
                                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
                             trailing: isActive
-                                ? const Icon(Icons.play_circle_filled, color: Color(0xFF7C3AED), size: 20)
+                                ? const Icon(Icons.play_circle_filled, color: Color(0xFFE50914), size: 20)
                                 : null,
                             onTap: () async {
                               Navigator.pop(context);
@@ -1415,7 +1505,11 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
 
   void _startStallCheck() {
     _stallCheckTimer?.cancel();
-    _stallCheckTimer = Timer(const Duration(seconds: 30), () {
+    // Torrent streams need more time to buffer; use 60s for magnet, 30s otherwise
+    final timeout = (widget.magnetLink != null && widget.magnetLink!.isNotEmpty)
+        ? const Duration(seconds: 60)
+        : const Duration(seconds: 30);
+    _stallCheckTimer = Timer(timeout, () {
       if (!mounted || !_isBufferingNotifier.value) return;
       log.info('[Player] Stall detected, attempting reconnect...');
       _attemptReconnect();
@@ -1424,13 +1518,23 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
 
   void _attemptReconnect() {
     if (!mounted) return;
-    _isRetrying = true;
-    _isRetryingNotifier.value = true;
     _stallRetryCount++;
 
-    // Try seek +1s first
-    _player.seek(_positionNotifier.value + const Duration(seconds: 1));
-    _reconnectTimer = Timer(const Duration(seconds: 10), () {
+    // Cap retries at 4 to avoid infinite reconnect loops
+    if (_stallRetryCount > 4) {
+      log.info('[Player] Max stall retries reached, showing error overlay');
+      _hasErrorNotifier.value = true;
+      _errorMessageNotifier.value = 'Stream is buffering too slowly. Try a different source.';
+      _isRetryingNotifier.value = false;
+      return;
+    }
+
+    _isRetrying = true;
+    _isRetryingNotifier.value = true;
+
+    // Try seek +2s first (nudge the buffer)
+    _player.seek(_positionNotifier.value + const Duration(seconds: 2));
+    _reconnectTimer = Timer(const Duration(seconds: 15), () {
       if (!mounted || !_isBufferingNotifier.value) {
         _isRetrying = false; _isRetryingNotifier.value = false;
         return;
@@ -1498,7 +1602,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it', style: TextStyle(color: Color(0xFF7C3AED))),
+            child: const Text('Got it', style: TextStyle(color: Color(0xFFE50914))),
           ),
         ],
       ),
@@ -1512,7 +1616,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
         children: [
           SizedBox(
             width: 120,
-            child: Text(key, style: const TextStyle(color: Color(0xFF7C3AED), fontFamily: 'monospace', fontSize: 13)),
+            child: Text(key, style: const TextStyle(color: Color(0xFFE50914), fontFamily: 'monospace', fontSize: 13)),
           ),
           Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 13)),
         ],
@@ -1554,7 +1658,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                           setState(() => _playbackSpeed = s);
                           Navigator.pop(context);
                         },
-                        selectedColor: const Color(0xFF7C3AED),
+                        selectedColor: const Color(0xFFE50914),
                       );
                     }).toList(),
                   ),
@@ -1572,6 +1676,46 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
   void _toggleLoop() {
     setState(() => _isLooping = !_isLooping);
     _player.setPlaylistMode(_isLooping ? PlaylistMode.loop : PlaylistMode.none);
+  }
+
+  // ── Subtitle Style ────────────────────────────────────────────────────
+
+  TextStyle _buildDesktopSubtitleStyle() {
+    final base = TextStyle(
+      color: Colors.white,
+      fontSize: _subtitleFontSize,
+      fontWeight: FontWeight.bold,
+      height: 1.3,
+      letterSpacing: 0.5,
+      shadows: _subtitleBgEnabled
+          ? null
+          : const [
+              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, 0)),
+              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 0)),
+              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 0)),
+              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, 1)),
+              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, -1)),
+              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(0, 2)),
+            ],
+    );
+    if (_subtitleFont == 'Default') return base;
+    final fontFamilyMap = <String, String>{
+      'Almarai': 'Almarai',
+      'Poppins': 'Poppins',
+      'Roboto': 'Roboto',
+      'Roboto Mono': 'RobotoMono',
+      'Montserrat': 'Montserrat',
+      'Open Sans': 'OpenSans',
+      'Lato': 'Lato',
+      'Cairo': 'Cairo',
+      'Tajawal': 'Tajawal',
+      'Noto Sans Arabic': 'NotoSansArabic',
+      'Noto Kufi Arabic': 'NotoKufiArabic',
+      'IBM Plex Sans': 'IBMPlexSans',
+    };
+    final family = fontFamilyMap[_subtitleFont];
+    if (family != null) return base.copyWith(fontFamily: family);
+    return base;
   }
 
   // ── Subtitle Delay ────────────────────────────────────────────────────
@@ -1596,7 +1740,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                 style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Text('${_subtitleDelayMs}ms',
-                style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 24, fontWeight: FontWeight.bold)),
+                style: const TextStyle(color: Color(0xFFE50914), fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1906,24 +2050,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                           child: Text(
                             text,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: _subtitleFontSize,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                              letterSpacing: 0.5,
-                              shadows: _subtitleBgEnabled
-                                  ? null
-                                  : const [
-                                      // Netflix-style outline: multiple shadows for thick outline
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, 0)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 0)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 0)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, 1)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(0, -1)),
-                                      Shadow(color: Colors.black, blurRadius: 6, offset: Offset(0, 2)),
-                                    ],
-                            ),
+                            style: _buildDesktopSubtitleStyle(),
                           ),
                         ),
                       ),
@@ -1937,7 +2064,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                   builder: (context, isBuffering, _) => isBuffering
                     ? const Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFF7C3AED),
+                          color: Color(0xFFE50914),
                           strokeWidth: 3,
                         ),
                       )
@@ -2014,6 +2141,33 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                       : const SizedBox.shrink(),
                   ),
 
+                // Subtitle error toast
+                ValueListenableBuilder<String>(
+                  valueListenable: _subErrorNotifier,
+                  builder: (context, msg, _) {
+                    if (msg.isEmpty) return const SizedBox.shrink();
+                    return Center(
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.subtitles_off, color: kNetflixRed, size: 20),
+                              const SizedBox(width: 8),
+                              Text(msg, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
                 // Volume indicator toast
                 ValueListenableBuilder<double?>(
                   valueListenable: _volumeIndicatorNotifier,
@@ -2073,7 +2227,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF7C3AED), width: 2),
+                                border: Border.all(color: const Color(0xFFE50914), width: 2),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -2090,7 +2244,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  Text('Playing in $countdown...', style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 14)),
+                                  Text('Playing in $countdown...', style: const TextStyle(color: Color(0xFFE50914), fontSize: 14)),
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -2102,7 +2256,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                                       const SizedBox(width: 8),
                                       ElevatedButton(
                                         onPressed: _nextEpisode,
-                                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+                                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE50914), foregroundColor: Colors.white),
                                         child: const Text('Play Now'),
                                       ),
                                     ],
@@ -2134,9 +2288,9 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (isRetrying) ...[
-                              const CircularProgressIndicator(color: Color(0xFF7C3AED), strokeWidth: 3),
+                              const CircularProgressIndicator(color: Color(0xFFE50914), strokeWidth: 3),
                               const SizedBox(height: 16),
-                              const Text('Retrying...', style: TextStyle(color: Color(0xFF7C3AED), fontSize: 16, fontWeight: FontWeight.w600)),
+                              const Text('Retrying...', style: TextStyle(color: Color(0xFFE50914), fontSize: 16, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Text(errMsg, style: const TextStyle(color: Colors.white54, fontSize: 13), textAlign: TextAlign.center),
                             ] else ...[
@@ -2167,7 +2321,7 @@ class _SimpleDesktopPlayerScreenState extends State<SimpleDesktopPlayerScreen> w
                                       _hasErrorNotifier.value = false;
                                       _tryNextSource();
                                     },
-                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE50914), foregroundColor: Colors.white),
                                     child: const Text('Try Next Source'),
                                   ),
                                   const SizedBox(width: 8),
@@ -2516,7 +2670,7 @@ class _DesktopSeekbarState extends State<_DesktopSeekbar> {
                     width: trackWidth * value,
                     height: trackH,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED),
+                      color: const Color(0xFFE50914),
                       borderRadius: BorderRadius.circular(trackH / 2),
                     ),
                   ),
@@ -2529,11 +2683,11 @@ class _DesktopSeekbarState extends State<_DesktopSeekbar> {
                         width: thumbR * 2,
                         height: thumbR * 2,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED),
+                          color: const Color(0xFFE50914),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                              color: const Color(0xFFE50914).withValues(alpha: 0.4),
                               blurRadius: 4,
                               spreadRadius: 1,
                             ),

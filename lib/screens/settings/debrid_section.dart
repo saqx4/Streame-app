@@ -151,16 +151,20 @@ class _DebridSectionState extends State<DebridSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isRDLoggedIn)
-            ElevatedButton.icon(
-              onPressed: _logoutRD,
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout from Real-Debrid'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
-                foregroundColor: Colors.redAccent,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _logoutRD,
+              child: ElevatedButton.icon(
+                onPressed: _logoutRD,
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout from Real-Debrid'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             )
@@ -195,18 +199,22 @@ class _DebridSectionState extends State<DebridSection> {
               ),
             ),
           ] else
-            ElevatedButton.icon(
-              onPressed: _startRDLogin,
-              icon: const Icon(Icons.login),
-              label: const Text('Login with Real-Debrid'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surfaceContainerHigh.withValues(
-                  alpha: 0.2,
-                ),
-                foregroundColor: AppTheme.textPrimary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            FocusableControl(
+              borderRadius: 12,
+              onTap: _startRDLogin,
+              child: ElevatedButton.icon(
+                onPressed: _startRDLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('Login with Real-Debrid'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.surfaceContainerHigh.withValues(
+                    alpha: 0.2,
+                  ),
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -246,8 +254,9 @@ class _DebridSectionState extends State<DebridSection> {
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: () async {
+              FocusableControl(
+                borderRadius: 12,
+                onTap: () async {
                   await _debrid.saveTorBoxKey(_torboxController.text);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -255,16 +264,26 @@ class _DebridSectionState extends State<DebridSection> {
                     );
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.textPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _debrid.saveTorBoxKey(_torboxController.text);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('TorBox API Key Saved!')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: AppTheme.textPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
