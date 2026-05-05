@@ -151,10 +151,10 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         ],
       ),
     );
-    pinController.dispose();
+    final pin = pinController.text;
     if (result != true) return false;
     final repo = ref.read(profileRepositoryProvider);
-    return repo.verifyPin(profile.id, pinController.text);
+    return repo.verifyPin(profile.id, pin);
   }
 
   Future<void> _addProfileDialog() async {
@@ -361,7 +361,6 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
             ],
           ),
         );
-        pinController.dispose();
         if (pinResult != null) {
           await repo.updateProfile(profile.copyWith(isLocked: true, pin: pinResult));
         }
@@ -405,7 +404,6 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         ],
       ),
     );
-    controller.dispose();
     if (result != null) {
       final repo = ref.read(profileRepositoryProvider);
       await repo.updateProfile(profile.copyWith(name: result));

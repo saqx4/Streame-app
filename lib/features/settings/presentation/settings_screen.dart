@@ -1455,7 +1455,6 @@ class _ProfileCard extends ConsumerWidget {
         ],
       ),
     );
-    controller.dispose();
     if (result != null) {
       await ref.read(profileRepositoryProvider).updateProfile(profile.copyWith(name: result));
       ref.invalidate(profilesProvider);
@@ -1541,7 +1540,6 @@ class _ProfileCard extends ConsumerWidget {
           ],
         ),
       );
-      pinController.dispose();
       if (pinResult != null) {
         await repo.updateProfile(profile.copyWith(isLocked: true, pin: pinResult));
       }
