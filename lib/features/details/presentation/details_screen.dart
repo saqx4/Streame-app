@@ -442,7 +442,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     }
 
     return Material(
-      color: Colors.black.withValues(alpha: 0.92),
+      color: AppTheme.backgroundDark.withValues(alpha: 0.92),
       child: SafeArea(
         child: Column(
           children: [
@@ -473,17 +473,21 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                   ),
                   const SizedBox(width: 12),
                   // Close button
-                  GestureDetector(
-                    onTap: _closeStreamSelector,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+                  Semantics(
+                    button: true,
+                    label: 'Close',
+                    child: GestureDetector(
+                      onTap: _closeStreamSelector,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.textPrimary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.close, color: AppTheme.textPrimary, size: 20),
                       ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.close, color: AppTheme.textPrimary, size: 20),
                     ),
                   ),
                 ],
@@ -548,7 +552,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.accentGreen,
-                                    foregroundColor: Colors.black,
+                                    foregroundColor: AppTheme.backgroundDark,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
@@ -587,24 +591,29 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     final id = isAll ? 'all' : opt!.id;
                                     final name = isAll ? 'All sources' : opt!.name;
                                     final isSelected = _streamSelectorFilterAddonId == id;
-                                    return GestureDetector(
-                                      onTap: () => setState(() {
-                                        _streamSelectorFilterAddonId = id;
-                                      }),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 180),
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? Colors.white.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(18),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            name,
-                                            style: TextStyle(
-                                              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.78),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                    return Semantics(
+                                      button: true,
+                                      label: name,
+                                      selected: isSelected,
+                                      child: GestureDetector(
+                                        onTap: () => setState(() {
+                                          _streamSelectorFilterAddonId = id;
+                                        }),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 180),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? AppTheme.textPrimary.withValues(alpha: 0.18) : AppTheme.textPrimary.withValues(alpha: 0.08),
+                                            borderRadius: BorderRadius.circular(18),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              name,
+                                              style: TextStyle(
+                                                color: isSelected ? AppTheme.textPrimary : AppTheme.textPrimary.withValues(alpha: 0.78),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -728,11 +737,11 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                             Text(
                               item.title,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontSize: 34,
                                 fontWeight: FontWeight.w800,
-                                shadows: [Shadow(color: Colors.black87, blurRadius: 12)],
+                                shadows: [Shadow(color: AppTheme.backgroundDark.withValues(alpha: 0.87), blurRadius: 12)],
                               ),
                             ),
                           const SizedBox(height: 10),
@@ -751,7 +760,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     child: const Text('IMDb', style: TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 10)),
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(item.tmdbRating, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                  Text(item.tmdbRating, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                                   const SizedBox(width: 10),
                                   Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
                                   const SizedBox(width: 10),
@@ -764,24 +773,24 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(color: AppTheme.accentRed, borderRadius: BorderRadius.circular(4)),
-                                      child: const Text('Trakt', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+                                      child: const Text('Trakt', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 10)),
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(traktRating.toStringAsFixed(1), style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                    Text(traktRating.toStringAsFixed(1), style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                                     const SizedBox(width: 10),
                                     Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
                                     const SizedBox(width: 10),
                                   ]);
                                 }),
                                 if (item.year.isNotEmpty)
-                                  Text(item.year, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                  Text(item.year, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                                 if (item.year.isNotEmpty && data.genres.isNotEmpty) ...[
                                   const SizedBox(width: 10),
                                   Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
                                   const SizedBox(width: 10),
                                 ],
                                 if (data.genres.isNotEmpty)
-                                  Text(data.genres.take(2).join(' / '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                  Text(data.genres.take(2).join(' / '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                               ],
                             ),
                           ),
@@ -921,16 +930,20 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
         Positioned(
           top: MediaQuery.of(context).padding.top + 8,
           left: 12,
-          child: GestureDetector(
-            onTap: () => context.canPop() ? context.pop() : context.go('/home'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
+          child: Semantics(
+            button: true,
+            label: 'Go back',
+            child: GestureDetector(
+              onTap: () => context.canPop() ? context.pop() : context.go('/home'),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
             ),
           ),
         ),
@@ -1121,7 +1134,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
+                                color: AppTheme.backgroundDark.withValues(alpha: 0.35),
                                 blurRadius: 12,
                                 offset: const Offset(0, 6),
                               ),
@@ -1244,104 +1257,108 @@ class _ArvioStreamCard extends StatelessWidget {
             ? formatSizeBytes(stream.sizeBytes!) ?? ''
             : '';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title row + quality pill
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          p.title,
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: p.qualityColor.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          p.resolutionLabel,
-                          style: TextStyle(color: p.qualityColor, fontSize: 11, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Metadata chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+    return Semantics(
+      button: true,
+      label: p.title,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.textPrimary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row + quality pill
+                    Row(
                       children: [
-                        ...p.chips.take(10).map((chip) {
-                        final chipColor = _chipColor(chip.label);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              chip.label,
-                              style: TextStyle(
-                                color: chipColor == AppTheme.textSecondary
-                                    ? Colors.white.withValues(alpha: 0.78)
-                                    : chipColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                            ),
+                        Expanded(
+                          child: Text(
+                            p.title,
+                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        );
-                      }),
-                        if (sizeLabel.isNotEmpty)
-                          Padding(
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: p.qualityColor.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            p.resolutionLabel,
+                            style: TextStyle(color: p.qualityColor, fontSize: 11, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Metadata chips
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ...p.chips.take(10).map((chip) {
+                          final chipColor = _chipColor(chip.label);
+                          return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.10),
+                                color: AppTheme.textPrimary.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                sizeLabel,
+                                chip.label,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.78),
+                                  color: chipColor == AppTheme.textSecondary
+                                      ? AppTheme.textPrimary.withValues(alpha: 0.78)
+                                      : chipColor,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                                 maxLines: 1,
                               ),
                             ),
-                          ),
-                      ],
+                          );
+                        }),
+                          if (sizeLabel.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.textPrimary.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  sizeLabel,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimary.withValues(alpha: 0.78),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1394,7 +1411,7 @@ class _EpisodeTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: AppTheme.backgroundDark.withValues(alpha: 0.35),
               blurRadius: 18,
               offset: const Offset(0, 10),
             ),
@@ -1422,9 +1439,9 @@ class _EpisodeTile extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.10),
-                        Colors.black.withValues(alpha: 0.20),
-                        Colors.black.withValues(alpha: 0.78),
+                        AppTheme.backgroundDark.withValues(alpha: 0.10),
+                        AppTheme.backgroundDark.withValues(alpha: 0.20),
+                        AppTheme.backgroundDark.withValues(alpha: 0.78),
                       ],
                     ),
                   ),
@@ -1436,13 +1453,13 @@ class _EpisodeTile extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: AppTheme.backgroundDark.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                    border: Border.all(color: AppTheme.textPrimary.withValues(alpha: 0.12)),
                   ),
                   child: Text(
                     badge,
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -1455,7 +1472,7 @@ class _EpisodeTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w800),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1463,7 +1480,7 @@ class _EpisodeTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.80), fontSize: 12, height: 1.25),
+                        style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.80), fontSize: 12, height: 1.25),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1476,16 +1493,16 @@ class _EpisodeTile extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             rating.toStringAsFixed(1),
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w700),
+                            style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(width: 10),
                         ],
                         Text(
                           'Tap to play',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+                          style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.75), fontSize: 12),
                         ),
                         const Spacer(),
-                        const Icon(Icons.play_circle_fill, color: Colors.white, size: 22),
+                        const Icon(Icons.play_circle_fill, color: AppTheme.textPrimary, size: 22),
                       ],
                     ),
                   ],

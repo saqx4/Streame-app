@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:streame/core/theme/app_theme.dart';
 
 class StreameDpadConfig {
   final int minRepeatIntervalMs;
@@ -141,7 +142,7 @@ class TvRail extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -181,7 +182,7 @@ class TvSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      color: Colors.black87,
+      color: AppTheme.backgroundDark.withValues(alpha: 0.87),
       child: Column(
         children: items.asMap().entries.map((entry) {
           final index = entry.key;
@@ -189,24 +190,24 @@ class TvSidebar extends StatelessWidget {
           final isSelected = index == selectedIndex;
 
           return Expanded(
-            child: GestureDetector(
-              onTap: () => onSelected?.call(index),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: isSelected
-                    ? BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: const Color(0xFF00D4FF),
-                            width: 3,
-                          ),
-                        ),
-                      )
-                    : null,
-                child: Icon(
-                  item.icon,
-                  color: isSelected ? const Color(0xFF00D4FF) : Colors.white70,
-                  size: 24,
+            child: Semantics(
+              button: true,
+              label: item.label,
+              child: GestureDetector(
+                onTap: () => onSelected?.call(index),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: isSelected
+                      ? BoxDecoration(
+                          color: AppTheme.accentCyan.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        )
+                      : null,
+                  child: Icon(
+                    item.icon,
+                    color: isSelected ? AppTheme.accentCyan : AppTheme.textSecondary,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -247,7 +248,7 @@ class TvHero extends StatelessWidget {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: AppTheme.backgroundDark,
         image: imageUrl != null
             ? DecorationImage(
                 image: NetworkImage(imageUrl!),
@@ -262,8 +263,8 @@ class TvHero extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              Colors.black.withValues(alpha: 0.7),
-              Colors.black,
+              AppTheme.backgroundDark.withValues(alpha: 0.7),
+              AppTheme.backgroundDark,
             ],
           ),
         ),
@@ -275,19 +276,19 @@ class TvHero extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppTheme.textPrimary,
               ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
-                  color: Colors.white70,
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
@@ -299,8 +300,8 @@ class TvHero extends StatelessWidget {
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Play'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D4FF),
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppTheme.accentCyan,
+                    foregroundColor: AppTheme.backgroundDark,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -309,8 +310,8 @@ class TvHero extends StatelessWidget {
                   icon: const Icon(Icons.info_outline),
                   label: const Text('More Info'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white70),
+                    foregroundColor: AppTheme.textPrimary,
+                    side: BorderSide(color: AppTheme.textSecondary),
                   ),
                 ),
               ],
@@ -337,15 +338,15 @@ class TvDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black54,
+      color: AppTheme.backgroundDark.withValues(alpha: 0.54),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: AppTheme.backgroundElevated,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFF00D4FF),
+              color: AppTheme.accentCyan,
               width: 2,
             ),
           ),
@@ -356,10 +357,10 @@ class TvDialog extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -371,31 +372,35 @@ class TvDialog extends StatelessWidget {
                   children: actions!.map((action) {
                     return Padding(
                       padding: const EdgeInsets.only(left: 8),
-                      child: GestureDetector(
-                        onTap: action.onPressed,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: action.isPrimary
-                                ? const Color(0xFF00D4FF)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: action.isPrimary
-                                  ? const Color(0xFF00D4FF)
-                                  : Colors.white70,
+                      child: Semantics(
+                        button: true,
+                        label: action.label,
+                        child: GestureDetector(
+                          onTap: action.onPressed,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
                             ),
-                          ),
-                          child: Text(
-                            action.label,
-                            style: TextStyle(
+                            decoration: BoxDecoration(
                               color: action.isPrimary
-                                  ? Colors.black
-                                  : Colors.white,
-                              fontWeight: FontWeight.bold,
+                                  ? AppTheme.accentCyan
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: action.isPrimary
+                                    ? AppTheme.accentCyan
+                                    : AppTheme.textSecondary,
+                              ),
+                            ),
+                            child: Text(
+                              action.label,
+                              style: TextStyle(
+                                color: action.isPrimary
+                                    ? AppTheme.backgroundDark
+                                    : AppTheme.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),

@@ -51,14 +51,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     // Round back button (Nuvio: NuvioBackButton)
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: AppTheme.backgroundCard,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+                        icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 22),
                         onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
                         padding: EdgeInsets.zero,
                       ),
@@ -454,7 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () => launchUrl(Uri.parse(verificationUrl), mode: LaunchMode.externalApplication),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: AppTheme.textPrimary),
             child: const Text('Open Link'),
           ),
         ],
@@ -508,7 +508,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               await ref.read(traktRepositoryProvider).logout();
               if (mounted) setState(() {});
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: AppTheme.textPrimary),
             child: const Text('Disconnect'),
           ),
         ],
@@ -530,7 +530,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: AppTheme.textPrimary),
             child: const Text('Sign Out'),
           ),
         ],
@@ -898,7 +898,7 @@ class _AddonManagerScreenState extends ConsumerState<_AddonManagerScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: AppTheme.textPrimary),
             child: const Text('Remove'),
           ),
         ],
@@ -1088,8 +1088,9 @@ class _AddonTile extends StatelessWidget {
             onChanged: onToggle,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppTheme.textTertiary, size: 20),
+            icon: const Icon(Icons.delete_outline, color: AppTheme.textTertiary, size: 22),
             onPressed: onRemove,
+            visualDensity: VisualDensity.standard,
           ),
         ],
       ),
@@ -1171,18 +1172,18 @@ class _SettingTile extends StatelessWidget {
     return StreameFocusable(
       onTap: onTap ?? () {},
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             // Icon chip (Nuvio: Surface with primary 12% bg, rounded 10dp)
             Container(
-              width: 36,
-              height: 36,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: AppTheme.textPrimary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: AppTheme.textPrimary, size: 20),
+              child: Icon(icon, color: AppTheme.textPrimary, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1218,45 +1219,49 @@ class _SwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged?.call(!value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            // Icon chip
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.textPrimary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+    return Semantics(
+      button: true,
+      label: title,
+      child: GestureDetector(
+        onTap: () => onChanged?.call(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              // Icon chip
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.textPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppTheme.textPrimary, size: 22),
               ),
-              child: Icon(icon, color: AppTheme.textPrimary, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
-                  if (description != null && description!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(description!, style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.92), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+                    if (description != null && description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(description!, style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.92), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeColor: AppTheme.textPrimary,
-              activeTrackColor: AppTheme.textPrimary.withValues(alpha: 0.5),
-              inactiveThumbColor: AppTheme.textSecondary,
-              inactiveTrackColor: AppTheme.borderMedium,
-            ),
-          ],
+              const SizedBox(width: 4),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeColor: AppTheme.textPrimary,
+                activeTrackColor: AppTheme.textPrimary.withValues(alpha: 0.5),
+                inactiveThumbColor: AppTheme.textSecondary,
+                inactiveTrackColor: AppTheme.borderMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1307,21 +1312,25 @@ class _ProfileCard extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Future.microtask(() => context.go('/profile-select')),
-            child: Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(
-                color: Color(profile.avatarColor),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: profile.avatarId > 0
-                    ? Icon(ProfileAvatars.getById(profile.avatarId).icon, color: Colors.white, size: 24)
-                    : Text(
-                        profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
-                      ),
+          Semantics(
+            button: true,
+            label: 'Change profile',
+            child: GestureDetector(
+              onTap: () => Future.microtask(() => context.go('/profile-select')),
+              child: Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  color: Color(profile.avatarColor),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: profile.avatarId > 0
+                      ? Icon(ProfileAvatars.getById(profile.avatarId).icon, color: AppTheme.textPrimary, size: 24)
+                      : Text(
+                          profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700),
+                        ),
+                ),
               ),
             ),
           ),
@@ -1340,12 +1349,13 @@ class _ProfileCard extends ConsumerWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary, size: 20),
+            icon: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary, size: 22),
             onPressed: () => _showProfileEditSheet(context, ref),
             tooltip: 'Edit Profile',
+            visualDensity: VisualDensity.standard,
           ),
           IconButton(
-            icon: const Icon(Icons.swap_horiz, color: AppTheme.textSecondary, size: 20),
+            icon: const Icon(Icons.swap_horiz, color: AppTheme.textSecondary, size: 22),
             onPressed: () => Future.microtask(() => context.go('/profile-select')),
             tooltip: 'Switch Profile',
           ),
@@ -1375,8 +1385,8 @@ class _ProfileCard extends ConsumerWidget {
                     ),
                     child: Center(
                       child: profile.avatarId > 0
-                          ? Icon(ProfileAvatars.getById(profile.avatarId).icon, color: Colors.white, size: 20)
-                          : Text(profile.name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                          ? Icon(ProfileAvatars.getById(profile.avatarId).icon, color: AppTheme.textPrimary, size: 20)
+                          : Text(profile.name[0].toUpperCase(), style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1469,15 +1479,19 @@ class _ProfileCard extends ConsumerWidget {
             itemBuilder: (_, i) {
               final avatar = ProfileAvatars.avatars[i];
               final isSelected = avatar.id == profile.avatarId;
-              return GestureDetector(
-                onTap: () => Navigator.pop(ctx, avatar),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Color(avatar.color),
-                    borderRadius: BorderRadius.circular(12),
-                    border: isSelected ? Border.all(color: Colors.white, width: 3) : Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
+              return Semantics(
+                button: true,
+                label: 'Avatar ${avatar.id}',
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, avatar),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Color(avatar.color),
+                      borderRadius: BorderRadius.circular(12),
+                      border: isSelected ? Border.all(color: AppTheme.textPrimary, width: 3) : Border.all(color: AppTheme.textPrimary.withValues(alpha: 0.12), width: 1),
+                    ),
+                    child: Icon(avatar.icon, color: AppTheme.textPrimary, size: 32),
                   ),
-                  child: Icon(avatar.icon, color: Colors.white, size: 32),
                 ),
               );
             },

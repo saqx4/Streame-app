@@ -8,7 +8,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:go_router/go_router.dart';
 import 'package:streame/core/theme/app_theme.dart';
 import 'package:streame/core/models/stream_models.dart';
-import 'package:streame/core/models/source_presentation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:streame/core/repositories/addon_repository.dart';
@@ -22,9 +21,11 @@ import 'package:streame/features/home/data/models/media_item.dart';
 import 'package:streame/core/repositories/skip_intro_repository.dart';
 import 'package:streame/shared/widgets/next_episode_overlay.dart';
 import 'package:streame/shared/widgets/player_loading_screen.dart';
-import 'package:streame/shared/widgets/resilient_network_image.dart';
 import 'package:streame/core/providers/shared_providers.dart';
-import 'package:streame/core/focus/focusable.dart';
+import 'package:streame/features/player/presentation/widgets/player_source_selector.dart';
+import 'package:streame/features/player/presentation/widgets/player_pause_overlay.dart';
+import 'package:streame/features/player/presentation/widgets/player_skip_overlays.dart';
+import 'package:streame/features/player/presentation/widgets/player_controls_overlay.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final String mediaType;
@@ -990,7 +991,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0E0E0E),
+      backgroundColor: AppTheme.backgroundSheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1022,7 +1023,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 width: 40, height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: AppTheme.arcticWhite12,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1031,7 +1032,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 child: Text('Subtitles',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.bold)),
               ),
@@ -1044,7 +1045,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       Navigator.pop(ctx);
                       _showSubtitleSettingsSheet();
                     },
-                    child: const Text('Settings', style: TextStyle(color: Colors.white70)),
+                    child: const Text('Settings', style: TextStyle(color: AppTheme.textSecondary)),
                   ),
                 ),
               ),
@@ -1052,7 +1053,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: LinearProgressIndicator(
-                      color: Colors.white24, backgroundColor: Colors.white10),
+                      color: AppTheme.arcticWhite12, backgroundColor: AppTheme.arcticWhite12),
                 ),
               Expanded(
                 child: ListView(children: [
@@ -1106,7 +1107,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       padding: EdgeInsets.all(32),
                       child: Center(
                           child: Text('No subtitles found',
-                              style: TextStyle(color: Colors.white38))),
+                              style: TextStyle(color: AppTheme.textDisabled))),
                     ),
                 ]),
               ),
@@ -1133,7 +1134,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0E0E0E),
+      backgroundColor: AppTheme.backgroundSheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1145,7 +1146,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               padding: EdgeInsets.all(16),
               child: Text('Audio Tracks',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.bold)),
             ),
@@ -1153,7 +1154,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               const Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('No audio tracks found',
-                    style: TextStyle(color: Colors.white38)),
+                    style: TextStyle(color: AppTheme.textDisabled)),
               )
             else
               ..._audioTracks.map((t) => _SubTile(
@@ -1266,7 +1267,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!_hasPlayer || !_isInitialized) return;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0E0E0E),
+      backgroundColor: AppTheme.backgroundSheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1289,13 +1290,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white24,
+                        color: AppTheme.arcticWhite12,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                     const Text(
                       'Subtitle settings',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
 
@@ -1303,8 +1304,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Size', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text(fontSize.toStringAsFixed(0), style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('Size', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text(fontSize.toStringAsFixed(0), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1320,8 +1321,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Position', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('${position.round()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('Position', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${position.round()}%', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1337,8 +1338,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Background', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('Background', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1354,8 +1355,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Delay', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('${delayMs}ms', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('Delay', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${delayMs}ms', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1370,7 +1371,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Default: size 32, position 90%, background 55%, delay 0ms',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+                      style: TextStyle(color: AppTheme.textTertiary, fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -1451,21 +1452,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
   }
 
-  String _formatDuration(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     // Nuvio parity: opening overlay stays until first frame plays
     final initialLoadCompleted = _hasStartedPlayback;
     final showOpeningOverlay = !initialLoadCompleted && _streamPhase != 'error';
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTheme.backgroundDark,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -1481,10 +1474,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     height: 1.25,
                     fontSize: _subtitleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    backgroundColor: Colors.black.withValues(alpha: _subtitleBgOpacity),
+                    color: AppTheme.textPrimary,
+                    backgroundColor: AppTheme.backgroundDark.withValues(alpha: _subtitleBgOpacity),
                     shadows: const [
-                      Shadow(offset: Offset(0, 2), blurRadius: 6, color: Colors.black),
+                      Shadow(offset: Offset(0, 2), blurRadius: 6, color: AppTheme.backgroundDark),
                     ],
                   ),
                   textAlign: TextAlign.center,
@@ -1495,17 +1488,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             // and button taps go to the controls
             if (initialLoadCompleted)
               Positioned.fill(
-                child: GestureDetector(
-                  onTap: _toggleControls,
-                  behavior: HitTestBehavior.opaque,
-                  child: const SizedBox.expand(),
+                child: Semantics(
+                  label: 'Toggle player controls',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: _toggleControls,
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
 
-            if (_showSkipOverlay) _buildSkipOverlay(),
-            // Skip intro/recap/outro button
+            if (_showSkipOverlay)
+              PlayerSkipOverlay(skipDirection: _skipDirection, onDismiss: () => setState(() => _showSkipOverlay = false)),
             if (_activeSkipInterval != null && initialLoadCompleted)
-              _buildSkipIntroButton(),
+              PlayerSkipIntroButton(
+                type: _activeSkipInterval!.type,
+                remaining: Duration(seconds: ((_activeSkipInterval!.endMs - _position.inMilliseconds) / 1000).round()),
+                onSkip: _onSkipIntro,
+              ),
             if (_showNextEpisode)
               NextEpisodeOverlay(
                 title: _nextEpisodeTitle ?? 'Next Episode',
@@ -1516,12 +1517,58 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
 
             // Controls overlay — only after initial load completes; absorbs taps on buttons
-            if (initialLoadCompleted && _showControls) _buildControls(),
-            // Pause metadata overlay (matches Nuvio's PauseMetadataOverlay)
+            if (initialLoadCompleted && _showControls)
+              PlayerControlsOverlay(data: PlayerControlsData(
+                logoUrl: _logoUrl,
+                mediaTitle: _mediaTitle,
+                mediaType: widget.mediaType,
+                mediaId: widget.mediaId,
+                seasonNumber: widget.seasonNumber,
+                episodeNumber: widget.episodeNumber,
+                isPlaying: _isPlaying,
+                isBuffering: _isBuffering,
+                position: _position,
+                duration: _duration,
+                playbackSpeed: _playbackSpeed,
+                streamResults: _streamResults,
+                selectedSourceIndex: _selectedSourceIndex,
+                sourceFilter: _sourceFilter,
+                showSourceSelector: _showSourceSelector,
+              ), callbacks: PlayerControlsCallbacks(
+                onExit: _exitPlayer,
+                onSeekBackward: _seekBackward,
+                onTogglePlay: _togglePlay,
+                onSeekForward: _seekForward,
+                onSeek: (v) async { if (_hasPlayer) await _p.seek(Duration(milliseconds: (v * _duration.inMilliseconds).round())); },
+                onSetSpeed: _setSpeed,
+                onShowSubtitles: () => _showSubtitlesMenu(),
+                onShowAudio: () => _showAudioMenu(),
+                onShowSources: () => setState(() { _sourceFilter = null; _showSourceSelector = true; }),
+                onShowEpisodes: () => setState(() { _sourceFilter = null; _showSourceSelector = true; }),
+                onFit: () {},
+              )),
             if (initialLoadCompleted && !_showControls && _isInitialized && !_isPlaying && !_isBuffering)
-              _buildPauseMetadataOverlay(),
+              PlayerPauseOverlay(
+                logoUrl: _logoUrl,
+                mediaTitle: _mediaTitle,
+                seasonNumber: widget.seasonNumber,
+                episodeNumber: widget.episodeNumber,
+              ),
             // Loading screen already has its own back button — no duplicate overlay needed
-            if (_showSourceSelector) _buildSourceSelector(),
+            if (_showSourceSelector)
+              PlayerSourceSelector(
+                backdropUrl: _backdropUrl,
+                logoUrl: _logoUrl,
+                mediaTitle: _mediaTitle,
+                mediaType: widget.mediaType,
+                mediaId: widget.mediaId,
+                streamResults: _streamResults,
+                selectedSourceIndex: _selectedSourceIndex,
+                sourceFilter: _sourceFilter,
+                onSourceChange: _changeSource,
+                onFilterChange: (f) => setState(() => _sourceFilter = f),
+                onClose: () => setState(() => _showSourceSelector = false),
+              ),
             // Opening overlay covers everything until first frame plays (Nuvio parity: AnimatedVisibility visible = !initialLoadCompleted)
             if (showOpeningOverlay) _buildLoader(),
           ],
@@ -1559,790 +1606,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       default: return _streamPhase;
     }
   }
-
-  Widget _buildSkipOverlay() {
-    final isForward = _skipDirection == 'forward';
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(isForward ? Icons.forward_10 : Icons.replay_10, color: AppTheme.textPrimary, size: 32),
-            const SizedBox(width: 8),
-            Text(isForward ? '+10s' : '-10s', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSkipIntroButton() {
-    final interval = _activeSkipInterval!;
-    final label = switch (interval.type) {
-      'recap' => 'Skip Recap',
-      'outro' => 'Skip Outro',
-      'ed' => 'Skip Ending',
-      'op' => 'Skip Opening',
-      _ => 'Skip Intro',
-    };
-    return Positioned(
-      bottom: 120,
-      right: 24,
-      child: StreameFocusable(
-        onTap: _onSkipIntro,
-        focusedScale: 1.04,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.skip_next, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControls() {
-    // Matches Nuvio's PlayerControlsShell: top gradient, bottom gradient, header, center, bottom
-    // Gradients and decorative areas use IgnorePointer so taps pass through to the toggle layer
-    return Stack(
-      children: [
-        // Top gradient (160dp, black 0.7 → transparent)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 160,
-          child: IgnorePointer(child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-              ),
-            ),
-          )),
-        ),
-        // Bottom gradient (220dp, transparent → black 0.7)
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 220,
-          child: IgnorePointer(child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
-              ),
-            ),
-          )),
-        ),
-        // Content
-        Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildHeader(),
-            _buildCenterControls(),
-            _buildBottomControls(),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    // Matches Nuvio's PlayerHeader: title + episode info + provider left, lock + back right
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_logoUrl != null && _logoUrl!.isNotEmpty)
-                    IgnorePointer(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 120, maxHeight: 30),
-                        child: ResilientNetworkImage(
-                          imageUrl: _logoUrl!,
-                          fit: BoxFit.contain,
-                          errorWidget: (_, __, ___) => Text(
-                            _mediaTitle ?? '${widget.mediaType} ${widget.mediaId}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              height: 1.16,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      _mediaTitle ?? '${widget.mediaType} ${widget.mediaId}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        height: 1.16,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (widget.seasonNumber != null && widget.episodeNumber != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'S${widget.seasonNumber} E${widget.episodeNumber}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                        height: 1.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (_streamResults.isNotEmpty) ...[
-                        Text(
-                          _streamResults[_selectedSourceIndex].addonName,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Lock button (placeholder — matches Nuvio's lock/unlock)
-            _HeaderCircleButton(
-              icon: Icons.lock_open,
-              size: 20,
-              onPressed: () {},
-            ),
-            const SizedBox(width: 10),
-            // Back button
-            _HeaderCircleButton(
-              icon: Icons.arrow_back,
-              size: 20,
-              onPressed: _exitPlayer,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenterControls() {
-    // Matches Nuvio's CenterControls: [Replay10] [Play/Pause] [Forward10]
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Seek back 10s
-        GestureDetector(
-          onTap: _seekBackward,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: const Icon(Icons.replay_10, color: Colors.white, size: 34),
-          ),
-        ),
-        const SizedBox(width: 56),
-        // Play/Pause or buffering
-        GestureDetector(
-          onTap: _togglePlay,
-          child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: _isBuffering
-                ? SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                  )
-                : Icon(
-                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 44,
-                  ),
-          ),
-        ),
-        const SizedBox(width: 56),
-        // Seek forward 10s
-        GestureDetector(
-          onTap: _seekForward,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: const Icon(Icons.forward_10, color: Colors.white, size: 34),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomControls() {
-    // Matches Nuvio's ProgressControls: slider + time pills + action pill bar
-    final progress = _duration.inMilliseconds > 0
-        ? _position.inMilliseconds / _duration.inMilliseconds
-        : 0.0;
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
-      child: Column(
-        children: [
-          // Slider (thin, matches Nuvio's scaleY approach)
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: Colors.white,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
-              thumbColor: Colors.white,
-              trackHeight: 3,
-            ),
-            child: Slider(
-              value: progress.clamp(0.0, 1.0),
-              onChanged: (value) async {
-                if (_hasPlayer) await _p.seek(Duration(milliseconds: (value * _duration.inMilliseconds).round()));
-              },
-            ),
-          ),
-          // Time pills
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _TimePill(text: _formatDuration(_position)),
-                _TimePill(text: _formatDuration(_duration)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Action pill bar (matches Nuvio's rounded rect with icon+label buttons)
-          Center(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ActionPillButton(icon: Icons.aspect_ratio, label: 'Fit', onPressed: () {}),
-                  _ActionPillButton(
-                    icon: Icons.speed,
-                    label: '${_playbackSpeed.toString().replaceAll(RegExp(r'\.?0+$'), '')}x',
-                    onPressed: () => _setSpeed(_playbackSpeed >= 2.0 ? 0.5 : _playbackSpeed + 0.25),
-                  ),
-                  _ActionPillButton(icon: Icons.subtitles, label: 'Subs', onPressed: () => _showSubtitlesMenu()),
-                  _ActionPillButton(icon: Icons.audiotrack, label: 'Audio', onPressed: () => _showAudioMenu()),
-                  if (_streamResults.isNotEmpty)
-                    _ActionPillButton(
-                      icon: Icons.swap_horiz,
-                      label: 'Sources',
-                      onPressed: () => setState(() { _sourceFilter = null; _showSourceSelector = true; }),
-                    ),
-                  if (widget.seasonNumber != null)
-                    _ActionPillButton(
-                      icon: Icons.video_library,
-                      label: 'Episodes',
-                      onPressed: () => setState(() { _sourceFilter = null; _showSourceSelector = true; }),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPauseMetadataOverlay() {
-    // Matches Nuvio's PauseMetadataOverlay: horizontal gradient, "You're watching", logo/title, episode info
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-        children: [
-          // Horizontal gradient overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Colors.black.withValues(alpha: 0.85),
-                  Colors.black.withValues(alpha: 0.45),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
-            ),
-          ),
-          // Text content
-          Positioned(
-            left: 40,
-            top: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "You're watching",
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_logoUrl != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 240, maxHeight: 80),
-                    child: ResilientNetworkImage(
-                      imageUrl: _logoUrl!,
-                      fit: BoxFit.contain,
-                      errorWidget: (_, __, ___) => _pauseTitleFallback(),
-                    ),
-                  )
-                else
-                  _pauseTitleFallback(),
-                if (widget.seasonNumber != null && widget.episodeNumber != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'S${widget.seasonNumber} E${widget.episodeNumber}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pauseTitleFallback() {
-    return Text(
-      _mediaTitle ?? '',
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-      ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildSourceSelector() {
-    // Group streams by addon (Nuvio: AddonStreamGroup)
-    final groups = <String, List<int>>{}; // addonName → list of indices
-    for (var i = 0; i < _streamResults.length; i++) {
-      final name = _streamResults[i].addonName;
-      groups.putIfAbsent(name, () => []).add(i);
-    }
-
-    // Filtered groups based on _sourceFilter
-    final filteredGroups = _sourceFilter == null
-        ? groups
-        : Map.fromEntries(groups.entries.where((e) => e.key == _sourceFilter));
-
-    return Container(
-      color: Colors.black,
-      child: Stack(
-        children: [
-          // Blurred backdrop
-          if (_backdropUrl != null)
-            Positioned.fill(
-              child: ClipRect(
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                  child: ResilientNetworkImage(
-                    imageUrl: _backdropUrl!,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-            ),
-          // Dark overlay
-          Positioned.fill(child: ColoredBox(color: Colors.black)),
-          // Content
-          SafeArea(
-            child: Column(
-              children: [
-                // Top bar: back + close
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
-                  child: Row(
-                    children: [
-                      _HeaderCircleButton(
-                        icon: Icons.arrow_back,
-                        size: 20,
-                        onPressed: () => setState(() => _showSourceSelector = false),
-                      ),
-                      const Spacer(),
-                      _HeaderCircleButton(
-                        icon: Icons.close,
-                        size: 20,
-                        onPressed: () => setState(() => _showSourceSelector = false),
-                      ),
-                    ],
-                  ),
-                ),
-                // Hero: logo or title (Nuvio: MovieHeroBlock)
-                if (_logoUrl != null || _mediaTitle != null)
-                  Container(
-                    height: 100,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _logoUrl != null
-                        ? ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 80, maxWidth: 300),
-                            child: ResilientNetworkImage(
-                              imageUrl: _logoUrl!,
-                              fit: BoxFit.contain,
-                              errorWidget: (_, __, ___) => _sourceSelectorTitleFallback(),
-                            ),
-                          )
-                        : _sourceSelectorTitleFallback(),
-                  ),
-                // ─── Provider filter row (Nuvio: ProviderFilterRow) ───
-                if (groups.length > 1)
-                  Container(
-                    height: 44,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      children: [
-                        // "All" chip
-                        _SourceFilterChip(
-                          label: 'All',
-                          isSelected: _sourceFilter == null,
-                          onTap: () => setState(() => _sourceFilter = null),
-                        ),
-                        const SizedBox(width: 8),
-                        // Per-addon chips
-                        ...groups.keys.map((name) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _SourceFilterChip(
-                            label: name,
-                            isSelected: _sourceFilter == name,
-                            onTap: () => setState(() => _sourceFilter = name),
-                          ),
-                        )),
-                      ],
-                    ),
-                  ),
-                // ─── Stream list (grouped by addon, Nuvio: StreamList) ───
-                Expanded(
-                  child: filteredGroups.isEmpty
-                      ? _SourceEmptyState()
-                      : ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          children: [
-                            for (final entry in filteredGroups.entries) ...[
-                              // Section header (Nuvio: shows when filter = null)
-                              if (_sourceFilter == null && filteredGroups.length > 1)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-                                  child: Text(
-                                    entry.key,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              // Stream cards for this group
-                              for (final index in entry.value)
-                                _StreamCard(
-                                  addonName: _streamResults[index].addonName,
-                                  stream: StreamResolver.sortForPlayback(_streamResults[index].streams).firstOrNull,
-                                  isSelected: index == _selectedSourceIndex,
-                                  onTap: () => _changeSource(index),
-                                ),
-                            ],
-                            if (_streamResults.isEmpty)
-                              _SourceEmptyState(),
-                            const SizedBox(height: 32),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sourceSelectorTitleFallback() {
-    return Text(
-      _mediaTitle ?? 'Select Source',
-      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5),
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Nuvio-style helper widgets (outside _PlayerScreenState so they're reusable)
+// Helper widgets still used by subtitle/audio menus
 // ---------------------------------------------------------------------------
-
-/// Circle button matching Nuvio's NuvioBackButton / PlayerHeaderIconButton
-class _HeaderCircleButton extends StatelessWidget {
-  final IconData icon;
-  final double size;
-  final VoidCallback onPressed;
-
-  const _HeaderCircleButton({required this.icon, required this.size, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final buttonSize = size + 24;
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: buttonSize,
-        height: buttonSize,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.35),
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: Colors.white, size: size),
-      ),
-    );
-  }
-}
-
-/// Time pill matching Nuvio's TimePill composable
-class _TimePill extends StatelessWidget {
-  final String text;
-  const _TimePill({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-}
-
-/// Action pill button matching Nuvio's PlayerActionPillButton
-class _ActionPillButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  const _ActionPillButton({required this.icon, required this.label, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Stream card matching Nuvio's StreamCard composable
-/// Shows: title, addon name, quality, size, transport type, codec, release, language badges
-class _StreamCard extends StatelessWidget {
-  final String addonName;
-  final StreamSource? stream;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _StreamCard({
-    required this.addonName,
-    this.stream,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final s = stream;
-    if (s == null) return const SizedBox.shrink();
-
-    final p = presentSource(s, addonName);
-    final sizeLabel = formatSizeBytes(p.sizeBytes);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        constraints: const BoxConstraints(minHeight: 68),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.1),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
-          ],
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title row + quality pill
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          p.title,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: p.qualityColor.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          p.resolutionLabel,
-                          style: TextStyle(color: p.qualityColor, fontSize: 11, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Metadata chips (unified with DetailsScreen)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        ...p.chips.take(10).map((chip) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0A0C0C),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              chip.label,
-                              style: TextStyle(
-                                color: chip.color == AppTheme.textSecondary
-                                    ? Colors.white.withValues(alpha: 0.78)
-                                    : chip.color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                            ),
-                          ),
-                        )),
-                        if (sizeLabel != null)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0A0C0C),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                sizeLabel,
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Colors.white, size: 24),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SubTile extends StatelessWidget {
   final IconData icon;
@@ -2362,19 +1630,19 @@ class _SubTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white70, size: 22),
+      leading: Icon(icon, color: AppTheme.textSecondary, size: 22),
       title: Text(label,
           style: TextStyle(
-              color: selected ? Colors.white : Colors.white70,
+              color: selected ? AppTheme.textPrimary : AppTheme.textSecondary,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
               fontSize: 14)),
       subtitle: subtitle != null && subtitle!.isNotEmpty
           ? Text(subtitle!,
               style: TextStyle(
-                  color: selected ? Colors.white54 : Colors.white38,
+                  color: selected ? AppTheme.textTertiary : AppTheme.textDisabled,
                   fontSize: 12))
           : null,
-      trailing: selected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+      trailing: selected ? const Icon(Icons.check, color: AppTheme.textPrimary, size: 20) : null,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       dense: true,
@@ -2392,69 +1660,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Text(text,
           style: const TextStyle(
-              color: Colors.white38,
+              color: AppTheme.textDisabled,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2)),
-    );
-  }
-}
-
-/// Provider filter chip (Nuvio: FilterChip in ProviderFilterRow)
-class _SourceFilterChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SourceFilterChip({required this.label, required this.isSelected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.12),
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.black : Colors.white.withValues(alpha: 0.8),
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-          ),
-          maxLines: 1,
-        ),
-      ),
-    );
-  }
-}
-
-/// Empty state for source selector (Nuvio: EmptyStateBlock)
-class _SourceEmptyState extends StatelessWidget {
-  const _SourceEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: [
-          Icon(Icons.search_off, color: Colors.white.withValues(alpha: 0.4), size: 48),
-          const SizedBox(height: 12),
-          Text('No sources available', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
-          const SizedBox(height: 6),
-          Text('Try adding more addons in Settings', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 14), textAlign: TextAlign.center),
-        ],
-      ),
     );
   }
 }

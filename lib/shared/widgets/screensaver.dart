@@ -48,30 +48,33 @@ class _ScreensaverState extends State<Screensaver> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: _resetTimer,
-      onPanDown: (_) => _resetTimer(),
-      child: Stack(
-        children: [
-          widget.child,
-          if (_isIdle)
-            Container(
-              color: Colors.black,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.play_circle_outline, size: 64, color: AppTheme.arcticWhite30),
-                    const SizedBox(height: 16),
-                    const Text('Streame', style: TextStyle(
-                      color: AppTheme.arcticWhite30, fontSize: 24, fontWeight: FontWeight.w300,
-                    )),
-                  ],
+    return Semantics(
+      label: 'Tap to dismiss screensaver',
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _resetTimer,
+        onPanDown: (_) => _resetTimer(),
+        child: Stack(
+          children: [
+            widget.child,
+            if (_isIdle)
+              Container(
+                color: AppTheme.backgroundDark,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_circle_outline, size: 64, color: AppTheme.arcticWhite30),
+                      const SizedBox(height: 16),
+                      const Text('Streame', style: TextStyle(
+                        color: AppTheme.arcticWhite30, fontSize: 24, fontWeight: FontWeight.w300,
+                      )),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

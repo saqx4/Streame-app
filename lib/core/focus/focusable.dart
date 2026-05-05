@@ -109,45 +109,48 @@ class _FocusWrapperState extends State<_FocusWrapper> {
         }
         return KeyEventResult.ignored;
       },
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
-          setState(() => _isPressed = false);
-          widget.onTap?.call();
-        },
-        onTapCancel: () => setState(() => _isPressed = false),
-        onLongPress: widget.onLongPress,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 105),
-          curve: Curves.easeOutCubic,
-          transform: Matrix4.identity()
-            ..scale(_isPressed
-                ? widget.pressedScale
-                : _hasFocus
-                    ? widget.focusedScale
-                    : 1.0),
-          transformAlignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: _hasFocus
-                ? Border.all(
-                    color: widget.outlineColor,
-                    width: widget.outlineWidth,
-                  )
-                : null,
-            boxShadow: _hasFocus
-                ? [
-                    BoxShadow(
-                      color: widget.outlineColor.withValues(alpha: widget.glowAlpha),
-                      blurRadius: widget.glowWidth,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : null,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: widget.child,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            widget.onTap?.call();
+          },
+          onTapCancel: () => setState(() => _isPressed = false),
+          onLongPress: widget.onLongPress,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 105),
+            curve: Curves.easeOutCubic,
+            transform: Matrix4.identity()
+              ..scale(_isPressed
+                  ? widget.pressedScale
+                  : _hasFocus
+                      ? widget.focusedScale
+                      : 1.0),
+            transformAlignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: _hasFocus
+                  ? Border.all(
+                      color: widget.outlineColor,
+                      width: widget.outlineWidth,
+                    )
+                  : null,
+              boxShadow: _hasFocus
+                  ? [
+                      BoxShadow(
+                        color: widget.outlineColor.withValues(alpha: widget.glowAlpha),
+                        blurRadius: widget.glowWidth,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: widget.child,
+            ),
           ),
         ),
       ),

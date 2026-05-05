@@ -260,10 +260,13 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
           context.push('/details/${e.mediaType}/${e.tmdbId}');
         }
       },
-      child: GestureDetector(
-        child: Focus(
-          onFocusChange: (f) => setState(() => _isFocused = f),
-          child: AnimatedContainer(
+      child: Semantics(
+        button: true,
+        label: e.title,
+        child: GestureDetector(
+          child: Focus(
+            onFocusChange: (f) => setState(() => _isFocused = f),
+            child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
               color: AppTheme.backgroundCard,
@@ -301,7 +304,7 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AppTheme.textPrimary.withValues(alpha: 0.7),
                             strokeWidth: 2,
                           ),
                         ),
@@ -327,8 +330,8 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
                         colors: [
                           Colors.transparent,
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                          Colors.black.withValues(alpha: 0.9),
+                          AppTheme.backgroundDark.withValues(alpha: 0.7),
+                          AppTheme.backgroundDark.withValues(alpha: 0.9),
                         ],
                         stops: const [0.0, 0.5, 0.75, 1.0],
                       ),
@@ -359,7 +362,7 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
                           color: AppTheme.accentRed.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('Trakt', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                        child: const Text('Trakt', style: TextStyle(color: AppTheme.textPrimary, fontSize: 9, fontWeight: FontWeight.w600)),
                       ),
                     ),
                   // Title at bottom over gradient
@@ -367,7 +370,7 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
                     bottom: 8, left: 8, right: 8,
                     child: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600,
-                        shadows: [Shadow(color: Colors.black87, blurRadius: 4)])),
+                        shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                   ),
                 ],
               ),
@@ -375,6 +378,7 @@ class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
           ),
         ),
       ),
+    ),
     );
   }
 }

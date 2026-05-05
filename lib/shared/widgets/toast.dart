@@ -17,7 +17,7 @@ class Toast {
                       ? Icons.error
                       : Icons.info,
               color: type == ToastType.error
-                  ? Colors.redAccent
+                  ? AppTheme.errorColor
                   : AppTheme.textPrimary,
               size: 20,
             ),

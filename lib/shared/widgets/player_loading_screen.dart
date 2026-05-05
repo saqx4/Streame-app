@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:streame/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import 'package:streame/core/services/torrent_stream_service.dart';
 import 'package:streame/shared/widgets/resilient_network_image.dart';
 
@@ -79,7 +79,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black,
+      color: AppTheme.backgroundDark,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -101,10 +101,10 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x4D000000),
-                    Color(0x99000000),
-                    Color(0xCC000000),
-                    Color(0xE6000000),
+                    Color(0x4D08090A),
+                    Color(0x9908090A),
+                    Color(0xCC08090A),
+                    Color(0xE608090A),
                   ],
                   stops: [0.0, 0.33, 0.66, 1.0],
                 ),
@@ -120,7 +120,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
               icon: Icons.arrow_back,
               iconSize: 24,
               buttonSize: 44,
-              backgroundColor: Colors.black.withValues(alpha: 0.3),
+              backgroundColor: AppTheme.backgroundDark.withValues(alpha: 0.3),
               onPressed: widget.onBack ?? () {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
@@ -161,7 +161,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                     Text(
                       widget.loadingMessage,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: AppTheme.textSecondary,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -177,7 +177,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                       width: 32,
                       height: 32,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         strokeWidth: 2.5,
                       ),
                     ),
@@ -194,11 +194,11 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.white, size: 48),
+                    const Icon(Icons.error_outline_rounded, color: AppTheme.textPrimary, size: 48),
                     const SizedBox(height: 16),
-                    const Text('Playback Error', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    const Text('Playback Error', style: TextStyle(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                     const SizedBox(height: 8),
-                    Text(widget.loadingMessage, style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 16), textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis),
+                    Text(widget.loadingMessage, style: TextStyle(color: AppTheme.textSecondary, fontSize: 16), textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 20),
                     if (widget.onRetry != null)
                       SizedBox(
@@ -207,7 +207,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                           onPressed: widget.onRetry,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.accentGreen,
-                            foregroundColor: Colors.black,
+                            foregroundColor: AppTheme.backgroundDark,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
@@ -243,14 +243,14 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Text(
           widget.title,
-          style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w800),
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 42, fontWeight: FontWeight.w800),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
       );
     }
-    return const SizedBox(width: 54, height: 54, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3));
+    return const SizedBox(width: 54, height: 54, child: CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3));
   }
 }
 
@@ -265,14 +265,18 @@ class _CircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: buttonSize,
-        height: buttonSize,
-        decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
-        alignment: Alignment.center,
-        child: Icon(icon, color: Colors.white, size: iconSize),
+    return Semantics(
+      button: true,
+      label: 'Back',
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: Icon(icon, color: AppTheme.textPrimary, size: iconSize),
+        ),
       ),
     );
   }
@@ -286,7 +290,7 @@ class _TorrentStatsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.75), borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(color: AppTheme.backgroundDark.withValues(alpha: 0.75), borderRadius: BorderRadius.circular(24)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -302,9 +306,9 @@ class _TorrentStatsBar extends StatelessWidget {
 
   Widget _statPill(IconData icon, String label) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)), alignment: Alignment.center, child: Icon(icon, color: Colors.white, size: 16)),
+      Container(width: 28, height: 28, decoration: BoxDecoration(color: AppTheme.arcticWhite12, borderRadius: BorderRadius.circular(14)), alignment: Alignment.center, child: Icon(icon, color: AppTheme.textPrimary, size: 16)),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+      Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
     ]);
   }
 }
@@ -340,8 +344,8 @@ class _BufferingIndicatorState extends State<BufferingIndicator>
       builder: (context, child) => Transform.rotate(angle: _controller.value * 2 * math.pi, child: child),
       child: Container(
         width: 54, height: 54,
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
-        child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+        decoration: BoxDecoration(color: AppTheme.backgroundDark.withValues(alpha: 0.6), shape: BoxShape.circle),
+        child: const CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3),
       ),
     );
   }

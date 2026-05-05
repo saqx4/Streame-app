@@ -226,14 +226,14 @@ class _HeroCard extends StatelessWidget {
           else
             Container(color: AppTheme.backgroundElevated),
           // Gradient overlay (matching Kotlin's triple-stop gradient)
-          Container(decoration: const BoxDecoration(
+          Container(decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              stops: [0.0, 0.5, 1.0],
+              stops: const [0.0, 0.5, 1.0],
               colors: [
                 Colors.transparent,
-                Color(0x8008090A),
+                AppTheme.backgroundDark.withValues(alpha: 0.50),
                 AppTheme.backgroundDark,
               ],
             ),
@@ -260,7 +260,7 @@ class _HeroCard extends StatelessWidget {
                           fontSize: 42,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.2,
-                          shadows: [Shadow(color: Colors.black87, blurRadius: 12)],
+                          shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 12)],
                         ),
                       );
                     }
@@ -276,7 +276,7 @@ class _HeroCard extends StatelessWidget {
                             color: AppTheme.textPrimary,
                             fontSize: 36,
                             fontWeight: FontWeight.w800,
-                            shadows: [Shadow(color: Colors.black87, blurRadius: 12)],
+                            shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 12)],
                           ),
                         ),
                       ),
@@ -513,11 +513,14 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
         : widget.item.image;
     final borderRadius = BorderRadius.circular(widget.isLandscape ? 10.0 : 16.0);
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Focus(
-        onFocusChange: (focused) => setState(() => _isFocused = focused),
-        child: AnimatedContainer(
+    return Semantics(
+      button: true,
+      label: widget.item.title,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Focus(
+          onFocusChange: (focused) => setState(() => _isFocused = focused),
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           width: cardWidth,
@@ -552,7 +555,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
+                            colors: [Colors.transparent, AppTheme.backgroundDark.withValues(alpha: 0.85)],
                           ),
                         ),
                       ),
@@ -561,16 +564,20 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                         Positioned(
                           top: 6,
                           right: 6,
-                          child: GestureDetector(
-                            onTap: widget.onDismiss,
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                shape: BoxShape.circle,
+                          child: Semantics(
+                            button: true,
+                            label: 'Dismiss',
+                            child: GestureDetector(
+                              onTap: widget.onDismiss,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.backgroundDark.withValues(alpha: 0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 14, color: AppTheme.textSecondary),
                               ),
-                              child: const Icon(Icons.close, size: 14, color: Colors.white70),
                             ),
                           ),
                         )
@@ -642,7 +649,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                                   color: AppTheme.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                                  shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)],
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -662,7 +669,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                                     color: AppTheme.textSecondary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
-                                    shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                                    shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 2)],
                                   ),
                                 );
                               }),
@@ -680,7 +687,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                             ),
                             child: LinearProgressIndicator(
                               value: widget.progress,
-                              backgroundColor: Colors.white.withValues(alpha: 0.15),
+                              backgroundColor: AppTheme.textPrimary.withValues(alpha: 0.15),
                               valueColor: const AlwaysStoppedAnimation(AppTheme.accentGreen),
                               minHeight: 3,
                             ),
@@ -700,7 +707,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                               color: AppTheme.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                              shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)],
                             ),
                           ),
                         ),
@@ -724,6 +731,7 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                     ],
                   ),
                 ),
+          ),
         ),
       ),
     );

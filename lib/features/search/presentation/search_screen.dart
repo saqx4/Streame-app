@@ -381,11 +381,15 @@ class _RecentSearchRow extends StatelessWidget {
             Expanded(
               child: Text(query, style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w500)),
             ),
-            GestureDetector(
-              onTap: onRemove,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.close, color: AppTheme.textTertiary, size: 16),
+            Semantics(
+              button: true,
+              label: 'Remove $query',
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close, color: AppTheme.textTertiary, size: 16),
+                ),
               ),
             ),
           ],
@@ -415,21 +419,24 @@ class _SearchCardState extends State<_SearchCard> {
     final img = widget.item.image;
     return StreameFocusable(
       onTap: widget.onTap ?? () {},
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Focus(
-          onFocusChange: (focused) => setState(() => _isFocused = focused),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (img.isNotEmpty)
-                        ResilientNetworkImage(
+      child: Semantics(
+        button: true,
+        label: widget.item.title,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Focus(
+            onFocusChange: (focused) => setState(() => _isFocused = focused),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (img.isNotEmpty)
+                          ResilientNetworkImage(
                           imageUrl: img.startsWith('http') ? img : 'https://image.tmdb.org/t/p/w500$img',
                           fit: BoxFit.cover,
                           width: double.infinity,
@@ -476,7 +483,8 @@ class _SearchCardState extends State<_SearchCard> {
           ),
         ),
       ),
-    );
+    ),
+);
   }
 }
 
@@ -538,13 +546,13 @@ class _DiscoverRail extends StatelessWidget {
                               Container(color: AppTheme.backgroundElevated),
                             Container(decoration: BoxDecoration(
                               gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)]),
+                                colors: [Colors.transparent, AppTheme.backgroundDark.withValues(alpha: 0.85)]),
                             )),
                             Positioned(
                               bottom: 8, left: 10, right: 10,
                               child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600,
-                                  shadows: [Shadow(color: Colors.black87, blurRadius: 4)])),
+                                  shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                             ),
                             if (item.tmdbRatingDouble > 0)
                               Positioned(

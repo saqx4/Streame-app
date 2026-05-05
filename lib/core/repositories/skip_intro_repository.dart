@@ -66,22 +66,32 @@ class SkipIntroRepository {
 
   Future<List<SkipInterval>> _fetchIntroDb(String imdbId, int season, int episode) async {
     try {
-      final url = Uri.parse('https://api.introdb.com/v1/segments'
+      final url = Uri.parse('https://api.introdb.app/segments'
           '?imdb_id=$imdbId&season=$season&episode=$episode');
       final response = await _http.get(url).timeout(const Duration(seconds: 5));
       if (response.statusCode != 200) return [];
 
-      final data = jsonDecode(response.body);
-      final segments = data is List ? data : (data['segments'] as List? ?? []);
-      return segments.map<SkipInterval>((s) {
-        final map = s as Map<String, dynamic>;
-        return SkipInterval(
-          startMs: (map['start'] as num?)?.round() ?? 0,
-          endMs: (map['end'] as num?)?.round() ?? 0,
-          type: map['type'] as String? ?? 'intro',
-          provider: 'introdb',
-        );
-      }).where((i) => i.endMs > i.startMs).toList();
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final intervals = <SkipInterval>[];
+
+      // API returns { intro: { start_ms, end_ms, ... }, recap: {...}, outro: {...} }
+      for (final type in ['intro', 'recap', 'outro']) {
+        final segment = data[type];
+        if (segment != null && segment is Map<String, dynamic>) {
+          final startMs = (segment['start_ms'] as num?)?.round() ?? 0;
+          final endMs = (segment['end_ms'] as num?)?.round() ?? 0;
+          if (endMs > startMs) {
+            intervals.add(SkipInterval(
+              startMs: startMs,
+              endMs: endMs,
+              type: type,
+              provider: 'introdb',
+            ));
+          }
+        }
+      }
+
+      return intervals;
     } catch (e) {
       debugPrint('IntroDB error: $e');
       return [];

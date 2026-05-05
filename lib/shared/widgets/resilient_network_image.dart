@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image/image.dart' as img;
+import 'package:streame/core/theme/app_theme.dart';
 
 /// A drop-in replacement for [CachedNetworkImage] that falls back to pure-Dart
 /// image decoding when the platform's native decoder is broken (e.g. some
@@ -132,7 +133,7 @@ class _ResilientNetworkImageState extends State<ResilientNetworkImage> {
           Container(
             width: widget.width,
             height: widget.height,
-            color: const Color(0xFF1A1A1A),
+            color: AppTheme.backgroundElevated,
           );
     }
 
@@ -157,7 +158,7 @@ class _ResilientNetworkImageState extends State<ResilientNetworkImage> {
             Container(
               width: widget.width,
               height: widget.height,
-              color: const Color(0xFF1A1A1A),
+              color: AppTheme.backgroundElevated,
               child: _state == _ImageState.fallbackLoading
                   ? const Center(
                       child: SizedBox(
@@ -165,7 +166,7 @@ class _ResilientNetworkImageState extends State<ResilientNetworkImage> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 1.5,
-                          color: Color(0xFF666666),
+                          color: AppTheme.textTertiary,
                         ),
                       ),
                     )

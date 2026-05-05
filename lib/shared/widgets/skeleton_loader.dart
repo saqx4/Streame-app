@@ -1,4 +1,6 @@
 // Skeleton loader — shimmer loading placeholders
+// Pauses animation when off-screen to save GPU/CPU resources.
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streame/core/theme/app_theme.dart';
 
@@ -21,6 +23,8 @@ class SkeletonLoader extends StatefulWidget {
 class _SkeletonLoaderState extends State<SkeletonLoader>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _isInViewport = true;
+  Timer? _visibilityTimer;
 
   @override
   void initState() {
@@ -29,12 +33,44 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+    // Start periodic visibility check after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _checkVisibility();
+      _visibilityTimer = Timer.periodic(
+        const Duration(milliseconds: 500),
+        (_) => _checkVisibility(),
+      );
+    });
   }
 
   @override
   void dispose() {
+    _visibilityTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _checkVisibility() {
+    if (!mounted) return;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize || !renderBox.attached) return;
+
+    final viewportSize = MediaQuery.sizeOf(context);
+    final position = renderBox.localToGlobal(Offset.zero);
+    final inViewport = position.dx + renderBox.size.width > 0 &&
+        position.dx < viewportSize.width &&
+        position.dy + renderBox.size.height > 0 &&
+        position.dy < viewportSize.height;
+
+    if (inViewport != _isInViewport) {
+      _isInViewport = inViewport;
+      if (inViewport && !_controller.isAnimating) {
+        _controller.repeat();
+      } else if (!inViewport && _controller.isAnimating) {
+        _controller.stop();
+      }
+    }
   }
 
   @override

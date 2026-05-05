@@ -195,19 +195,23 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
                   itemBuilder: (_, i) {
                     final avatar = ProfileAvatars.avatars[i];
                     final isSelected = avatar.id == selectedAvatarId;
-                    return GestureDetector(
-                      onTap: () => setDialogState(() => selectedAvatarId = avatar.id),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: Color(avatar.color),
-                          borderRadius: BorderRadius.circular(12),
-                          border: isSelected
-                              ? Border.all(color: Colors.white, width: 3)
-                              : Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
+                    return Semantics(
+                      button: true,
+                      label: 'Avatar ${avatar.id}',
+                      child: GestureDetector(
+                        onTap: () => setDialogState(() => selectedAvatarId = avatar.id),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Color(avatar.color),
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected
+                                ? Border.all(color: AppTheme.textPrimary, width: 3)
+                                : Border.all(color: AppTheme.textPrimary.withValues(alpha: 0.12), width: 1),
+                          ),
+                          child: Icon(avatar.icon, color: AppTheme.textPrimary, size: 28),
                         ),
-                        child: Icon(avatar.icon, color: Colors.white, size: 28),
                       ),
                     );
                   },
@@ -429,17 +433,21 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
             itemBuilder: (_, i) {
               final avatar = ProfileAvatars.avatars[i];
               final isSelected = avatar.id == profile.avatarId;
-              return GestureDetector(
-                onTap: () => Navigator.pop(ctx, avatar),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Color(avatar.color),
-                    borderRadius: BorderRadius.circular(12),
-                    border: isSelected
-                        ? Border.all(color: Colors.white, width: 3)
-                        : Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
+              return Semantics(
+                button: true,
+                label: 'Avatar ${avatar.id}',
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, avatar),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Color(avatar.color),
+                      borderRadius: BorderRadius.circular(12),
+                      border: isSelected
+                          ? Border.all(color: AppTheme.textPrimary, width: 3)
+                          : Border.all(color: AppTheme.textPrimary.withValues(alpha: 0.12), width: 1),
+                    ),
+                    child: Icon(avatar.icon, color: AppTheme.textPrimary, size: 32),
                   ),
-                  child: Icon(avatar.icon, color: Colors.white, size: 32),
                 ),
               );
             },
@@ -497,12 +505,12 @@ class _ProfileCard extends StatelessWidget {
                   child: profile.avatarId > 0
                       ? Icon(
                           ProfileAvatars.getById(profile.avatarId).icon,
-                          color: Colors.white,
+                          color: AppTheme.textPrimary,
                           size: 48,
                         )
                       : Text(
                           profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 40, fontWeight: FontWeight.bold),
                         ),
                 ),
                 if (profile.isKidsProfile)
@@ -511,13 +519,13 @@ class _ProfileCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(color: AppTheme.accentGreen, borderRadius: BorderRadius.circular(4)),
-                      child: const Text('KIDS', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                      child: const Text('KIDS', style: TextStyle(color: AppTheme.textPrimary, fontSize: 8, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 if (profile.isLocked)
                   Positioned(
                     bottom: 4, right: 4,
-                    child: Icon(Icons.lock, color: Colors.white.withValues(alpha: 0.7), size: 16),
+                    child: Icon(Icons.lock, color: AppTheme.textPrimary.withValues(alpha: 0.7), size: 16),
                   ),
               ],
             ),

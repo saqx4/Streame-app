@@ -9,6 +9,7 @@ class AppTheme {
   static const Color arcticWhite = Color(0xFFEDEDED);
   static const Color arcticWhite90 = Color(0xE7EDEDED);
   static const Color arcticWhite70 = Color(0xB3EDEDED);
+  static const Color arcticWhite60 = Color(0x99EDEDED);
   static const Color arcticWhite50 = Color(0x80EDEDED);
   static const Color arcticWhite30 = Color(0x4DEDEDED);
   static const Color arcticWhite12 = Color(0x1FEDEDED);
@@ -16,13 +17,14 @@ class AppTheme {
   static const Color backgroundDark = Color(0xFF08090A);
   static const Color backgroundCard = Color(0xFF0D0D0D);
   static const Color backgroundElevated = Color(0xFF1A1A1A);
+  static const Color backgroundSheet = Color(0xFF0E0E0E);
   static const Color backgroundOverlay = Color(0xE608090A);
   static const Color backgroundGlass = Color(0x9908090A);
 
   static const Color textPrimary = arcticWhite;
   static const Color textSecondary = arcticWhite70;
   static const Color textTertiary = arcticWhite50;
-  static const Color textDisabled = arcticWhite30;
+  static const Color textDisabled = arcticWhite60;
 
   static const Color borderLight = arcticWhite12;
   static const Color borderMedium = arcticWhite30;
@@ -36,6 +38,7 @@ class AppTheme {
   static const Color focusShadow = Color(0x40000000);
 
   // Accents
+  static const Color accentCyan = Color(0xFF00D4FF);
   static const Color accentYellow = Color(0xFFFFCD3C);
   static const Color accentGreen = Color(0xFF00D588);
   static const Color accentRed = Color(0xFFE53935);
