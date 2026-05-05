@@ -6,10 +6,14 @@ import 'package:streame/shared/widgets/resilient_network_image.dart';
 import 'package:streame/core/theme/app_theme.dart';
 import 'package:streame/core/focus/focusable.dart';
 import 'package:streame/core/repositories/tmdb_repository.dart';
+import 'package:streame/core/repositories/trakt_repository.dart';
+import 'dart:async';
 import 'package:streame/core/repositories/addon_repository.dart';
 import 'package:streame/core/repositories/watchlist_repository.dart';
 import 'package:streame/core/repositories/profile_repository.dart';
 import 'package:streame/core/models/stream_models.dart';
+import 'package:streame/core/models/source_presentation.dart';
+import 'package:streame/core/services/stream_resolver.dart';
 import 'package:streame/features/home/data/models/media_item.dart';
 import 'package:streame/core/providers/shared_providers.dart';
 
@@ -100,6 +104,12 @@ final _detailsLogoProvider = FutureProvider.family<String?, ({int id, String med
   return repo.getLogoPath(p.id, mediaType: p.mediaType == 'tv' ? MediaType.tv : MediaType.movie);
 });
 
+final _traktRatingProvider = FutureProvider.family<double?, ({String mediaType, int mediaId})>((ref, p) async {
+  final repo = ref.watch(traktRepositoryProvider);
+  if (!repo.isLinked()) return null;
+  return repo.getTraktRating(mediaType: p.mediaType, tmdbId: p.mediaId);
+});
+
 final mediaDetailsProvider = FutureProvider.family<MediaDetails?, ({String mediaType, int mediaId})>((ref, params) async {
   final repo = ref.watch(tmdbRepositoryProvider);
 
@@ -117,6 +127,9 @@ final mediaDetailsProvider = FutureProvider.family<MediaDetails?, ({String media
   List<String> genres = [];
 
   if (params.mediaType == 'tv') {
+    // Fetch seasons from TV details
+    final seasonsData = await repo.getTvSeasonsList(params.mediaId);
+    seasons = seasonsData.map((s) => Season.fromJson(s)).toList();
     // Fetch external IDs for IMDB
     final extIds = await repo.getTvExternalIds(params.mediaId);
     imdbId = extIds?['imdb_id'] as String?;
@@ -193,7 +206,6 @@ class DetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailsScreenState extends ConsumerState<DetailsScreen> {
-  static const double _heroHeight = 420;
 
   int _selectedSeason = 1;
   bool _isInWatchlist = false;
@@ -201,6 +213,19 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   int? _streamSelectorSeason;
   int? _streamSelectorEpisode;
   String _streamSelectorFilterAddonId = 'all';
+
+  // Progressive stream resolution state
+  List<AddonStreamResult> _progressiveStreamResults = [];
+  bool _isResolvingStreams = false;
+  int _resolvedAddonCount = 0;
+  int _totalAddonCount = 0;
+  StreamSubscription<StreamProgress>? _streamResolutionSub;
+
+  @override
+  void dispose() {
+    _streamResolutionSub?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -254,6 +279,72 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
       _streamSelectorSeason = season;
       _streamSelectorEpisode = episode;
       _showStreamSelector = true;
+    });
+    _startProgressiveStreamResolution();
+  }
+
+  void _closeStreamSelector() {
+    _streamResolutionSub?.cancel();
+    _streamResolutionSub = null;
+    setState(() {
+      _showStreamSelector = false;
+      _isResolvingStreams = false;
+    });
+  }
+
+  void _startProgressiveStreamResolution() {
+    _streamResolutionSub?.cancel();
+    _streamResolutionSub = null;
+
+    final details = ref.read(mediaDetailsProvider((mediaType: widget.mediaType, mediaId: widget.mediaId))).valueOrNull;
+    final imdbId = details?.imdbId ?? '';
+    final type = widget.mediaType == 'tv' ? 'series' : 'movie';
+
+    // Check cache first — skip addon calls if fresh results exist
+    final key = StreamResolver.cacheKey(type, imdbId, season: _streamSelectorSeason, episode: _streamSelectorEpisode);
+    final cached = StreamResolver.getCached(key);
+    if (cached != null) {
+      setState(() {
+        _progressiveStreamResults = cached;
+        _isResolvingStreams = false;
+        _resolvedAddonCount = cached.length;
+        _totalAddonCount = cached.length;
+      });
+      return;
+    }
+
+    setState(() {
+      _progressiveStreamResults = [];
+      _isResolvingStreams = true;
+      _resolvedAddonCount = 0;
+      _totalAddonCount = 0;
+    });
+
+    final addonRepo = ref.read(addonManagerRepositoryProvider);
+    final progressStream = addonRepo.resolveStreamsProgressive(
+      type: type,
+      imdbId: imdbId,
+      tmdbId: widget.mediaId.toString(),
+      season: _streamSelectorSeason,
+      episode: _streamSelectorEpisode,
+    );
+
+    _streamResolutionSub = progressStream.listen((progress) {
+      if (!mounted || !_showStreamSelector) return;
+      setState(() {
+        _progressiveStreamResults = List.from(progress.addonResults);
+        _resolvedAddonCount = progress.completedAddons;
+        _totalAddonCount = progress.totalAddons;
+        _isResolvingStreams = !progress.isFinal;
+      });
+      // Cache final results
+      if (progress.isFinal && progress.addonResults.isNotEmpty) {
+        StreamResolver.putCached(key, progress.addonResults);
+      }
+    }, onDone: () {
+      if (mounted) setState(() => _isResolvingStreams = false);
+    }, onError: (_) {
+      if (mounted) setState(() => _isResolvingStreams = false);
     });
   }
 
@@ -316,195 +407,141 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   Widget _buildStreamSelectorOverlay() {
     final details = ref.read(mediaDetailsProvider((mediaType: widget.mediaType, mediaId: widget.mediaId))).valueOrNull;
     final imdbId = details?.imdbId ?? '';
-    final type = widget.mediaType == 'tv' ? 'series' : 'movie';
     final season = _streamSelectorSeason;
     final episode = _streamSelectorEpisode;
-
-    final streamsAsync = ref.watch(detailsStreamsProvider((
-      type: type, imdbId: imdbId, tmdbId: widget.mediaId.toString(),
-      season: season, episode: episode,
-    )));
-
-    final title = details?.item.title ?? '';
-    final subtitle = widget.mediaType == 'tv' ? (details?.item.subtitle ?? '') : (details?.item.subtitle ?? '');
-    final rawBackdrop = details?.item.backdrop ?? (details?.item.image.isNotEmpty == true ? details!.item.image : null);
-    final backdropUrl = (rawBackdrop != null && rawBackdrop.isNotEmpty)
-        ? (rawBackdrop.startsWith('http') ? rawBackdrop : 'https://image.tmdb.org/t/p/original$rawBackdrop')
-        : null;
     final isEpisode = season != null && episode != null;
 
+    final results = _progressiveStreamResults;
+
+    // Build addon tabs
+    final addonTabs = <({String id, String name})>[];
+    final seenIds = <String>{};
+    for (final r in results) {
+      final baseName = r.addonName.split(' - ').first.trim();
+      final id = r.addonId.isNotEmpty ? r.addonId : baseName;
+      if (seenIds.add(id)) {
+        addonTabs.add((id: id, name: baseName));
+      }
+    }
+
+    if (_streamSelectorFilterAddonId != 'all' && !results.any((r) => r.addonId == _streamSelectorFilterAddonId)) {
+      _streamSelectorFilterAddonId = 'all';
+    }
+
+    final filteredResults = _streamSelectorFilterAddonId == 'all'
+        ? results
+        : results.where((r) => r.addonId == _streamSelectorFilterAddonId).toList();
+
+    // Use StreamResolver for deterministic sorting
+    final flat = <({StreamSource s, String addonName, String addonId})>[];
+    for (final r in filteredResults) {
+      final sorted = StreamResolver.sortForPlayback(r.streams);
+      for (final s in sorted) {
+        flat.add((s: s, addonName: r.addonName, addonId: r.addonId));
+      }
+    }
+
     return Material(
-      color: Colors.black,
+      color: Colors.black.withValues(alpha: 0.92),
       child: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            // Blurred backdrop (matches Nuvio's 22dp blur)
-            if (backdropUrl != null && backdropUrl.isNotEmpty)
-              Positioned.fill(
-                child: ClipRect(
-                  child: ImageFiltered(
-                    imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                    child: ResilientNetworkImage(
-                      imageUrl: backdropUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              ),
-            // Dark overlay (0.82 for movies, 0.9 for episodes — matches Nuvio)
-            Positioned.fill(
-              child: Container(color: Colors.black.withValues(alpha: isEpisode ? 0.9 : 0.82)),
-            ),
-            Column(
-              children: [
-                // Top bar: back + refresh (matches Nuvio's back + refresh buttons)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  child: Row(
-                    children: [
-                      _NuvioCircleButton(
-                        icon: Icons.arrow_back,
-                        onPressed: () => setState(() => _showStreamSelector = false),
-                      ),
-                      const SizedBox(width: 8),
-                      _NuvioCircleButton(
-                        icon: Icons.refresh,
-                        onPressed: () => ref.invalidate(detailsStreamsProvider((
-                          type: type, imdbId: imdbId, tmdbId: widget.mediaId.toString(),
-                          season: season, episode: episode,
-                        ))),
-                      ),
-                    ],
-                  ),
-                ),
-                // Hero block (matches Nuvio's MovieHeroBlock / EpisodeHeroBlock)
-                if (isEpisode) ...[
-                  // Episode hero: episode badge + title + show name
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            // ─── Header: title + count + close ───
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'S$season E$episode',
-                          style: TextStyle(
-                            color: AppTheme.accentGreen,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                        if (isEpisode) ...[
+                          Text(
+                            'S$season E$episode',
+                            style: const TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5),
                           ),
-                        ),
-                        const SizedBox(height: 2),
+                          const SizedBox(height: 2),
+                        ],
                         Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
+                          'Select Source',
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ] else ...[
-                  // Movie hero: centered logo or title
-                  Container(
-                    height: 140,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
+                  const SizedBox(width: 12),
+                  // Close button
+                  GestureDetector(
+                    onTap: _closeStreamSelector,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.close, color: AppTheme.textPrimary, size: 20),
                     ),
                   ),
                 ],
-                // Stream list
-                Expanded(
-                  child: streamsAsync.when(
-                    data: (results) {
-                      final filterOptions = <({String id, String name})>[
-                        (id: 'all', name: 'All'),
-                      ];
-                      for (final r in results) {
-                        filterOptions.add((id: r.addonId, name: r.addonName));
-                      }
+              ),
+            ),
 
-                      if (_streamSelectorFilterAddonId != 'all' && !results.any((r) => r.addonId == _streamSelectorFilterAddonId)) {
-                        _streamSelectorFilterAddonId = 'all';
-                      }
-
-                      final filteredResults = _streamSelectorFilterAddonId == 'all'
-                          ? results
-                          : results.where((r) => r.addonId == _streamSelectorFilterAddonId).toList();
-
-                      final flat = <({StreamSource s, String addonName, String addonId})>[];
-                      for (final r in filteredResults) {
-                        for (final s in r.streams) {
-                          flat.add((s: s, addonName: r.addonName, addonId: r.addonId));
-                        }
-                      }
-
-                      flat.sort((a, b) {
-                        final pa = presentSource(a.s, a.addonName);
-                        final pb = presentSource(b.s, b.addonName);
-                        final cached = (pb.sortCached ? 1 : 0) - (pa.sortCached ? 1 : 0);
-                        if (cached != 0) return cached;
-                        final direct = (pb.sortDirect ? 1 : 0) - (pa.sortDirect ? 1 : 0);
-                        if (direct != 0) return direct;
-                        final res = pb.resolutionScore.compareTo(pa.resolutionScore);
-                        if (res != 0) return res;
-                        final rel = pb.releaseScore.compareTo(pa.releaseScore);
-                        if (rel != 0) return rel;
-                        final size = pb.sizeBytes.compareTo(pa.sizeBytes);
-                        if (size != 0) return size;
-                        return pa.title.toLowerCase().compareTo(pb.title.toLowerCase());
-                      });
-
-                      if (flat.isEmpty) {
-                        return Center(
+            // ─── Stream list ───
+            Expanded(
+              child: _isResolvingStreams && flat.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: AppTheme.accentRed, strokeWidth: 2.5),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Finding sources... ($_resolvedAddonCount/$_totalAddonCount)',
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    )
+                  : flat.isEmpty && !_isResolvingStreams
+                      ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(32),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.search_off, size: 48, color: Colors.white.withValues(alpha: 0.5)),
-                                const SizedBox(height: 8),
-                                Text('No streams found', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    imdbId.isEmpty ? Icons.settings : Icons.cloud_outlined,
+                                    color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                                    size: 28,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  imdbId.isEmpty ? 'No Streaming Addons' : 'No sources found',
+                                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 15, fontWeight: FontWeight.w600),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  imdbId.isEmpty
-                                      ? 'IMDB ID not found — streams require an IMDB ID'
-                                      : 'Make sure addons are installed and enabled',
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+                                  imdbId.isEmpty ? 'Go to Settings → Addons to add a streaming addon' : 'Try adding more addons',
+                                  style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 12),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: () {
-                                    setState(() => _showStreamSelector = false);
+                                    _closeStreamSelector();
                                     Future.microtask(() {
                                       if (mounted) context.go('/settings');
                                     });
@@ -520,91 +557,81 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                               ],
                             ),
                           ),
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          // Provider filter chips (matches Nuvio's ProviderFilterRow)
-                          SizedBox(
-                            height: 44,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              scrollDirection: Axis.horizontal,
-                              itemCount: filterOptions.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 8),
-                              itemBuilder: (context, i) {
-                                final opt = filterOptions[i];
-                                final isSelected = _streamSelectorFilterAddonId == opt.id;
-                                return GestureDetector(
-                                  onTap: () => setState(() => _streamSelectorFilterAddonId = opt.id),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.06),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      opt.name,
-                                      style: TextStyle(
-                                        color: isSelected ? Colors.black : Colors.white.withValues(alpha: 0.9),
-                                        fontSize: 14,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                        letterSpacing: 0.1,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          // Stream cards (matches Nuvio's StreamCard)
-                          Expanded(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                              itemCount: flat.length,
-                              itemBuilder: (context, idx) {
-                                final item = flat[idx];
-                                return _NuvioStreamCard(
-                                  stream: item.s,
-                                  addonName: item.addonName,
-                                  addonId: item.addonId,
-                                  onTap: () => _playStream(item.s, item.addonName, item.addonId),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                    loading: () => Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                          const SizedBox(height: 12),
-                          Text('Finding streams...', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                    error: (e, _) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                        )
+                      : Column(
                           children: [
-                            Icon(Icons.error_outline, size: 48, color: Colors.white.withValues(alpha: 0.5)),
-                            const SizedBox(height: 16),
-                            Text('Error: $e', style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 14)),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _isResolvingStreams
+                                      ? 'Finding sources... ($_resolvedAddonCount/$_totalAddonCount)'
+                                      : '${flat.length} sources available',
+                                  style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ),
+                            // Horizontal filter tabs
+                            if (addonTabs.length > 1)
+                              SizedBox(
+                                height: 40,
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: addonTabs.length + 1,
+                                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                                  itemBuilder: (context, i) {
+                                    final isAll = i == 0;
+                                    final opt = isAll ? null : addonTabs[i - 1];
+                                    final id = isAll ? 'all' : opt!.id;
+                                    final name = isAll ? 'All sources' : opt!.name;
+                                    final isSelected = _streamSelectorFilterAddonId == id;
+                                    return GestureDetector(
+                                      onTap: () => setState(() {
+                                        _streamSelectorFilterAddonId = id;
+                                      }),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 180),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? Colors.white.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(18),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            name,
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.78),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            // Stream cards
+                            Expanded(
+                              child: ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                                itemCount: flat.length,
+                                itemBuilder: (context, idx) {
+                                  final item = flat[idx];
+                                  return _ArvioStreamCard(
+                                    stream: item.s,
+                                    addonName: item.addonName,
+                                    addonId: item.addonId,
+                                    onTap: () => _playStream(item.s, item.addonName, item.addonId),
+                                  );
+                                },
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -629,13 +656,15 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
       children: [
         if (cinematicEnabled && bgUrl != null)
           Positioned.fill(
-            child: ClipRect(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: ResilientNetworkImage(
-                  imageUrl: bgUrl,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundDark),
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: ResilientNetworkImage(
+                    imageUrl: bgUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundDark),
+                  ),
                 ),
               ),
             ),
@@ -646,55 +675,34 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           ),
         CustomScrollView(
           slivers: [
-        SliverAppBar(
-          backgroundColor: AppTheme.backgroundDark,
-          pinned: true,
-          expandedHeight: _heroHeight,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
-            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(
-                _isInWatchlist ? Icons.bookmark : Icons.bookmark_border,
-                color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
-              ),
-              onPressed: () async {
-                await _toggleWatchlist(item);
-              },
-            ),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            // Avoid showing a second "small title" while expanded. We render the
-            // large logo/title inside the background overlay, and only show the
-            // collapsed title when the app bar is near-collapsed.
-            titlePadding: EdgeInsets.zero,
-            title: const SizedBox.shrink(),
-            background: LayoutBuilder(
-              builder: (context, constraints) {
-                final t = ((constraints.maxHeight - kToolbarHeight) / (_heroHeight - kToolbarHeight)).clamp(0.0, 1.0);
-                return Stack(
-                  fit: StackFit.expand,
+            SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: Stack(
                   children: [
-                    if (backdropUrl != null && backdropUrl.isNotEmpty)
-                      ResilientNetworkImage(
-                        imageUrl: backdropUrl.startsWith('http') ? backdropUrl : 'https://image.tmdb.org/t/p/original$backdropUrl',
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: AppTheme.backgroundElevated),
-                        errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundElevated),
-                      )
-                    else
-                      Container(color: AppTheme.backgroundElevated),
                     Container(
+                      height: 420,
+                      width: double.infinity,
+                      color: AppTheme.backgroundElevated,
+                      child: backdropUrl != null && backdropUrl.isNotEmpty
+                          ? ResilientNetworkImage(
+                              imageUrl: backdropUrl.startsWith('http') ? backdropUrl : 'https://image.tmdb.org/t/p/original$backdropUrl',
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: AppTheme.backgroundElevated),
+                              errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundElevated),
+                            )
+                          : null,
+                    ),
+                    Container(
+                      height: 420,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          stops: [0.0, 0.5, 1.0],
+                          stops: [0.0, 0.45, 0.8, 1.0],
                           colors: [
                             Colors.transparent,
-                            Color(0x8008090A),
+                            Colors.transparent,
+                            Color(0xD008090A),
                             AppTheme.backgroundDark,
                           ],
                         ),
@@ -708,244 +716,223 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (logoPath != null && logoPath.isNotEmpty)
-                            Transform.translate(
-                              offset: Offset(0, (1.0 - t) * -22),
-                              child: Opacity(
-                                opacity: t,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxHeight: 92, maxWidth: 340),
-                                  child: ResilientNetworkImage(
-                                    imageUrl: 'https://image.tmdb.org/t/p/w500$logoPath',
-                                    fit: BoxFit.contain,
-                                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                                  ),
-                                ),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 86, maxWidth: 300),
+                              child: ResilientNetworkImage(
+                                imageUrl: 'https://image.tmdb.org/t/p/w500$logoPath',
+                                fit: BoxFit.contain,
+                                errorWidget: (_, __, ___) => const SizedBox.shrink(),
                               ),
                             )
                           else
-                            Opacity(
-                              opacity: t,
-                              child: Text(
-                                item.title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.w800,
-                                  shadows: [Shadow(color: Colors.black87, blurRadius: 12)],
-                                ),
+                            Text(
+                              item.title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 34,
+                                fontWeight: FontWeight.w800,
+                                shadows: [Shadow(color: Colors.black87, blurRadius: 12)],
                               ),
                             ),
                           const SizedBox(height: 10),
-                          // Genre subtitle (3 genres only, no type or year)
-                          Builder(
-                            builder: (context) {
-                              final genreStr = data.genres.take(3).join('  •  ');
-                              if (genreStr.isEmpty) return const SizedBox.shrink();
-                              return Text(
-                                genreStr,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: StreameFocusable(
-                                  onTap: () {
-                                    if (widget.mediaType == 'tv') {
-                                      _openStreamSelector(season: _selectedSeason, episode: 1);
-                                    } else {
-                                      _openStreamSelector();
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (item.tmdbRatingDouble > 0) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.textPrimary,
-                                      borderRadius: BorderRadius.circular(28),
+                                      color: AppTheme.accentYellow,
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.play_arrow, color: AppTheme.backgroundDark),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          widget.mediaType == 'tv' ? 'Play S1E1' : 'Play',
-                                          style: const TextStyle(
-                                            color: AppTheme.backgroundDark,
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    child: const Text('IMDb', style: TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 10)),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: StreameFocusable(
-                                  onTap: () async {
-                                    await _toggleWatchlist(item);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.backgroundCard,
-                                      borderRadius: BorderRadius.circular(28),
-                                      border: Border.all(color: AppTheme.borderLight),
+                                  const SizedBox(width: 6),
+                                  Text(item.tmdbRating, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                  const SizedBox(width: 10),
+                                  Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
+                                  const SizedBox(width: 10),
+                                ],
+                                Consumer(builder: (context, ref, _) {
+                                  final traktRatingAsync = ref.watch(_traktRatingProvider((mediaType: widget.mediaType, mediaId: widget.mediaId)));
+                                  final traktRating = traktRatingAsync.valueOrNull;
+                                  if (traktRating == null || traktRating <= 0) return const SizedBox.shrink();
+                                  return Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(color: AppTheme.accentRed, borderRadius: BorderRadius.circular(4)),
+                                      child: const Text('Trakt', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.add, color: AppTheme.textPrimary),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _isInWatchlist ? 'Saved' : 'Save',
-                                          style: const TextStyle(
-                                            color: AppTheme.textPrimary,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                                    const SizedBox(width: 6),
+                                    Text(traktRating.toStringAsFixed(1), style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                    const SizedBox(width: 10),
+                                    Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
+                                    const SizedBox(width: 10),
+                                  ]);
+                                }),
+                                if (item.year.isNotEmpty)
+                                  Text(item.year, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                                if (item.year.isNotEmpty && data.genres.isNotEmpty) ...[
+                                  const SizedBox(width: 10),
+                                  Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
+                                  const SizedBox(width: 10),
+                                ],
+                                if (data.genres.isNotEmpty)
+                                  Text(data.genres.take(2).join(' / '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 4)])),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    // Collapsed logo/title (only visible near collapsed state)
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 10,
-                      left: 72,
-                      right: 72,
-                      child: IgnorePointer(
-                        child: Opacity(
-                          opacity: (1.0 - t).clamp(0.0, 1.0),
-                          child: Center(
-                            child: logoPath != null && logoPath.isNotEmpty
-                                ? SizedBox(
-                                    height: 24,
-                                    child: ResilientNetworkImage(
-                                      imageUrl: 'https://image.tmdb.org/t/p/w300$logoPath',
-                                      fit: BoxFit.contain,
-                                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                                    ),
-                                  )
-                                : Text(
-                                    item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            SliverToBoxAdapter(
+              child: Container(
+                color: AppTheme.backgroundDark,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (item.tmdbRatingDouble > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    const SizedBox(height: 12),
+                    StreameFocusable(
+                      onTap: () {
+                        if (widget.mediaType == 'tv') {
+                          _openStreamSelector(season: _selectedSeason, episode: 1);
+                        } else {
+                          _openStreamSelector();
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 54,
                         decoration: BoxDecoration(
-                          color: AppTheme.backgroundElevated,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.borderLight),
+                          color: AppTheme.textPrimary,
+                          borderRadius: BorderRadius.circular(28),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentYellow,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'IMDb',
-                                style: TextStyle(
-                                  color: AppTheme.backgroundDark,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
+                            const Icon(Icons.play_arrow, color: AppTheme.backgroundDark, size: 24),
                             const SizedBox(width: 8),
                             Text(
-                              item.tmdbRating,
-                              style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w800),
+                              widget.mediaType == 'tv' ? 'Play S${_selectedSeason}E1' : 'Play',
+                              style: const TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 16),
                             ),
                           ],
                         ),
                       ),
-                    if (item.year.isNotEmpty) ...[
-                      const SizedBox(width: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: StreameFocusable(
+                            onTap: () => _openStreamSelector(),
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppTheme.backgroundCard,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppTheme.borderLight),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.list, color: AppTheme.textPrimary, size: 18),
+                                  SizedBox(width: 6),
+                                  Text('Sources', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: StreameFocusable(
+                            onTap: () async => await _toggleWatchlist(item),
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppTheme.backgroundCard,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.borderLight,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isInWatchlist ? Icons.bookmark : Icons.bookmark_border,
+                                    color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isInWatchlist ? 'Saved' : 'Save',
+                                    style: TextStyle(
+                                      color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    if (item.overview.isNotEmpty) ...[
                       Text(
-                        item.year,
-                        style: const TextStyle(color: AppTheme.textSecondary),
-                      ),
-                    ],
-                    if (data.genres.isNotEmpty) ...[
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(
-                        data.genres.take(3).join(' · '),
-                        style: const TextStyle(color: AppTheme.textTertiary, fontSize: 12),
+                        item.overview,
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.6),
+                        maxLines: 5,
                         overflow: TextOverflow.ellipsis,
-                      )),
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ],
                 ),
-                const SizedBox(height: 24),
-                if (item.overview.isNotEmpty) ...[
-                  const Text(
-                    'Overview',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.overview,
-                    style: const TextStyle(color: AppTheme.textSecondary, height: 1.5),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                _buildCastSection(),
-                if (widget.mediaType == 'tv') ...[
-                  _buildSeasonsList(),
-                ],
-                _buildSimilarSection(),
-                const SizedBox(height: 100),
-              ],
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildCastSection(),
+                  if (widget.mediaType == 'tv') _buildSeasonsList(),
+                  _buildSimilarSection(),
+                  const SizedBox(height: 100),
+                ]),
+              ),
+            ),
+          ],
+        ),
+
+        // ─── Floating back button (ARVIO style) ───
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 12,
+          child: GestureDetector(
+            onTap: () => context.canPop() ? context.pop() : context.go('/home'),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
             ),
           ),
-        ),
-      ],
         ),
       ],
     );
@@ -1088,7 +1075,16 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   }
 
   Widget _buildSeasonsList() {
+    final details = ref.read(mediaDetailsProvider((mediaType: widget.mediaType, mediaId: widget.mediaId))).valueOrNull;
+    final seasons = details?.seasons ?? [];
     final episodesAsync = ref.watch(seasonEpisodesProvider((tvId: widget.mediaId, seasonNumber: _selectedSeason)));
+
+    // Clamp selected season to valid range
+    if (seasons.isNotEmpty && _selectedSeason > seasons.last.seasonNumber) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedSeason = seasons.first.seasonNumber);
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,8 +1102,9 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(
-            children: List.generate(5, (index) {
-              final sn = index + 1;
+            children: List.generate(seasons.length, (index) {
+              final season = seasons[index];
+              final sn = season.seasonNumber;
               final isSelected = sn == _selectedSeason;
               return Padding(
                 padding: const EdgeInsets.only(right: 10),
@@ -1138,7 +1135,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         color: isSelected ? AppTheme.textPrimary : AppTheme.textTertiary,
                         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       ),
-                      child: Text('Season $sn'),
+                      child: Text(season.name ?? 'Season $sn'),
                     ),
                   ),
                 ),
@@ -1224,40 +1221,14 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   }
 }
 
-/// Nuvio-style circle button matching NuvioBackButton
-class _NuvioCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  const _NuvioCircleButton({required this.icon, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.3),
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: Colors.white, size: 24),
-      ),
-    );
-  }
-}
-
-/// Nuvio-style stream card matching Nuvio's StreamCard composable
-/// Shows: title, addon name, quality, size, transport type, codec, release, language, metadata chips
-class _NuvioStreamCard extends StatelessWidget {
+/// ARVIO-style stream card with quality pill and metadata chips
+class _ArvioStreamCard extends StatelessWidget {
   final StreamSource stream;
   final String addonName;
   final String addonId;
   final VoidCallback onTap;
 
-  const _NuvioStreamCard({
+  const _ArvioStreamCard({
     required this.stream,
     required this.addonName,
     required this.addonId,
@@ -1267,96 +1238,108 @@ class _NuvioStreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = presentSource(stream, addonName);
-    final sizeLabel = _formatSize(p.sizeBytes);
-    final topRight = p.resolutionLabel;
-    final subLine = <String?>[
-      p.releaseLabel,
-      p.codecLabel,
-      p.audioLabel,
-      p.languageLabel,
-      p.transportLabel,
-    ].where((e) => e != null && e.trim().isNotEmpty).map((e) => e!).join(' • ');
+    final sizeLabel = stream.size.isNotEmpty
+        ? stream.size
+        : (stream.sizeBytes != null && stream.sizeBytes! > 0)
+            ? formatSizeBytes(stream.sizeBytes!) ?? ''
+            : '';
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        constraints: const BoxConstraints(minHeight: 92),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0B0D0F),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10)),
-          ],
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
         ),
         padding: const EdgeInsets.all(14),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    p.addonLabel.isNotEmpty ? p.addonLabel : addonName,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title row + quality pill
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          p.title,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: p.qualityColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          p.resolutionLabel,
+                          style: TextStyle(color: p.qualityColor, fontSize: 11, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Metadata chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...p.chips.take(10).map((chip) {
+                        final chipColor = _chipColor(chip.label);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              chip.label,
+                              style: TextStyle(
+                                color: chipColor == AppTheme.textSecondary
+                                    ? Colors.white.withValues(alpha: 0.78)
+                                    : chipColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                            ),
+                          ),
+                        );
+                      }),
+                        if (sizeLabel.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                sizeLabel,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.78),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    topRight,
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              p.title,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.90),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (subLine.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                subLine,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (sizeLabel != null)
-                  _BottomPill(text: sizeLabel),
-                if (stream.size.isNotEmpty) _BottomPill(text: 'SIZE ${stream.size}'),
-              ],
             ),
           ],
         ),
@@ -1364,280 +1347,18 @@ class _NuvioStreamCard extends StatelessWidget {
     );
   }
 
-  String? _formatSize(int bytes) {
-    if (bytes <= 0) return null;
-    if (bytes >= 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
-    if (bytes >= 1048576) return '${(bytes / 1048576).toStringAsFixed(0)} MB';
-    return null;
-  }
-}
-
-class _BottomPill extends StatelessWidget {
-  final String text;
-  const _BottomPill({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          height: 1.0,
-        ),
-      ),
-    );
-  }
-}
-
-/// Parsed source presentation matching Kotlin's SourcePresentation
-class _SourcePresentation {
-  final StreamSource stream;
-  final String title;
-  final String addonLabel;
-  final String resolutionLabel;
-  final int resolutionScore;
-  final String? releaseLabel;
-  final int releaseScore;
-  final String? codecLabel;
-  final String? audioLabel;
-  final String? transportLabel;
-  final String? multiSourceLabel;
-  final String? languageLabel;
-  final List<({String label, Color color})> chips;
-  final Color qualityColor;
-  final int sizeBytes;
-  final bool sortCached;
-  final bool sortDirect;
-
-  const _SourcePresentation({
-    required this.stream,
-    required this.title,
-    required this.addonLabel,
-    required this.resolutionLabel,
-    required this.resolutionScore,
-    this.releaseLabel,
-    required this.releaseScore,
-    this.codecLabel,
-    this.audioLabel,
-    this.transportLabel,
-    this.multiSourceLabel,
-    this.languageLabel,
-    required this.chips,
-    required this.qualityColor,
-    required this.sizeBytes,
-    required this.sortCached,
-    required this.sortDirect,
-  });
-}
-
-// Regex patterns matching Kotlin app
-final _av1Re = RegExp(r'\bAV1\b', caseSensitive: false);
-final _hevcRe = RegExp(r'\b(HEVC|X265|H265)\b', caseSensitive: false);
-final _h264Re = RegExp(r'\b(H264|X264|AVC)\b', caseSensitive: false);
-final _remuxRe = RegExp(r'\bREMUX\b', caseSensitive: false);
-final _blurayRe = RegExp(r'\b(BLURAY|BDRIP|BDREMUX)\b', caseSensitive: false);
-final _webdlRe = RegExp(r'\b(WEB[- .]?DL|WEBDL)\b', caseSensitive: false);
-final _webripRe = RegExp(r'\bWEB[- .]?RIP\b', caseSensitive: false);
-final _hdtvRe = RegExp(r'\bHDTV\b', caseSensitive: false);
-final _camRe = RegExp(r'\b(CAM|TS|TELESYNC|HDCAM)\b', caseSensitive: false);
-final _atmosRe = RegExp(r'\bATMOS\b', caseSensitive: false);
-final _truehdRe = RegExp(r'\bTRUEHD\b', caseSensitive: false);
-final _dtsRe = RegExp(r'\b(DTS[- .]?HD|DTS|DDP|EAC3|AC3|AAC)\b', caseSensitive: false);
-final _ch71Re = RegExp(r'\b7[ .]?1\b', caseSensitive: false);
-final _ch51Re = RegExp(r'\b5[ .]?1\b', caseSensitive: false);
-final _multiAudioRe = RegExp(r'\b(MULTI|DUAL[ .-]?AUDIO|MULTI[ .-]?AUDIO)\b', caseSensitive: false);
-final _langHintRe = RegExp(r'\b(ENG|ENGLISH|HIN|HINDI|TAM|TAMIL|TEL|TELUGU|JPN|JAPANESE|KOR|KOREAN|SPA|SPANISH|FRE|FRENCH|GER|GERMAN|ITA|ITALIAN)\b', caseSensitive: false);
-final _dvRe = RegExp(r'\b(DV|DoVi|Dolby[\s._-]*Vision)\b', caseSensitive: false);
-final _hdrRe = RegExp(r'\bHDR(10\+?|10)?\b', caseSensitive: false);
-final _imaxRe = RegExp(r'\bIMAX\b', caseSensitive: false);
-
-/// Present a stream source with full metadata parsing — matches Kotlin's presentSource()
-_SourcePresentation presentSource(StreamSource stream, String addonName) {
-  final title = (stream.behaviorHints?.filename?.isNotEmpty == true)
-      ? stream.behaviorHints!.filename!
-      : stream.source;
-  final addonLabel = addonName.split(' - ').first.trim();
-
-  final searchBlob = '${stream.quality} ${stream.source} ${stream.behaviorHints?.filename ?? ''}';
-
-  // Resolution
-  final resolutionLabel = _detectResolution(searchBlob, stream.quality);
-  final resolutionScore = _resolutionScore(resolutionLabel);
-  final qualityColor = _qualityColor(resolutionLabel);
-
-  // Release type
-  final releaseLabel = _detectRelease(searchBlob);
-  final releaseScore = _releaseScore(releaseLabel);
-
-  // Codec
-  final codecLabel = _detectCodec(searchBlob);
-
-  // Audio
-  final audioLabel = _detectAudio(searchBlob);
-
-  // Transport
-  final addonLower = addonLabel.toLowerCase();
-  final isTorrentProvider = addonLower.contains('torrentio') ||
-      addonLower.contains('torrent') ||
-      addonLower.contains('debrid') ||
-      addonLower.contains('realdebrid') ||
-      addonLower.contains('premiumize') ||
-      addonLower.contains('alldebrid') ||
-      searchBlob.toLowerCase().contains('magnet:');
-  final hasDirectHttp = stream.url != null && stream.url!.isNotEmpty && stream.url!.startsWith('http');
-
-  final transportLabel = stream.behaviorHints?.cached == true
-      ? 'Cached'
-      : (stream.infoHash != null && stream.infoHash!.isNotEmpty) || stream.sources.isNotEmpty || isTorrentProvider
-          ? 'Torrent'
-          : hasDirectHttp
-              ? 'Direct'
-              : null;
-
-  // Multi-source
-  final multiSourceLabel = stream.sources.length > 1
-      ? '${stream.sources.length} sources'
-      : stream.sources.length == 1
-          ? '1 source'
-          : null;
-
-  // Language
-  final subtitleLangs = stream.subtitles.map((s) => s.lang).where((l) => l.isNotEmpty).toList();
-  String? languageLabel;
-  if (_multiAudioRe.hasMatch(searchBlob)) {
-    languageLabel = 'Multi-audio';
-  } else if (subtitleLangs.length > 1) {
-    languageLabel = '${subtitleLangs.length} langs';
-  } else if (subtitleLangs.length == 1) {
-    languageLabel = subtitleLangs.first.toUpperCase();
-  } else {
-    final m = _langHintRe.firstMatch(searchBlob);
-    if (m != null) languageLabel = m.group(0)!.toUpperCase();
+  Color _chipColor(String label) {
+    return switch (label) {
+      'Cached' || 'Best Match' => AppTheme.accentGreen,
+      'VOD' => const Color(0xFF3B82F6),
+      'REMUX' || 'BluRay' => AppTheme.accentYellow,
+      'DV' || 'IMAX' => const Color(0xFFEC4899),
+      'HDR' => const Color(0xFFA855F7),
+      _ => AppTheme.textSecondary,
+    };
   }
 
-  // Build chips with colors
-  final chips = <({String label, Color color})>[];
-  chips.add((label: addonLabel, color: AppTheme.textSecondary));
-  if (transportLabel != null) {
-    chips.add((label: transportLabel, color: transportLabel == 'Cached' ? Colors.green : AppTheme.textSecondary));
-  }
-  if (multiSourceLabel != null) chips.add((label: multiSourceLabel, color: AppTheme.textSecondary));
-  if (languageLabel != null) chips.add((label: languageLabel, color: AppTheme.textSecondary));
-  if (releaseLabel != null) {
-    final c = (releaseLabel == 'REMUX' || releaseLabel == 'BluRay') ? AppTheme.accentYellow : AppTheme.textSecondary;
-    chips.add((label: releaseLabel, color: c));
-  }
-  if (codecLabel != null) chips.add((label: codecLabel, color: AppTheme.textSecondary));
-  if (_hdrRe.hasMatch(searchBlob)) chips.add((label: 'HDR', color: const Color(0xFFA855F7)));
-  if (_dvRe.hasMatch(searchBlob)) chips.add((label: 'DV', color: const Color(0xFFEC4899)));
-  if (_imaxRe.hasMatch(searchBlob)) chips.add((label: 'IMAX', color: const Color(0xFF06B6D4)));
-  if (audioLabel != null) chips.add((label: audioLabel, color: AppTheme.textSecondary));
-  if (stream.size.isNotEmpty) chips.add((label: stream.size, color: AppTheme.textSecondary));
-
-  final sizeBytes = _parseSizeBytes(stream.size);
-
-  return _SourcePresentation(
-    stream: stream,
-    title: title,
-    addonLabel: addonLabel,
-    resolutionLabel: resolutionLabel,
-    resolutionScore: resolutionScore,
-    releaseLabel: releaseLabel,
-    releaseScore: releaseScore,
-    codecLabel: codecLabel,
-    audioLabel: audioLabel,
-    transportLabel: transportLabel,
-    multiSourceLabel: multiSourceLabel,
-    languageLabel: languageLabel,
-    chips: chips,
-    qualityColor: qualityColor,
-    sizeBytes: sizeBytes,
-    sortCached: stream.behaviorHints?.cached == true,
-    sortDirect: hasDirectHttp,
-  );
 }
-
-String _detectResolution(String blob, String quality) {
-  if (blob.contains('2160p') || blob.contains('4K')) return '4K';
-  if (blob.contains('1080p')) return '1080p';
-  if (blob.contains('720p')) return '720p';
-  if (_camRe.hasMatch(blob)) return 'CAM';
-  final first = quality.split(' ').firstOrNull;
-  return (first != null && first.length <= 8) ? first : 'SD';
-}
-
-int _resolutionScore(String r) => switch (r) { '4K' => 4, '1080p' => 3, '720p' => 2, 'CAM' => 0, _ => 1 };
-
-Color _qualityColor(String r) => switch (r) {
-  '4K' => AppTheme.accentYellow,
-  '1080p' => const Color(0xFF3B82F6),
-  '720p' => const Color(0xFF06B6D4),
-  'CAM' => const Color(0xFFEF4444),
-  _ => AppTheme.textSecondary,
-};
-
-String? _detectRelease(String blob) {
-  if (_remuxRe.hasMatch(blob)) return 'REMUX';
-  if (_blurayRe.hasMatch(blob)) return 'BluRay';
-  if (_webdlRe.hasMatch(blob)) return 'WEB-DL';
-  if (_webripRe.hasMatch(blob)) return 'WEBRip';
-  if (_hdtvRe.hasMatch(blob)) return 'HDTV';
-  if (_camRe.hasMatch(blob)) return 'CAM';
-  return null;
-}
-
-int _releaseScore(String? r) => switch (r) { 'REMUX' => 5, 'BluRay' => 4, 'WEB-DL' => 3, 'WEBRip' => 2, 'HDTV' => 1, _ => 0 };
-
-String? _detectCodec(String blob) {
-  if (_av1Re.hasMatch(blob)) return 'AV1';
-  if (_hevcRe.hasMatch(blob)) return 'HEVC';
-  if (_h264Re.hasMatch(blob)) return 'H.264';
-  return null;
-}
-
-String? _detectAudio(String blob) {
-  if (_atmosRe.hasMatch(blob)) return 'Atmos';
-  if (_truehdRe.hasMatch(blob)) return 'TrueHD';
-  if (_ch71Re.hasMatch(blob)) return '7.1';
-  if (_ch51Re.hasMatch(blob)) return '5.1';
-  final m = _dtsRe.firstMatch(blob);
-  if (m != null) return m.group(0)!.toUpperCase();
-  return null;
-}
-
-int _parseSizeBytes(String sizeStr) {
-  if (sizeStr.isEmpty) return 0;
-  final normalized = sizeStr.toUpperCase().replaceAll(',', '.').replaceAll(RegExp(r'\s+'), ' ').trim();
-  final p1 = RegExp(r'(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)');
-  final m1 = p1.firstMatch(normalized);
-  if (m1 != null) {
-    final n = double.tryParse(m1.group(1)!) ?? 0;
-    return _calcBytes(n, m1.group(2)!);
-  }
-  final p2 = RegExp(r'(\d+(?:\.\d+)?)\s*(TIB|GIB|MIB|KIB)');
-  final m2 = p2.firstMatch(normalized);
-  if (m2 != null) {
-    final n = double.tryParse(m2.group(1)!) ?? 0;
-    return _calcBytes(n, m2.group(2)!.replaceAll('IB', 'B'));
-  }
-  return 0;
-}
-
-int _calcBytes(double n, String unit) => switch (unit) {
-  'TB' => (n * 1024 * 1024 * 1024 * 1024).round(),
-  'GB' => (n * 1024 * 1024 * 1024).round(),
-  'MB' => (n * 1024 * 1024).round(),
-  'KB' => (n * 1024).round(),
-  _ => n.round(),
-};
 
 class _EpisodeTile extends StatelessWidget {
   final int episodeNumber;

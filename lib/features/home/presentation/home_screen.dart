@@ -359,7 +359,7 @@ class _HeroDots extends StatelessWidget {
 // ═══════════════════════════════════════════════
 // MEDIA RAIL — Horizontal scroll row of cards
 // ═══════════════════════════════════════════════
-class _MediaRail extends StatelessWidget {
+class _MediaRail extends ConsumerWidget {
   final String title;
   final List<MediaItem> items;
   final bool isRanked;
@@ -377,7 +377,7 @@ class _MediaRail extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
@@ -421,7 +421,7 @@ class _MediaRail extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: isContinueWatching ? 150 : 220,
+            height: isContinueWatching ? 170 : 220,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -439,6 +439,16 @@ class _MediaRail extends StatelessWidget {
                     rank: isRanked ? index + 1 : null,
                     showProgress: isContinueWatching,
                     progress: cwItem?.progress ?? 0.0,
+                    cwItem: cwItem,
+                    onDismiss: isContinueWatching && cwItem != null
+                        ? () async {
+                            final cacheRepo = ref.read(homeCacheRepositoryProvider);
+                            await cacheRepo.dismissContinueWatching(
+                              cwItem.tmdbId, cwItem.mediaType, cwItem.season, cwItem.episode,
+                            );
+                            ref.invalidate(continueWatchingProvider);
+                          }
+                        : null,
                     onTap: () {
                       final mt = item.mediaType == MediaType.tv ? 'tv' : 'movie';
                       if (isContinueWatching && cwItem != null) {
@@ -471,7 +481,9 @@ class _StreameMediaCard extends StatefulWidget {
   final int? rank;
   final bool showProgress;
   final double progress;
+  final ContinueWatchingItem? cwItem;
   final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
 
   const _StreameMediaCard({
     required this.item,
@@ -480,7 +492,9 @@ class _StreameMediaCard extends StatefulWidget {
     this.rank,
     this.showProgress = false,
     this.progress = 0.0,
+    this.cwItem,
     this.onTap,
+    this.onDismiss,
   });
 
   @override
@@ -492,8 +506,8 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = widget.isLandscape ? 220.0 : 140.0;
-    final cardHeight = widget.isLandscape ? 124.0 : 210.0;
+    final cardWidth = widget.isLandscape ? 260.0 : 140.0;
+    final cardHeight = widget.isLandscape ? 146.0 : 210.0;
     final imageUrl = widget.isLandscape
         ? (widget.item.backdrop ?? widget.item.image)
         : widget.item.image;
@@ -542,7 +556,25 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                           ),
                         ),
                       ),
-                      if (widget.item.tmdbRatingDouble > 0)
+                      // Dismiss button for CW items
+                      if (widget.showProgress && widget.onDismiss != null)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: GestureDetector(
+                            onTap: widget.onDismiss,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, size: 14, color: Colors.white70),
+                            ),
+                          ),
+                        )
+                      else if (widget.item.tmdbRatingDouble > 0)
                         Positioned(
                           top: 8,
                           right: 8,
@@ -592,34 +624,87 @@ class _StreameMediaCardState extends State<_StreameMediaCard> {
                             ),
                           ),
                         ),
-                      Positioned(
-                        bottom: 8,
-                        left: 10,
-                        right: 10,
-                        child: Text(
-                          widget.item.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                      // Bottom info area for CW cards
+                      if (widget.showProgress && widget.cwItem != null) ...[
+                        Positioned(
+                          bottom: 10,
+                          left: 10,
+                          right: 10,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Builder(builder: (_) {
+                                final cw = widget.cwItem!;
+                                final remaining = cw.totalDuration - cw.position;
+                                final minsLeft = remaining.inMinutes;
+                                final epLabel = cw.mediaType == 'tv'
+                                    ? 'S${cw.season} E${cw.episode}  •  '
+                                    : '';
+                                final timeLabel = minsLeft > 0
+                                    ? '${minsLeft}m left'
+                                    : '${(widget.progress * 100).round()}%';
+                                return Text(
+                                  '$epLabel$timeLabel',
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                                  ),
+                                );
+                              }),
+                            ],
                           ),
                         ),
-                      ),
-                      if (widget.showProgress)
                         Positioned(
                           bottom: 0,
                           left: 0,
                           right: 0,
-                          child: LinearProgressIndicator(
-                            value: widget.progress,
-                            backgroundColor: AppTheme.borderMedium,
-                            valueColor: const AlwaysStoppedAnimation(AppTheme.accentGreen),
-                            minHeight: 3,
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(10),
+                              bottomRight: Radius.circular(10),
+                            ),
+                            child: LinearProgressIndicator(
+                              value: widget.progress,
+                              backgroundColor: Colors.white.withValues(alpha: 0.15),
+                              valueColor: const AlwaysStoppedAnimation(AppTheme.accentGreen),
+                              minHeight: 3,
+                            ),
                           ),
                         ),
+                      ]
+                      else ...[
+                        Positioned(
+                          bottom: 8,
+                          left: 10,
+                          right: 10,
+                          child: Text(
+                            widget.item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 )

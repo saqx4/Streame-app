@@ -365,96 +365,129 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _connectTrakt() async {
     final repo = ref.read(traktRepositoryProvider);
-    final authUrl = repo.getAuthUrl('urn:ietf:wg:oauth:2.0:oob');
 
-    // Try to open the browser
-    final launched = await launchUrl(Uri.parse(authUrl), mode: LaunchMode.externalApplication);
-    if (!launched) {
-      // Fallback: show the URL in a dialog so user can copy it
+    // Step 1: Request device code
+    final deviceData = await repo.requestDeviceCode();
+    if (deviceData == null) {
       if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.backgroundCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Trakt.tv Auth', style: TextStyle(color: AppTheme.textPrimary)),
-          content: SelectableText(authUrl, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close', style: TextStyle(color: AppTheme.textSecondary)),
-            ),
-          ],
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to connect to Trakt. Try again.'), backgroundColor: AppTheme.accentRed),
       );
+      return;
     }
 
-    // Show code entry dialog after a short delay
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    _showTraktCodeEntry();
-  }
+    final userCode = deviceData['user_code'] as String? ?? '';
+    final verificationUrl = deviceData['verification_url'] as String? ?? 'https://trakt.tv/activate';
+    final deviceCode = deviceData['device_code'] as String? ?? '';
+    final expiresIn = deviceData['expires_in'] as int? ?? 600;
+    final interval = deviceData['interval'] as int? ?? 5;
 
-  void _showTraktCodeEntry() {
-    final codeCtrl = TextEditingController();
+    // Step 2: Show dialog with user code + verification URL
+    if (!mounted) return;
+    bool cancelled = false;
+    bool success = false;
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.backgroundCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Enter Trakt Code', style: TextStyle(color: AppTheme.textPrimary)),
+        title: Row(
+          children: [
+            const Icon(Icons.sync, color: AppTheme.accentRed, size: 22),
+            const SizedBox(width: 8),
+            const Text('Connect Trakt', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18)),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Paste the authorization code from Trakt.tv', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeCtrl,
-              decoration: InputDecoration(
-                hintText: 'Authorization code',
-                filled: true, fillColor: AppTheme.backgroundElevated,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            const Text('Go to the link below and enter this code:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+            const SizedBox(height: 16),
+            SelectableText(
+              verificationUrl,
+              style: const TextStyle(color: AppTheme.accentGreen, fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderLight),
               ),
-              style: const TextStyle(color: AppTheme.textPrimary),
+              child: SelectableText(
+                userCode,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Expires in ${Duration(seconds: expiresIn).inMinutes} minutes',
+              style: TextStyle(color: AppTheme.textTertiary, fontSize: 11),
+            ),
+            const SizedBox(height: 8),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accentRed)),
+                SizedBox(width: 8),
+                Text('Waiting for authorization...', style: TextStyle(color: AppTheme.textTertiary, fontSize: 12)),
+              ],
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              cancelled = true;
+              Navigator.pop(ctx);
+            },
             child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () async {
-              final code = codeCtrl.text.trim();
-              Navigator.pop(ctx);
-              if (code.isEmpty) return;
-              try {
-                final tokens = await ref.read(traktRepositoryProvider).exchangeCode(code);
-                if (tokens != null && mounted) {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Trakt connected!'), backgroundColor: AppTheme.backgroundCard),
-                  );
-                } else if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid code. Try again.'), backgroundColor: AppTheme.accentRed),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.accentRed),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: AppTheme.backgroundDark),
-            child: const Text('Connect'),
+            onPressed: () => launchUrl(Uri.parse(verificationUrl), mode: LaunchMode.externalApplication),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: Colors.white),
+            child: const Text('Open Link'),
           ),
         ],
       ),
     );
+
+    // Step 3: Poll for token
+    final deadline = DateTime.now().add(Duration(seconds: expiresIn));
+    while (!cancelled && DateTime.now().isBefore(deadline)) {
+      await Future.delayed(Duration(seconds: interval));
+      if (cancelled || !mounted) break;
+
+      final tokens = await repo.pollDeviceToken(deviceCode);
+      if (tokens != null) {
+        success = true;
+        break;
+      }
+    }
+
+    // Step 4: Close dialog and show result
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close the waiting dialog
+
+    if (success) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trakt connected!'), backgroundColor: AppTheme.accentGreen),
+      );
+    } else if (!cancelled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trakt authorization timed out. Try again.'), backgroundColor: AppTheme.accentRed),
+      );
+    }
   }
 
   void _showTraktDisconnect() {

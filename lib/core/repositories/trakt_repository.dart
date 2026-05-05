@@ -158,41 +158,39 @@ class TraktRepository {
     if (tokens.isValid) await saveTokens(tokens);
   }
 
-  // ─── OAuth ───
+  // ─── OAuth: Device Code Flow (no client_secret needed) ───
 
-  String getAuthUrl(String redirectUri) {
-    return 'https://api.trakt.tv/oauth/authorize?'
-        'response_type=code&'
-        'client_id=${ApiConstants.traktClientId}&'
-        'redirect_uri=${Uri.encodeComponent(redirectUri)}&'
-        'state=${_userId ?? ''}';
-  }
-
-  Future<Uri> getOAuthUrl() async {
-    // Direct Trakt OAuth — no proxy needed for the authorize step
-    const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
-    return Uri.parse('https://api.trakt.tv/oauth/authorize').replace(queryParameters: {
-      'response_type': 'code',
-      'client_id': ApiConstants.traktClientId,
-      'redirect_uri': redirectUri,
-      'state': _userId ?? '',
-    });
-  }
-
-  Future<TraktTokens?> exchangeCode(String code) async {
+  /// Step 1: Request a device code from Trakt.
+  /// Returns a map with: device_code, user_code, verification_url, expires_in, interval
+  Future<Map<String, dynamic>?> requestDeviceCode() async {
     try {
-      // Direct token exchange — requires Trakt client secret on a server
-      // For now, store the code and let user complete auth via Trakt website
-      // TODO: Add a simple Supabase edge function for token exchange if needed
       final response = await _http.post(
-        Uri.parse('https://api.trakt.tv/oauth/token'),
+        Uri.parse('https://api.trakt.tv/oauth/device/code'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'client_id': ApiConstants.traktClientId}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('Trakt device code error: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      debugPrint('Trakt device code request error: $e');
+    }
+    return null;
+  }
+
+  /// Step 2: Poll Trakt for the device token.
+  /// Call this repeatedly every [interval] seconds until the user authorizes.
+  /// Returns tokens on success, null if still pending or errored.
+  Future<TraktTokens?> pollDeviceToken(String deviceCode) async {
+    try {
+      final response = await _http.post(
+        Uri.parse('https://api.trakt.tv/oauth/device/token'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'code': code,
+          'code': deviceCode,
           'client_id': ApiConstants.traktClientId,
-          'client_secret': '', // Must be server-side
-          'redirect_uri': 'urn:ietf:wg:oauth:2.0:oob',
-          'grant_type': 'authorization_code',
+          'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
         }),
       );
       if (response.statusCode == 200) {
@@ -202,11 +200,24 @@ class TraktRepository {
           return tokens;
         }
       }
-      return null;
-    } catch (e) {
-      debugPrint('Trakt token exchange error: $e');
-      return null;
-    }
+      // 400 = pending / slow down / expired — caller should retry or abort
+    } catch (_) {}
+    return null;
+  }
+
+  /// Legacy: kept for backward compat but Device Code flow is preferred
+  String getAuthUrl(String redirectUri) {
+    return 'https://api.trakt.tv/oauth/authorize?'
+        'response_type=code&'
+        'client_id=${ApiConstants.traktClientId}&'
+        'redirect_uri=${Uri.encodeComponent(redirectUri)}&'
+        'state=${_userId ?? ''}';
+  }
+
+  Future<TraktTokens?> exchangeCode(String code) async {
+    // This flow requires client_secret which we don't embed — use Device Code flow instead
+    debugPrint('Trakt: exchangeCode is deprecated — use Device Code flow');
+    return null;
   }
 
   Future<void> refreshTokens() async {
@@ -214,12 +225,11 @@ class TraktRepository {
     if (tokens?.refreshToken == null) return;
     try {
       final response = await _http.post(
-        Uri.parse('https://api.trakt.tv/oauth/token'),
+        Uri.parse('https://api.trakt.tv/oauth/device/token'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'refresh_token': tokens!.refreshToken,
           'client_id': ApiConstants.traktClientId,
-          'client_secret': '', // Must be server-side
           'grant_type': 'refresh_token',
         }),
       );
@@ -390,6 +400,99 @@ class TraktRepository {
       return response.statusCode == 200;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ─── Scrobbling ───
+
+  /// Scrobble: tell Trakt that playback started, paused, or stopped.
+  /// [action] is 'start', 'pause', or 'stop'.
+  /// If progress >= 80% on stop, Trakt auto-marks as watched.
+  Future<bool> scrobble({
+    required String action,
+    required String imdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    double progress = 0.0,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      final body = <String, dynamic>{
+        'progress': (progress * 100).round().clamp(0, 100),
+      };
+      if (mediaType == 'movie') {
+        body['movie'] = {'ids': {'imdb': imdbId}};
+      } else {
+        body['episode'] = {
+          'ids': {'imdb': imdbId},
+          if (season != null) 'season': season,
+          if (episode != null) 'number': episode,
+        };
+      }
+      final response = await _http.post(
+        Uri.parse('https://api.trakt.tv/scrobble/$action'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> scrobbleStart({
+    required String imdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    double progress = 0.0,
+  }) => scrobble(action: 'start', imdbId: imdbId, mediaType: mediaType, season: season, episode: episode, progress: progress);
+
+  Future<bool> scrobblePause({
+    required String imdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    double progress = 0.0,
+  }) => scrobble(action: 'pause', imdbId: imdbId, mediaType: mediaType, season: season, episode: episode, progress: progress);
+
+  Future<bool> scrobbleStop({
+    required String imdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    double progress = 0.0,
+  }) => scrobble(action: 'stop', imdbId: imdbId, mediaType: mediaType, season: season, episode: episode, progress: progress);
+
+  // ─── Ratings ───
+
+  /// Get Trakt rating for a movie or show by TMDB ID.
+  /// Uses the Trakt search to resolve TMDB → Trakt ID, then fetches ratings.
+  Future<double?> getTraktRating({required String mediaType, required int tmdbId}) async {
+    try {
+      final headers = _traktHeaders;
+      final type = mediaType == 'tv' ? 'show' : 'movie';
+      // Search by TMDB ID to get Trakt ID
+      final searchResp = await _http.get(
+        Uri.parse('https://api.trakt.tv/search/tmdb/$tmdbId?type=$type'),
+        headers: headers,
+      );
+      if (searchResp.statusCode != 200) return null;
+      final searchList = jsonDecode(searchResp.body) as List<dynamic>;
+      if (searchList.isEmpty) return null;
+      final traktId = (searchList.first as Map<String, dynamic>)[type]?['ids']?['trakt'];
+      if (traktId == null) return null;
+      // Fetch ratings
+      final ratingsResp = await _http.get(
+        Uri.parse('https://api.trakt.tv/$type/$traktId/ratings'),
+        headers: headers,
+      );
+      if (ratingsResp.statusCode != 200) return null;
+      final ratingsData = jsonDecode(ratingsResp.body) as Map<String, dynamic>;
+      return (ratingsData['rating'] as num?)?.toDouble();
+    } catch (_) {
+      return null;
     }
   }
 

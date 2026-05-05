@@ -18,6 +18,7 @@ abstract class TmdbRepository {
   Future<Map<String, dynamic>?> getMovieExternalIds(int tmdbId);
   Future<Map<String, dynamic>?> getTvExternalIds(int tmdbId);
   Future<Map<String, dynamic>?> getSeasonDetails(int tvId, int seasonNumber);
+  Future<List<Map<String, dynamic>>> getTvSeasonsList(int tvId);
   Future<List<MediaItem>> search(String query, {MediaType? mediaType, int page = 1});
   Future<List<MediaItem>> getSimilar(int tmdbId, {required MediaType mediaType, int page = 1});
   Future<String?> getLogoPath(int tmdbId, {required MediaType mediaType});
@@ -166,6 +167,17 @@ class TmdbRepositoryImpl implements TmdbRepository {
   @override
   Future<Map<String, dynamic>?> getSeasonDetails(int tvId, int seasonNumber) async {
     return await _get('tv/$tvId/season/$seasonNumber');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTvSeasonsList(int tvId) async {
+    final data = await _get('tv/$tvId');
+    if (data == null) return [];
+    final seasons = data['seasons'] as List<dynamic>? ?? [];
+    return seasons.where((s) {
+      final sn = (s as Map<String, dynamic>)['season_number'] as int? ?? 0;
+      return sn > 0; // Exclude specials (season 0)
+    }).map((s) => s as Map<String, dynamic>).toList();
   }
 
   @override

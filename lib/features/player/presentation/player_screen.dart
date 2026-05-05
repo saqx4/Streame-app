@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:go_router/go_router.dart';
 import 'package:streame/core/theme/app_theme.dart';
 import 'package:streame/core/models/stream_models.dart';
+import 'package:streame/core/models/source_presentation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:streame/core/repositories/addon_repository.dart';
@@ -17,12 +17,14 @@ import 'package:streame/core/repositories/home_cache_repository.dart';
 import 'package:streame/core/repositories/trakt_repository.dart';
 import 'package:streame/core/repositories/tmdb_repository.dart';
 import 'package:streame/core/services/torrent_stream_service.dart';
+import 'package:streame/core/services/stream_resolver.dart';
 import 'package:streame/features/home/data/models/media_item.dart';
 import 'package:streame/core/repositories/skip_intro_repository.dart';
 import 'package:streame/shared/widgets/next_episode_overlay.dart';
 import 'package:streame/shared/widgets/player_loading_screen.dart';
 import 'package:streame/shared/widgets/resilient_network_image.dart';
 import 'package:streame/core/providers/shared_providers.dart';
+import 'package:streame/core/focus/focusable.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final String mediaType;
@@ -85,7 +87,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   List<AudioTrack> _audioTracks = [];
   List<SubtitleTrack> _subtitleTracks = [];
   AudioTrack _selectedAudioTrack = AudioTrack.auto();
-  SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.no();
   bool _preferredAudioApplied = false;
   bool _preferredSubtitleApplied = false;
   // External (addon) subtitles
@@ -96,6 +97,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double _subtitleFontSize = 32.0;
   double _subtitleBgOpacity = 0.55;
   int _subtitleDelayMs = 0;
+  double _subtitlePosition = 90.0; // 0=top, 100=bottom (default near bottom)
 
   final List<AddonStreamResult> _streamResults = [];
   final List<StreamSubscription> _subscriptions = [];
@@ -121,6 +123,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   // Progress saving debounce
   DateTime? _lastSaveTime;
   Duration _lastSavedPosition = Duration.zero;
+
+  // Pending resume seek (deferred until player is ready)
+  int? _pendingSeekMs;
 
   @override
   void initState() {
@@ -187,12 +192,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _subtitleFontSize = prefs.getDouble('settings_sub_font_size') ?? 32.0;
     _subtitleBgOpacity = prefs.getDouble('settings_sub_bg_opacity') ?? 0.55;
     _subtitleDelayMs = prefs.getInt('settings_sub_delay_ms') ?? 0;
+    _subtitlePosition = prefs.getDouble('settings_sub_position') ?? 90.0;
   }
 
   Future<void> _saveSubtitleSettings({
     double? fontSize,
     double? bgOpacity,
     int? delayMs,
+    double? position,
   }) async {
     final prefs = ref.read(sharedPreferencesProvider);
     if (fontSize != null) {
@@ -207,8 +214,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _subtitleDelayMs = delayMs;
       await prefs.setInt('settings_sub_delay_ms', delayMs);
     }
+    if (position != null) {
+      _subtitlePosition = position;
+      await prefs.setDouble('settings_sub_position', position);
+    }
     if (mounted) setState(() {});
     await _applySubtitleDelay();
+    await _applySubtitlePosition();
   }
 
   Future<void> _applySubtitleDelay() async {
@@ -218,6 +230,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (platform is NativePlayer) {
         final seconds = (_subtitleDelayMs / 1000.0).toStringAsFixed(3);
         await platform.setProperty('sub-delay', seconds);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _applySubtitlePosition() async {
+    if (!_hasPlayer) return;
+    try {
+      final platform = _p.platform;
+      if (platform is NativePlayer) {
+        await platform.setProperty('sub-align-x', 'center');
+        await platform.setProperty('sub-align-y', 'bottom');
+        await platform.setProperty('sub-pos', _subtitlePosition.round().toString());
       }
     } catch (_) {}
   }
@@ -233,6 +257,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         platform.setProperty('cache', 'yes');
         platform.setProperty('video-sync', 'audio');
         platform.setProperty('interpolation', 'yes');
+        // Subtitle defaults: centered horizontally, positioned near bottom
+        platform.setProperty('sub-align-x', 'center');
+        platform.setProperty('sub-align-y', 'bottom');
+        platform.setProperty('sub-pos', _subtitlePosition.round().toString());
       }
     } catch (_) {}
   }
@@ -268,77 +296,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  /// Normalize a stream URL (add scheme if missing, handle bare hosts)
-  String? _normalizeUrl(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final url = raw.trim();
-    // Magnet URIs are handled by TorrentStreamService, not media_kit directly
-    if (url.toLowerCase().startsWith('magnet:')) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('//')) return 'https:$url';
-    if (url.contains('.') && !url.contains('://')) return 'https://$url';
-    return url;
-  }
-
-  /// Build a magnet URI from a StreamSource's infoHash + trackers
-  String? _buildMagnet(StreamSource stream) {
-    final infoHash = stream.infoHash;
-    if (infoHash == null || infoHash.isEmpty) return null;
-
-    final cleanHash = infoHash.toLowerCase().replaceAll('urn:btih:', '').replaceAll('btih:', '');
-    if (cleanHash.isEmpty) return null;
-    final dn = (stream.behaviorHints?.filename ?? stream.source).isNotEmpty
-        ? (stream.behaviorHints?.filename ?? stream.source)
-        : 'video';
-    final trackers = stream.sources
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .map((s) => s.replaceFirst('tracker:', ''))
-        .where((s) => s.startsWith('http://') || s.startsWith('https://') || s.startsWith('udp://'))
-        .toList();
-
-    final magnetBuf = StringBuffer('magnet:?xt=urn:btih:$cleanHash&dn=${Uri.encodeComponent(dn)}');
-    for (final tr in trackers) {
-      magnetBuf.write('&tr=${Uri.encodeComponent(tr)}');
-    }
-    return magnetBuf.toString();
-  }
-
-  /// Resolve a torrent stream via libtorrent_flutter (built-in engine)
-  Future<String?> _resolveViaTorrentEngine(StreamSource stream) async {
-    String? magnet;
-
-    // Case 1: stream.url is already a magnet link
-    if (stream.url != null && stream.url!.toLowerCase().startsWith('magnet:')) {
-      magnet = stream.url!;
-    } else {
-      // Case 2: stream has infoHash — build magnet
-      magnet = _buildMagnet(stream);
-    }
-
-    if (magnet == null) return null;
-
-    debugPrint('Player: resolving via torrent engine: ${magnet.substring(0, magnet.length.clamp(0, 80))}');
-
-    // Track active magnet for stats and start polling
-    _activeMagnet = magnet;
-    _startTorrentStatsPolling();
-
-    final torrent = TorrentStreamService();
-    final url = await torrent.streamTorrent(
-      magnet,
-      season: widget.seasonNumber,
-      episode: widget.episodeNumber,
-    );
-
-    if (url != null) {
-      debugPrint('Player: torrent stream URL: $url');
-    } else {
-      _stopTorrentStatsPolling();
-    }
-
-    return url;
-  }
 
   void _startTorrentStatsPolling() {
     _torrentStatsTimer?.cancel();
@@ -372,7 +329,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         );
         if (streamUrl != null && mounted) {
           // Pre-flight: verify the local stream URL is reachable before passing to player
-          final reachable = await _checkStreamReachable(streamUrl);
+          final reachable = await StreamResolver.checkStreamReachable(streamUrl);
           if (!reachable && mounted) {
             _setPhase('error', 1.0);
             setState(() {
@@ -389,7 +346,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         return;
       }
       // HTTP URL — normalize and play
-      final normalized = _normalizeUrl(url);
+      final normalized = StreamResolver.normalizeUrl(url);
       if (normalized == null) {
         _setPhase('error', 1.0);
         setState(() => _streamStatusText = 'Invalid stream URL.');
@@ -436,10 +393,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if ((progress.isFinal || progress.completedAddons >= 2) && bestStream == null) {
           if (progress.allStreams.isNotEmpty) {
             // Try streams in sorted order until we find a playable one
-            final sorted = _sortStreamsForPlayback(progress.allStreams);
+            final sorted = StreamResolver.sortForPlayback(progress.allStreams);
             debugPrint('Auto-select: ${sorted.length} candidates, top url=${sorted.first.url?.substring(0, (sorted.first.url?.length ?? 0).clamp(0, 60))}, infoHash=${sorted.first.infoHash?.substring(0, (sorted.first.infoHash?.length ?? 0).clamp(0, 12))}');
             for (final candidate in sorted) {
-              final playableUrl = await _resolvePlayableUrl(candidate);
+              final playableUrl = await StreamResolver.resolvePlayableUrl(
+                candidate,
+                season: widget.seasonNumber,
+                episode: widget.episodeNumber,
+                onTorrentStart: (magnet) {
+                  _activeMagnet = magnet;
+                  _startTorrentStatsPolling();
+                },
+              );
               if (playableUrl != null) {
                 bestStream = candidate;
                 debugPrint('Auto-select: playing $playableUrl');
@@ -475,59 +440,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  /// Resolve a playable HTTP URL from a StreamSource
-  /// Handles: direct HTTP URLs, magnet/infoHash via libtorrent_flutter
-  Future<String?> _resolvePlayableUrl(StreamSource stream) async {
-    // 1. Direct HTTP URL
-    final direct = _normalizeUrl(stream.url);
-    if (direct != null) return direct;
 
-    // 2. Magnet URL or infoHash — resolve via built-in torrent engine
-    if ((stream.url != null && stream.url!.toLowerCase().startsWith('magnet:')) ||
-        (stream.infoHash != null && stream.infoHash!.isNotEmpty)) {
-      final torrentUrl = await _resolveViaTorrentEngine(stream);
-      if (torrentUrl != null) return torrentUrl;
-    }
 
-    return null;
-  }
+  /// Streams that have already been attempted and failed — used for fallback.
+  final Set<String> _attemptedStreamKeys = {};
 
-  StreamSource? _getBestStream(AddonStreamResult result) {
-    if (result.streams.isEmpty) return null;
-    // Prefer highest quality
-    final sorted = List<StreamSource>.from(result.streams)
-      ..sort((a, b) {
-        final qA = _qualityScore(a.quality);
-        final qB = _qualityScore(b.quality);
-        return qB.compareTo(qA);
-      });
-    return sorted.first;
-  }
-
-  int _qualityScore(String q) {
-    if (q.contains('4K') || q.contains('2160')) return 40;
-    if (q.contains('1080')) return 30;
-    if (q.contains('720')) return 20;
-    if (q.contains('480')) return 10;
-    return 0;
-  }
-
-  /// Sort streams for playback: prefer cached/direct HTTP, then quality
-  List<StreamSource> _sortStreamsForPlayback(List<StreamSource> streams) {
-    final sorted = List<StreamSource>.from(streams)
-      ..sort((a, b) {
-        final cachedA = a.behaviorHints?.cached == true ? 100 : 0;
-        final cachedB = b.behaviorHints?.cached == true ? 100 : 0;
-        final directA = (a.url != null && a.url!.startsWith('http')) ? 50 : 0;
-        final directB = (b.url != null && b.url!.startsWith('http')) ? 50 : 0;
-        final qA = _qualityScore(a.quality) + cachedA + directA;
-        final qB = _qualityScore(b.quality) + cachedB + directB;
-        return qB.compareTo(qA);
-      });
-    return sorted;
-  }
-
-  Future<void> _initPlayer(String url) async {
+  Future<void> _initPlayer(String url, {StreamSource? failedSource}) async {
     try {
       // Validate URL before passing to native player
       if (url.isEmpty || url.startsWith('magnet:')) {
@@ -575,10 +493,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _setPhase('ready', 1.0);
       if (mounted) setState(() => _streamStatusText = '');
 
-      if (widget.startPositionMs != null && widget.startPositionMs! > 0) {
-        await _p.seek(Duration(milliseconds: widget.startPositionMs!));
-      }
-
       // Create video controller
       _videoController = VideoController(_p);
 
@@ -593,6 +507,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _torrentStats = null; // Clear stats once video starts
       });
       _stopTorrentStatsPolling();
+
+      // Resume from saved position — defer until player has buffered enough
+      if (widget.startPositionMs != null && widget.startPositionMs! > 0) {
+        _pendingSeekMs = widget.startPositionMs!;
+      }
 
       _subscriptions.add(_p.stream.position.listen((position) {
         if (mounted && _hasPlayer) {
@@ -623,13 +542,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (mounted && _hasPlayer) {
           setState(() {
             _isPlaying = playing;
-            // Don't set _hasStartedPlayback here — wait for position to advance
-            // while not buffering (Nuvio parity: initialLoadCompleted = !isLoading)
           });
         }
         if (playing) {
           _playbackStartTimer?.cancel();
           _playbackStartTimer = null;
+          // Trakt scrobble: start
+          _traktScrobbleStart();
+        } else if (_hasStartedPlayback) {
+          // Trakt scrobble: pause (only after playback has started)
+          _traktScrobblePause();
         }
       }));
 
@@ -642,6 +564,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               _hasStartedPlayback = true;
             }
           });
+          // Execute pending resume seek once buffering ends
+          if (!buffering && _pendingSeekMs != null) {
+            final seekMs = _pendingSeekMs!;
+            _pendingSeekMs = null;
+            _p.seek(Duration(milliseconds: seekMs));
+          }
         }
       }));
 
@@ -654,7 +582,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           _audioTracks = audioList;
           _subtitleTracks = subList;
           _selectedAudioTrack = _p.state.track.audio;
-          _selectedSubtitleTrack = _p.state.track.subtitle;
         });
         _applyPreferredTracks();
       }));
@@ -662,31 +589,89 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       await _p.play();
 
       // Watchdog: on emulator / unsupported codecs, mpv may open but never start playback.
-      // If we don't start within a short window, show a useful error & open source selector.
+      // If we don't start within a short window, try the next source automatically.
       _playbackStartTimer?.cancel();
-      _playbackStartTimer = Timer(const Duration(seconds: 12), () {
+      _playbackStartTimer = Timer(const Duration(seconds: 12), () async {
         if (!mounted) return;
         final stillNotPlaying = !_p.state.playing;
         final stillAtStart = _position == Duration.zero;
         if (stillNotPlaying && stillAtStart) {
-          _setPhase('error', 1.0);
-          setState(() {
-            _streamStatusText =
-                'Playback did not start. This stream may be unsupported on the emulator (REMUX/HEVC) — try another source or a real device.';
-            _showSourceSelector = true;
-          });
+          // Mark current source as failed and try fallback
+          if (failedSource != null) {
+            final key = failedSource.url ?? failedSource.infoHash ?? '';
+            if (key.isNotEmpty) _attemptedStreamKeys.add(key);
+          }
+          await _tryFallbackStream(
+            errorMessage: 'Playback did not start. Trying next source...',
+          );
         }
       });
 
       _startControlsTimer();
     } catch (e) {
       debugPrint('Player init error: $e');
+      // Mark this source as failed and try the next best candidate
+      if (failedSource != null) {
+        final key = failedSource.url ?? failedSource.infoHash ?? '';
+        if (key.isNotEmpty) _attemptedStreamKeys.add(key);
+      }
+      await _tryFallbackStream(
+        errorMessage: e is TimeoutException
+            ? 'Stream took too long to load. Trying next source...'
+            : 'Failed to play stream. Trying next source...',
+      );
+    }
+  }
+
+  /// Try the next best untried stream after a failure.
+  /// If no candidates remain, show the source selector or a final error.
+  Future<void> _tryFallbackStream({required String errorMessage}) async {
+    if (!mounted) return;
+    _setPhase('loading', 0.3);
+    setState(() => _streamStatusText = errorMessage);
+
+    // Gather all streams from results, sorted deterministically
+    final allStreams = <StreamSource>[];
+    for (final r in _streamResults) {
+      allStreams.addAll(r.streams);
+    }
+    final sorted = StreamResolver.sortForPlayback(allStreams);
+
+    // Find the first candidate not yet attempted
+    StreamSource? nextCandidate;
+    for (final s in sorted) {
+      final key = s.url ?? s.infoHash ?? '';
+      if (key.isNotEmpty && !_attemptedStreamKeys.contains(key)) {
+        nextCandidate = s;
+        break;
+      }
+    }
+
+    if (nextCandidate != null) {
+      debugPrint('Fallback: trying next candidate: ${nextCandidate.source}');
+      final playableUrl = await StreamResolver.resolvePlayableUrl(
+        nextCandidate,
+        season: widget.seasonNumber,
+        episode: widget.episodeNumber,
+        onTorrentStart: (magnet) {
+          _activeMagnet = magnet;
+          _startTorrentStatsPolling();
+        },
+      );
+      if (playableUrl != null && mounted) {
+        await _initPlayer(playableUrl, failedSource: nextCandidate);
+      } else if (mounted) {
+        // Mark as failed and recurse (will try next or show final error)
+        final key = nextCandidate.url ?? nextCandidate.infoHash ?? '';
+        if (key.isNotEmpty) _attemptedStreamKeys.add(key);
+        await _tryFallbackStream(errorMessage: 'Source not playable. Trying next...');
+      }
+    } else {
+      // No more candidates — show final error
       _setPhase('error', 1.0);
       setState(() {
-        _streamStatusText = e is TimeoutException
-            ? 'Stream took too long to load. Try another source.'
-            : 'Failed to play stream. Try another source.';
-        if (_streamResults.isNotEmpty) _showSourceSelector = true;
+        _streamStatusText = 'All sources failed. Try another source or check your connection.';
+        _showSourceSelector = true;
       });
     }
   }
@@ -698,25 +683,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
   }
 
-  /// Pre-flight check: verify a local stream URL is actually reachable.
-  /// The libtorrent engine may report a URL before its HTTP server is ready.
-  Future<bool> _checkStreamReachable(String url) async {
-    if (!url.contains('127.0.0.1') && !url.contains('localhost')) return true;
-    try {
-      final uri = Uri.parse(url);
-      final socket = await Socket.connect(
-        uri.host,
-        uri.port,
-        timeout: const Duration(seconds: 5),
-      );
-      socket.destroy();
-      debugPrint('Player: pre-flight OK — ${uri.host}:${uri.port} is reachable');
-      return true;
-    } catch (e) {
-      debugPrint('Player: pre-flight FAIL — $url not reachable: $e');
-      return false;
-    }
-  }
 
   Future<void> _saveProgress() async {
     try {
@@ -781,17 +747,49 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final imdbId = widget.imdbId;
       if (imdbId == null || imdbId.isEmpty) return;
 
-      // Scrobble progress
-      final progress = _duration.inSeconds > 0 ? (_position.inSeconds / _duration.inSeconds * 100).round() : 0;
-      if (progress >= 90) {
-        // Mark as watched
-        await traktRepo.addToHistory(
-          imdbId: imdbId,
-          mediaType: widget.mediaType,
-          season: widget.seasonNumber,
-          episode: widget.episodeNumber,
-        );
-      }
+      final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
+      // Stop scrobble: Trakt auto-marks as watched if progress >= 80%
+      await traktRepo.scrobbleStop(
+        imdbId: imdbId,
+        mediaType: widget.mediaType,
+        season: widget.seasonNumber,
+        episode: widget.episodeNumber,
+        progress: progress,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _traktScrobbleStart() async {
+    try {
+      final traktRepo = ref.read(traktRepositoryProvider);
+      if (!traktRepo.isLinked()) return;
+      final imdbId = widget.imdbId;
+      if (imdbId == null || imdbId.isEmpty) return;
+      final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
+      await traktRepo.scrobbleStart(
+        imdbId: imdbId,
+        mediaType: widget.mediaType,
+        season: widget.seasonNumber,
+        episode: widget.episodeNumber,
+        progress: progress,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _traktScrobblePause() async {
+    try {
+      final traktRepo = ref.read(traktRepositoryProvider);
+      if (!traktRepo.isLinked()) return;
+      final imdbId = widget.imdbId;
+      if (imdbId == null || imdbId.isEmpty) return;
+      final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
+      await traktRepo.scrobblePause(
+        imdbId: imdbId,
+        mediaType: widget.mediaType,
+        season: widget.seasonNumber,
+        episode: widget.episodeNumber,
+        progress: progress,
+      );
     } catch (_) {}
   }
 
@@ -974,7 +972,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         );
         if (match.id != 'no') {
           _p.setSubtitleTrack(match);
-          setState(() => _selectedSubtitleTrack = match);
         }
       }
       _preferredSubtitleApplied = true;
@@ -985,7 +982,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!_hasPlayer || !_isInitialized) return;
     setState(() {
       _subtitleTracks = _p.state.tracks.subtitle.where((t) => t.id != 'no' && t.id != 'auto').toList();
-      _selectedSubtitleTrack = _p.state.track.subtitle;
     });
     // Fetch online subtitles but update the bottom sheet state (avoid rebuilding the whole player).
     _fetchAddonSubtitles(
@@ -1067,7 +1063,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onTap: () {
                       _selectedExternalSubUrl = null;
                       _p.setSubtitleTrack(SubtitleTrack.no());
-                      setState(() => _selectedSubtitleTrack = SubtitleTrack.no());
                       Navigator.pop(ctx);
                     },
                   ),
@@ -1079,7 +1074,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       onTap: () {
                         _selectedExternalSubUrl = null;
                         _p.setSubtitleTrack(t);
-                        setState(() => _selectedSubtitleTrack = t);
                         Navigator.pop(ctx);
                       },
                     )),
@@ -1098,11 +1092,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           if (url == null) return;
                           _selectedExternalSubUrl = url;
                           _p.setSubtitleTrack(SubtitleTrack.uri(
-                            url,
-                            title: s['display'],
-                            language: s['language'] ?? 'und',
-                          ));
-                          setState(() => _selectedSubtitleTrack = SubtitleTrack.uri(
                             url,
                             title: s['display'],
                             language: s['language'] ?? 'und',
@@ -1286,10 +1275,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         double fontSize = _subtitleFontSize;
         double bgOpacity = _subtitleBgOpacity;
         int delayMs = _subtitleDelayMs;
+        double position = _subtitlePosition;
         return SafeArea(
           child: StatefulBuilder(
             builder: (ctx, setModalState) {
-              return Padding(
+              return SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1297,7 +1287,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Container(
                       width: 40,
                       height: 4,
-                      margin: const EdgeInsets.only(bottom: 10),
+                      margin: const EdgeInsets.only(bottom: 6),
                       decoration: BoxDecoration(
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(2),
@@ -1305,33 +1295,50 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     ),
                     const Text(
                       'Subtitle settings',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
 
                     // Size
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Size', style: TextStyle(color: Colors.white70)),
-                        Text(fontSize.toStringAsFixed(0), style: const TextStyle(color: Colors.white70)),
+                        const Text('Size', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text(fontSize.toStringAsFixed(0), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                     Slider(
                       value: fontSize,
                       min: 16,
-                      max: 48,
-                      divisions: 32,
+                      max: 150,
+                      divisions: 134,
                       onChanged: (v) => setModalState(() => fontSize = v),
                       onChangeEnd: (v) => _saveSubtitleSettings(fontSize: v),
+                    ),
+
+                    // Position
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Position', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text('${position.round()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ],
+                    ),
+                    Slider(
+                      value: position,
+                      min: 0,
+                      max: 100,
+                      divisions: 100,
+                      onChanged: (v) => setModalState(() => position = v),
+                      onChangeEnd: (v) => _saveSubtitleSettings(position: v),
                     ),
 
                     // Background opacity
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Background', style: TextStyle(color: Colors.white70)),
-                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white70)),
+                        const Text('Background', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1347,8 +1354,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Delay', style: TextStyle(color: Colors.white70)),
-                        Text('${delayMs}ms', style: const TextStyle(color: Colors.white70)),
+                        const Text('Delay', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        Text('${delayMs}ms', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1360,10 +1367,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       onChangeEnd: (v) => _saveSubtitleSettings(delayMs: v.round()),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      'Netflix-like default: size 32, background 55%, delay 0ms',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+                      'Default: size 32, position 90%, background 55%, delay 0ms',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -1394,9 +1401,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     setState(() => _isInitialized = false);
 
-    final stream = _getBestStream(_streamResults[index]);
-    if (stream != null) {
-      final playableUrl = await _resolvePlayableUrl(stream);
+    final result = _streamResults[index];
+    final sorted = StreamResolver.sortForPlayback(result.streams);
+    if (sorted.isNotEmpty) {
+      final stream = sorted.first;
+      final playableUrl = await StreamResolver.resolvePlayableUrl(
+        stream,
+        season: widget.seasonNumber,
+        episode: widget.episodeNumber,
+        onTorrentStart: (magnet) {
+          _activeMagnet = magnet;
+          _startTorrentStatsPolling();
+        },
+      );
       if (playableUrl != null) {
         _setPhase('loading', 0.5);
         await _initPlayer(playableUrl);
@@ -1486,6 +1503,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
 
             if (_showSkipOverlay) _buildSkipOverlay(),
+            // Skip intro/recap/outro button
+            if (_activeSkipInterval != null && initialLoadCompleted)
+              _buildSkipIntroButton(),
             if (_showNextEpisode)
               NextEpisodeOverlay(
                 title: _nextEpisodeTitle ?? 'Next Episode',
@@ -1556,6 +1576,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             const SizedBox(width: 8),
             Text(isForward ? '+10s' : '-10s', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkipIntroButton() {
+    final interval = _activeSkipInterval!;
+    final label = switch (interval.type) {
+      'recap' => 'Skip Recap',
+      'outro' => 'Skip Outro',
+      'ed' => 'Skip Ending',
+      'op' => 'Skip Opening',
+      _ => 'Skip Intro',
+    };
+    return Positioned(
+      bottom: 120,
+      right: 24,
+      child: StreameFocusable(
+        onTap: _onSkipIntro,
+        focusedScale: 1.04,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.skip_next, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+            ],
+          ),
         ),
       ),
     );
@@ -2042,7 +2097,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               for (final index in entry.value)
                                 _StreamCard(
                                   addonName: _streamResults[index].addonName,
-                                  stream: _getBestStream(_streamResults[index]),
+                                  stream: StreamResolver.sortForPlayback(_streamResults[index].streams).firstOrNull,
                                   isSelected: index == _selectedSourceIndex,
                                   onTap: () => _changeSource(index),
                                 ),
@@ -2170,8 +2225,11 @@ class _StreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = stream;
-    final sizeLabel = _formatSize(s?.sizeBytes ?? 0);
-    final title = s?.behaviorHints?.filename ?? s?.source ?? addonName;
+    if (s == null) return const SizedBox.shrink();
+
+    final p = presentSource(s, addonName);
+    final sizeLabel = formatSizeBytes(p.sizeBytes);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2198,89 +2256,81 @@ class _StreamCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    addonName,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  // Badges
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                  // Title row + quality pill
+                  Row(
                     children: [
-                      // Quality
-                      if (s?.quality != null && s!.quality.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A0C0C),
-                            borderRadius: BorderRadius.circular(12),
+                      Expanded(
+                        child: Text(
+                          p.title,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            height: 1.4,
                           ),
-                          child: Text(
-                            s.quality,
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      // Size
-                      if (sizeLabel != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A0C0C),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            sizeLabel,
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: p.qualityColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                      // Transport type
-                      if (s != null && s.infoHash != null && s.infoHash!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A0C0C),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            s.behaviorHints?.cached == true ? 'Cached' : 'Torrent',
-                            style: TextStyle(
-                              color: s.behaviorHints?.cached == true ? AppTheme.accentGreen : Colors.white.withValues(alpha: 0.7),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                        child: Text(
+                          p.resolutionLabel,
+                          style: TextStyle(color: p.qualityColor, fontSize: 11, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Metadata chips (unified with DetailsScreen)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...p.chips.take(10).map((chip) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0A0C0C),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              chip.label,
+                              style: TextStyle(
+                                color: chip.color == AppTheme.textSecondary
+                                    ? Colors.white.withValues(alpha: 0.78)
+                                    : chip.color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
                             ),
                           ),
-                        )
-                      else if (s != null && s.url != null && s.url!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A0C0C),
-                            borderRadius: BorderRadius.circular(12),
+                        )),
+                        if (sizeLabel != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0A0C0C),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                sizeLabel,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                              ),
+                            ),
                           ),
-                          child: const Text(
-                            'Direct',
-                            style: TextStyle(color: AppTheme.accentYellow, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -2291,13 +2341,6 @@ class _StreamCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String? _formatSize(int bytes) {
-    if (bytes <= 0) return null;
-    if (bytes >= 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
-    if (bytes >= 1048576) return '${(bytes / 1048576).toStringAsFixed(0)} MB';
-    return null;
   }
 }
 
