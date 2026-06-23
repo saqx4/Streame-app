@@ -57,9 +57,9 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
       backgroundColor: AppTheme.backgroundDark,
       appBar: AppBar(
         backgroundColor: AppTheme.backgroundDark,
-        title: const Text("Who's watching?"),
+        title: Text("Who's watching?"),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
       ),
@@ -91,8 +91,8 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.textTertiary)),
-        error: (_, __) => const Center(child: Text('Error loading profiles', style: TextStyle(color: AppTheme.textTertiary))),
+        loading: () => Center(child: CircularProgressIndicator(color: AppTheme.textTertiary)),
+        error: (_, __) => Center(child: Text('Error loading profiles', style: TextStyle(color: AppTheme.textTertiary))),
       ),
     );
   }
@@ -123,7 +123,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.backgroundCard,
-        title: Text('Enter PIN for ${profile.name}', style: const TextStyle(color: AppTheme.textPrimary)),
+        title: Text('Enter PIN for ${profile.name}', style: TextStyle(color: AppTheme.textPrimary)),
         content: TextField(
           controller: pinController,
           obscureText: true,
@@ -141,12 +141,12 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.textPrimary, foregroundColor: AppTheme.backgroundDark),
-            child: const Text('OK'),
+            child: Text('OK'),
           ),
         ],
       ),
@@ -166,7 +166,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.backgroundCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Add Profile', style: TextStyle(color: AppTheme.textPrimary)),
+          title: Text('Add Profile', style: TextStyle(color: AppTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -180,18 +180,18 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
                 ),
                 autofocus: true,
               ),
-              const SizedBox(height: 16),
-              const Align(
+              SizedBox(height: 16),
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Choose Avatar', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               SizedBox(
                 height: 64,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: ProfileAvatars.avatars.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => SizedBox(width: 8),
                   itemBuilder: (_, i) {
                     final avatar = ProfileAvatars.avatars[i];
                     final isSelected = avatar.id == selectedAvatarId;
@@ -217,11 +217,11 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('Kids Profile', style: TextStyle(color: AppTheme.textPrimary)),
+                title: Text('Kids Profile', style: TextStyle(color: AppTheme.textPrimary)),
                 value: false,
-                activeColor: AppTheme.accentGreen,
+                activeThumbColor: AppTheme.accentGreen,
                 onChanged: null,
               ),
             ],
@@ -229,7 +229,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+              child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -241,7 +241,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.textPrimary, foregroundColor: AppTheme.backgroundDark),
-              child: const Text('Create'),
+              child: Text('Create'),
             ),
           ],
         ),
@@ -266,11 +266,11 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
       builder: (ctx) => SimpleDialog(
         backgroundColor: AppTheme.backgroundCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(profile.name, style: const TextStyle(color: AppTheme.textPrimary)),
+        title: Text(profile.name, style: TextStyle(color: AppTheme.textPrimary)),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, 'rename'),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.edit, color: AppTheme.accentYellow, size: 20),
               SizedBox(width: 12),
               Text('Edit Name', style: TextStyle(color: AppTheme.textPrimary)),
@@ -278,7 +278,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, 'avatar'),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.face, color: AppTheme.accentYellow, size: 20),
               SizedBox(width: 12),
               Text('Change Avatar', style: TextStyle(color: AppTheme.textPrimary)),
@@ -288,16 +288,16 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
             onPressed: () => Navigator.pop(ctx, 'toggle_lock'),
             child: Row(children: [
               Icon(profile.isLocked ? Icons.lock_open : Icons.lock, color: AppTheme.textPrimary, size: 20),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 profile.isLocked ? 'Remove PIN Lock' : 'Set PIN Lock',
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: TextStyle(color: AppTheme.textPrimary),
               ),
             ]),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, 'delete'),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.delete, color: AppTheme.accentRed, size: 20),
               SizedBox(width: 12),
               Text('Delete Profile', style: TextStyle(color: AppTheme.accentRed)),
@@ -305,7 +305,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, 'cancel'),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),
@@ -330,7 +330,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
           builder: (ctx) => AlertDialog(
             backgroundColor: AppTheme.backgroundCard,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text('Set PIN for ${profile.name}', style: const TextStyle(color: AppTheme.textPrimary)),
+            title: Text('Set PIN for ${profile.name}', style: TextStyle(color: AppTheme.textPrimary)),
             content: TextField(
               controller: pinController,
               obscureText: true,
@@ -347,7 +347,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+                child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -356,7 +356,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.textPrimary, foregroundColor: AppTheme.backgroundDark),
-                child: const Text('Set PIN'),
+                child: Text('Set PIN'),
               ),
             ],
           ),
@@ -376,7 +376,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.backgroundCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit Name', style: TextStyle(color: AppTheme.textPrimary)),
+        title: Text('Edit Name', style: TextStyle(color: AppTheme.textPrimary)),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
@@ -390,7 +390,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -399,7 +399,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.textPrimary, foregroundColor: AppTheme.backgroundDark),
-            child: const Text('Save'),
+            child: Text('Save'),
           ),
         ],
       ),
@@ -417,7 +417,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.backgroundCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Choose Avatar', style: TextStyle(color: AppTheme.textPrimary)),
+        title: Text('Choose Avatar', style: TextStyle(color: AppTheme.textPrimary)),
         content: SizedBox(
           width: 320,
           child: GridView.builder(
@@ -454,7 +454,7 @@ class _ProfileSelectionScreenState extends ConsumerState<ProfileSelectionScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),
@@ -508,7 +508,7 @@ class _ProfileCard extends StatelessWidget {
                         )
                       : Text(
                           profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 40, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppTheme.textPrimary, fontSize: 40, fontWeight: FontWeight.bold),
                         ),
                 ),
                 if (profile.isKidsProfile)
@@ -517,7 +517,7 @@ class _ProfileCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(color: AppTheme.accentGreen, borderRadius: BorderRadius.circular(4)),
-                      child: const Text('KIDS', style: TextStyle(color: AppTheme.textPrimary, fontSize: 8, fontWeight: FontWeight.bold)),
+                      child: Text('KIDS', style: TextStyle(color: AppTheme.textPrimary, fontSize: 8, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 if (profile.isLocked)
@@ -528,7 +528,7 @@ class _ProfileCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(profile.name, style: TextStyle(color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary)),
         ],
       ),
@@ -555,10 +555,10 @@ class _AddProfileCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppTheme.borderMedium, width: 2),
             ),
-            child: const Icon(Icons.add, color: AppTheme.textSecondary, size: 48),
+            child: Icon(Icons.add, color: AppTheme.textSecondary, size: 48),
           ),
-          const SizedBox(height: 8),
-          const Text('Add Profile', style: TextStyle(color: AppTheme.textSecondary)),
+          SizedBox(height: 8),
+          Text('Add Profile', style: TextStyle(color: AppTheme.textSecondary)),
         ],
       ),
     );

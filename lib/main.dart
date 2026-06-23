@@ -10,6 +10,7 @@ import 'core/repositories/profile_repository.dart';
 import 'core/repositories/auth_repository_simple.dart';
 import 'core/repositories/home_cache_repository.dart';
 import 'core/repositories/watchlist_repository.dart';
+import 'core/repositories/watch_history_repository.dart';
 import 'core/repositories/addon_repository.dart';
 import 'core/repositories/catalog_repository.dart';
 import 'core/services/torrent_stream_service.dart';
@@ -36,6 +37,14 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final traktRepo = TraktRepository(prefs: prefs);
 
+  // Load saved theme and set it
+  final savedThemeName = prefs.getString('settings_theme_type') ?? 'midnight';
+  final savedThemeType = AppThemeType.values.firstWhere(
+    (e) => e.name == savedThemeName,
+    orElse: () => AppThemeType.midnight,
+  );
+  AppTheme.setCurrent(StreameThemes.getTheme(savedThemeType));
+
   runApp(ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(
@@ -49,11 +58,19 @@ void main() async {
         ProfileRepository(prefs: prefs),
       ),
       traktRepositoryProvider.overrideWithValue(traktRepo),
-      homeCacheRepositoryProvider.overrideWithValue(
-        HomeCacheRepository(prefs: prefs, traktRepo: traktRepo),
-      ),
+      homeCacheRepositoryProvider.overrideWith((ref) {
+        final profileId = ref.watch(activeProfileIdProvider);
+        return HomeCacheRepository(
+          prefs: prefs,
+          traktRepo: traktRepo,
+          profileId: profileId,
+        );
+      }),
       watchlistRepositoryProvider.overrideWith((ref, profileId) =>
         WatchlistRepository(prefs: prefs, profileId: profileId, traktRepo: traktRepo),
+      ),
+      watchHistoryRepositoryProvider.overrideWith((ref, profileId) =>
+        WatchHistoryRepository(prefs: prefs, profileId: profileId, traktRepo: traktRepo),
       ),
       addonRepositoryProvider.overrideWith((ref, profileId) =>
         AddonRepository(prefs: prefs, profileId: profileId),
@@ -85,10 +102,14 @@ class StreameApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final theme = ref.watch(currentThemeProvider);
+
+    // Update AppTheme.current when theme changes
+    AppTheme.setCurrent(theme);
 
     return MaterialApp.router(
       title: 'Streame',
-      theme: AppTheme.darkTheme,
+      theme: StreameThemes.toFlutterTheme(theme),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

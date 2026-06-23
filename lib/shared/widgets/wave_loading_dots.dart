@@ -10,14 +10,14 @@ class WaveLoadingDots extends StatefulWidget {
   final Color color;
   final Color? secondaryColor;
 
-  const WaveLoadingDots({
+  WaveLoadingDots({
     super.key,
     this.dotCount = 3,
     this.dotSize = 8.0,
     this.dotSpacing = 8.0,
-    this.color = AppTheme.accentGreen,
+    Color? color,
     this.secondaryColor,
-  });
+  }) : color = color ?? AppTheme.accentGreen;
 
   @override
   State<WaveLoadingDots> createState() => _WaveLoadingDotsState();
@@ -86,7 +86,7 @@ class _WaveLoadingDotsState extends State<WaveLoadingDots>
                   color: (index % 2 == 0
                           ? widget.color
                           : widget.secondaryColor ?? widget.color)
-                      .withOpacity(opacity),
+                      .withValues(alpha: opacity),
                   shape: BoxShape.circle,
                 ),
               ),

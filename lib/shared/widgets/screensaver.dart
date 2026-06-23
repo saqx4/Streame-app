@@ -66,7 +66,7 @@ class _ScreensaverState extends State<Screensaver> {
                     children: [
                       Icon(Icons.play_circle_outline, size: 64, color: AppTheme.arcticWhite30),
                       const SizedBox(height: 16),
-                      const Text('Streame', style: TextStyle(
+                      Text('Streame', style: TextStyle(
                         color: AppTheme.arcticWhite30, fontSize: 24, fontWeight: FontWeight.w300,
                       )),
                     ],

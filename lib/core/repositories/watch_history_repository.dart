@@ -175,10 +175,11 @@ class WatchHistoryRepository {
     await _saveLocal(items.take(maxEntries).toList());
 
     // Push to Trakt if linked
-    if (_traktRepo != null && _traktRepo.isLinked() && entry.imdbId != null) {
+    if (_traktRepo != null && _traktRepo.isLinked()) {
       try {
         await _traktRepo.addToHistory(
-          imdbId: entry.imdbId!,
+          imdbId: entry.imdbId,
+          tmdbId: entry.tmdbId,
           mediaType: entry.mediaType,
           season: entry.season > 0 ? entry.season : null,
           episode: entry.episode > 0 ? entry.episode : null,

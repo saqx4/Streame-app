@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:streame/core/models/catalog_models.dart';
 import 'package:streame/core/repositories/tmdb_repository.dart';
 import 'package:streame/core/repositories/addon_repository.dart';
+import 'package:streame/core/repositories/profile_repository.dart';
 import 'package:streame/features/home/data/models/media_item.dart';
-import 'package:streame/core/models/stream_models.dart';
 
 class CollectionItemsRepository {
   final TmdbRepository _tmdbRepo;
@@ -91,9 +91,6 @@ class CollectionItemsRepository {
 
       case CollectionSourceKind.curatedIds:
         return _fetchCurated(source.curatedRefs ?? []);
-
-      default:
-        return [];
     }
   }
 

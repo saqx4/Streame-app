@@ -27,8 +27,8 @@ class PlayerSkipOverlay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(isForward ? Icons.forward_10 : Icons.replay_10, color: AppTheme.textPrimary, size: 32),
-            const SizedBox(width: 8),
-            Text(isForward ? '+10s' : '-10s', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(width: 8),
+            Text(isForward ? '+10s' : '-10s', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -72,9 +72,9 @@ class PlayerSkipIntroButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.skip_next, color: AppTheme.textPrimary, size: 20),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+              Icon(Icons.skip_next, color: AppTheme.textPrimary, size: 20),
+              SizedBox(width: 8),
+              Text(label, style: TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
             ],
           ),
         ),

@@ -2,7 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:streame/shared/widgets/media_card.dart';
 import 'package:streame/shared/widgets/resilient_network_image.dart';
+import 'package:streame/shared/widgets/streame_toast.dart';
+import 'package:streame/shared/widgets/streame_modal.dart';
 import 'package:streame/core/theme/app_theme.dart';
 import 'package:streame/core/focus/focusable.dart';
 import 'package:streame/core/repositories/tmdb_repository.dart';
@@ -209,6 +212,8 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
 
   int _selectedSeason = 1;
   bool _isInWatchlist = false;
+  bool _isWatched = false;
+  bool _isSyncing = false;
   bool _showStreamSelector = false;
   int? _streamSelectorSeason;
   int? _streamSelectorEpisode;
@@ -232,6 +237,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     super.initState();
     _selectedSeason = widget.initialSeason ?? 1;
     _checkWatchlist();
+    _checkWatched();
   }
 
   Future<void> _checkWatchlist() async {
@@ -263,15 +269,125 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
       }
       if (!mounted) return;
       setState(() => _isInWatchlist = !_isInWatchlist);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isInWatchlist ? 'Added to My List' : 'Removed from My List'),
-          backgroundColor: AppTheme.backgroundCard,
-        ),
+      StreameToast.show(
+        context,
+        message: _isInWatchlist ? 'Added to My List' : 'Removed from My List',
+        type: StreameToastType.success,
       );
     } catch (_) {
       // Provider not initialized — skip
     }
+  }
+
+  Future<void> _checkWatched() async {
+    try {
+      final traktRepo = ref.read(traktRepositoryProvider);
+      if (!traktRepo.isLinked()) return;
+
+      bool watched = false;
+      if (widget.mediaType == 'tv') {
+        watched = await ref.read(traktFullyWatchedProvider(widget.mediaId).future);
+      } else {
+        final watchedItems = await ref.read(traktWatchedProvider.future);
+        watched = watchedItems.any((w) => w.tmdbId == widget.mediaId.toString());
+      }
+
+      if (mounted) setState(() => _isWatched = watched);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleWatched() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      final traktRepo = ref.read(traktRepositoryProvider);
+      if (!traktRepo.isLinked()) {
+        if (mounted) {
+          StreameToast.show(
+            context,
+            message: 'Connect Trakt first',
+            type: StreameToastType.info,
+          );
+        }
+        return;
+      }
+      
+      final bool wasWatched = _isWatched;
+      
+      // Optimistic update
+      if (mounted) setState(() => _isWatched = !wasWatched);
+
+      if (!wasWatched) {
+        try {
+          final success = await traktRepo.markAsWatched(
+            mediaType: widget.mediaType,
+            tmdbId: widget.mediaId,
+          );
+          if (success && mounted) {
+            _onWatchedUpdateSuccess(true, removeFromWatchlist: widget.mediaType == 'movie');
+            StreameToast.show(
+              context,
+              message: 'Marked ${widget.mediaType == 'tv' ? 'show' : 'movie'} as watched',
+              type: StreameToastType.success,
+            );
+          } else if (!success) {
+            throw Exception('Request failed');
+          }
+        } catch (e) {
+          if (mounted) setState(() => _isWatched = wasWatched);
+          _showTraktError(e);
+        }
+      } else {
+        try {
+          final success = await traktRepo.unmarkAsWatched(
+            mediaType: widget.mediaType,
+            tmdbId: widget.mediaId,
+          );
+          if (success && mounted) {
+            _onWatchedUpdateSuccess(false);
+            StreameToast.show(context, message: 'Removed from history', type: StreameToastType.info);
+          } else if (!success) {
+            throw Exception('Request failed');
+          }
+        } catch (e) {
+          if (mounted) setState(() => _isWatched = wasWatched);
+          _showTraktError(e);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _toggleWatched: $e');
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  void _onWatchedUpdateSuccess(bool isWatched, {bool removeFromWatchlist = true}) {
+    ref.invalidate(traktWatchedProvider);
+    if (widget.mediaType == 'tv') {
+      ref.invalidate(traktFullyWatchedProvider(widget.mediaId));
+      ref.invalidate(traktShowProgressProvider(widget.mediaId));
+    }
+    
+    if (isWatched && removeFromWatchlist) {
+      final profileId = ref.read(activeProfileIdProvider);
+      if (profileId != null) {
+        final wlRepo = ref.read(watchlistRepositoryProvider(profileId));
+        wlRepo.removeFromWatchlist(widget.mediaId, widget.mediaType).then((_) {
+          ref.invalidate(watchlistProvider(profileId));
+          ref.invalidate(userWatchlistProvider);
+          _checkWatchlist();
+        });
+      }
+    }
+  }
+
+  void _showTraktError(dynamic e) {
+    if (!mounted) return;
+    String message = 'Sync failed';
+    if (e is TraktException) {
+      message = e.message;
+    }
+    StreameToast.show(context, message: message, type: StreameToastType.error);
   }
 
   void _openStreamSelector({int? season, int? episode}) {
@@ -378,27 +494,38 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                 ? Center(child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Not found', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18)),
-                      const SizedBox(height: 16),
-                      TextButton(onPressed: () => context.canPop() ? context.pop() : context.go('/home'), child: const Text('Go Back', style: TextStyle(color: AppTheme.accentYellow))),
+                      Text('Not found', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18)),
+                      SizedBox(height: 16),
+                      TextButton(onPressed: () => context.canPop() ? context.pop() : context.go('/home'), child: Text('Go Back', style: TextStyle(color: AppTheme.accentYellow))),
                     ],
                   ))
                 : _buildContent(data),
-            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.textPrimary)),
+            loading: () => Center(child: CircularProgressIndicator(color: AppTheme.textPrimary)),
             error: (e, _) => Center(child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Error: $e', style: const TextStyle(color: AppTheme.textPrimary)),
-                const SizedBox(height: 16),
+                Text('Error: $e', style: TextStyle(color: AppTheme.textPrimary)),
+                SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(mediaDetailsProvider((mediaType: widget.mediaType, mediaId: widget.mediaId))),
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentYellow, foregroundColor: AppTheme.backgroundDark),
-                  child: const Text('Retry'),
+                  child: Text('Retry'),
                 ),
               ],
             )),
           ),
           if (_showStreamSelector) _buildStreamSelectorOverlay(),
+          if (_isSyncing)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(
+                backgroundColor: Colors.transparent,
+                color: AppTheme.accentYellow,
+                minHeight: 3,
+              ),
+            ),
         ],
       ),
     );
@@ -458,20 +585,20 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         if (isEpisode) ...[
                           Text(
                             'S$season E$episode',
-                            style: const TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                            style: TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                         ],
                         Text(
                           'Select Source',
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                          style: TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   // Close button
                   Semantics(
                     button: true,
@@ -486,7 +613,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
-                        child: const Icon(Icons.close, color: AppTheme.textPrimary, size: 20),
+                        child: Icon(Icons.close, color: AppTheme.textPrimary, size: 20),
                       ),
                     ),
                   ),
@@ -501,8 +628,8 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const CircularProgressIndicator(color: AppTheme.accentRed, strokeWidth: 2.5),
-                          const SizedBox(height: 12),
+                          CircularProgressIndicator(color: AppTheme.accentRed, strokeWidth: 2.5),
+                          SizedBox(height: 12),
                           Text(
                             'Finding sources... ($_resolvedAddonCount/$_totalAddonCount)',
                             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
@@ -531,23 +658,24 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     size: 28,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                SizedBox(height: 12),
                                 Text(
                                   imdbId.isEmpty ? 'No Streaming Addons' : 'No sources found',
                                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 15, fontWeight: FontWeight.w600),
                                 ),
-                                const SizedBox(height: 4),
+                                SizedBox(height: 4),
                                 Text(
                                   imdbId.isEmpty ? 'Go to Settings → Addons to add a streaming addon' : 'Try adding more addons',
                                   style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 12),
                                   textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: () {
                                     _closeStreamSelector();
+                                    final router = GoRouter.of(context);
                                     Future.microtask(() {
-                                      if (mounted) context.go('/settings');
+                                      if (mounted) router.go('/settings');
                                     });
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -556,7 +684,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
-                                  child: const Text('Manage Addons'),
+                                  child: Text('Manage Addons'),
                                 ),
                               ],
                             ),
@@ -584,7 +712,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
                                   scrollDirection: Axis.horizontal,
                                   itemCount: addonTabs.length + 1,
-                                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                                  separatorBuilder: (_, __) => SizedBox(width: 10),
                                   itemBuilder: (context, i) {
                                     final isAll = i == 0;
                                     final opt = isAll ? null : addonTabs[i - 1];
@@ -622,7 +750,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                   },
                                 ),
                               ),
-                            const SizedBox(height: 10),
+                            SizedBox(height: 10),
                             // Stream cards
                             Expanded(
                               child: ListView.builder(
@@ -703,7 +831,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                     ),
                     Container(
                       height: 420,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -744,7 +872,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                 shadows: [Shadow(color: AppTheme.backgroundDark.withValues(alpha: 0.87), blurRadius: 12)],
                               ),
                             ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
@@ -757,13 +885,13 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                       color: AppTheme.accentYellow,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text('IMDb', style: TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 10)),
+                                    child: Text('IMDb', style: TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 10)),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(item.tmdbRating, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 6),
+                                  Text(item.tmdbRating, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
+                                  SizedBox(width: 10),
                                   Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 10),
                                 ],
                                 Consumer(builder: (context, ref, _) {
                                   final traktRatingAsync = ref.watch(_traktRatingProvider((mediaType: widget.mediaType, mediaId: widget.mediaId)));
@@ -773,24 +901,24 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(color: AppTheme.accentRed, borderRadius: BorderRadius.circular(4)),
-                                      child: const Text('Trakt', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 10)),
+                                      child: Text('Trakt', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w900, fontSize: 10)),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(traktRating.toStringAsFixed(1), style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
-                                    const SizedBox(width: 10),
+                                    SizedBox(width: 6),
+                                    Text(traktRating.toStringAsFixed(1), style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
+                                    SizedBox(width: 10),
                                     Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
-                                    const SizedBox(width: 10),
+                                    SizedBox(width: 10),
                                   ]);
                                 }),
                                 if (item.year.isNotEmpty)
-                                  Text(item.year, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
+                                  Text(item.year, style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                                 if (item.year.isNotEmpty && data.genres.isNotEmpty) ...[
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 10),
                                   Text('•', style: TextStyle(color: AppTheme.textTertiary, fontSize: 13)),
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 10),
                                 ],
                                 if (data.genres.isNotEmpty)
-                                  Text(data.genres.take(2).join(' / '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
+                                  Text(data.genres.take(2).join(' / '), style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
                               ],
                             ),
                           ),
@@ -808,105 +936,72 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 12),
-                    StreameFocusable(
-                      onTap: () {
-                        if (widget.mediaType == 'tv') {
-                          _openStreamSelector(season: _selectedSeason, episode: 1);
-                        } else {
-                          _openStreamSelector();
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: AppTheme.textPrimary,
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.play_arrow, color: AppTheme.backgroundDark, size: 24),
-                            const SizedBox(width: 8),
-                            Text(
-                              widget.mediaType == 'tv' ? 'Play S${_selectedSeason}E1' : 'Play',
-                              style: const TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
+                    SizedBox(height: 4),
+                    // ─── Action row: circular icon buttons + Play ───
                     Row(
                       children: [
-                        Expanded(
-                          child: StreameFocusable(
-                            onTap: () => _openStreamSelector(),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundCard,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppTheme.borderLight),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.list, color: AppTheme.textPrimary, size: 18),
-                                  SizedBox(width: 6),
-                                  Text('Sources', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13)),
-                                ],
-                              ),
-                            ),
-                          ),
+                        _ActionBarIcon(
+                          icon: _isInWatchlist ? Icons.bookmark : Icons.bookmark_border,
+                          color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
+                          onTap: () async => await _toggleWatchlist(item),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: StreameFocusable(
-                            onTap: () async => await _toggleWatchlist(item),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundCard,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.borderLight,
+                        SizedBox(width: 10),
+                        _ActionBarIcon(
+                          icon: Icons.favorite_border,
+                          color: AppTheme.textSecondary,
+                          onTap: () {},
+                        ),
+                        SizedBox(width: 10),
+                        _WatchedButton(
+                          isWatched: _isWatched,
+                          onTap: _toggleWatched,
+                          onLongPress: () {
+                            if (_isWatched) {
+                              _toggleWatched(); // Long press unmarks if already watched
+                            }
+                          },
+                        ),
+                        Spacer(),
+                        StreameFocusable(
+                          onTap: () {
+                            if (widget.mediaType == 'tv') {
+                              _openStreamSelector(season: _selectedSeason, episode: 1);
+                            } else {
+                              _openStreamSelector();
+                            }
+                          },
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 28),
+                            decoration: BoxDecoration(
+                              color: AppTheme.textPrimary,
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.play_arrow_rounded, color: AppTheme.backgroundDark, size: 26),
+                                SizedBox(width: 4),
+                                Text(
+                                  widget.mediaType == 'tv' ? 'Play S${_selectedSeason}E1' : 'Play',
+                                  style: TextStyle(color: AppTheme.backgroundDark, fontWeight: FontWeight.w900, fontSize: 15),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _isInWatchlist ? Icons.bookmark : Icons.bookmark_border,
-                                    color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _isInWatchlist ? 'Saved' : 'Save',
-                                    style: TextStyle(
-                                      color: _isInWatchlist ? AppTheme.accentYellow : AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     if (item.overview.isNotEmpty) ...[
                       Text(
                         item.overview,
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.6),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.6),
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                     ],
                   ],
                 ),
@@ -919,7 +1014,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                   _buildCastSection(),
                   if (widget.mediaType == 'tv') _buildSeasonsList(),
                   _buildSimilarSection(),
-                  const SizedBox(height: 100),
+                  SizedBox(height: 100),
                 ]),
               ),
             ),
@@ -942,7 +1037,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                   color: AppTheme.backgroundDark.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+                child: Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
               ),
             ),
           ),
@@ -961,14 +1056,14 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Cast', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
+            Text('Cast', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+            SizedBox(height: 12),
             SizedBox(
               height: 150,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: cast.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, __) => SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final person = cast[index] as Map<String, dynamic>;
                   final name = person['name'] as String? ?? '';
@@ -998,25 +1093,25 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                               ? ClipOval(child: ResilientNetworkImage(
                                   imageUrl: 'https://image.tmdb.org/t/p/w185$profilePath',
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => const Icon(Icons.person, color: AppTheme.textTertiary),
+                                  errorWidget: (_, __, ___) => Icon(Icons.person, color: AppTheme.textTertiary),
                                 ))
                               : Center(
                                   child: Text(
                                     initials,
-                                    style: const TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w800, fontSize: 18),
+                                    style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w800, fontSize: 18),
                                   ),
                                 ),
                         ),
-                        const SizedBox(height: 6),
-                        SizedBox(width: 92, child: Text(name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center)),
-                        SizedBox(width: 92, child: Text(character, style: const TextStyle(color: AppTheme.textTertiary, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center)),
+                        SizedBox(height: 6),
+                        SizedBox(width: 92, child: Text(name, style: TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center)),
+                        SizedBox(width: 92, child: Text(character, style: TextStyle(color: AppTheme.textTertiary, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center)),
                       ],
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
           ],
         );
       },
@@ -1030,55 +1125,48 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     return similarAsync.when(
       data: (items) {
         if (items.isEmpty) return const SizedBox.shrink();
+        
+        final prefs = ref.watch(sharedPreferencesProvider);
+        final cardSize = prefs.getDouble('settings_card_size') ?? 0.5;
+        final double cardWidth = (0.5 + cardSize * 0.5) * 126;
+        final double cardHeight = (0.5 + cardSize * 0.5) * 189;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('More Like This', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'More Like This',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             SizedBox(
-              height: 180,
+              height: cardHeight,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: items.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   final mt = item.mediaType == MediaType.tv ? 'tv' : 'movie';
-                  return StreameFocusable(
+                  
+                  return MediaCard(
+                    item: item,
+                    cardWidth: cardWidth,
+                    cardHeight: cardHeight,
                     onTap: () => context.push('/details/$mt/${item.id}'),
-                    child: Container(
-                      width: 120,
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundCard,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                              child: item.image.isNotEmpty
-                                  ? ResilientNetworkImage(
-                                      imageUrl: 'https://image.tmdb.org/t/p/w300${item.image}',
-                                      fit: BoxFit.cover, width: 120,
-                                      errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundElevated, child: const Icon(Icons.movie, color: AppTheme.textTertiary)),
-                                    )
-                                  : Container(color: AppTheme.backgroundElevated, child: const Icon(Icons.movie, color: AppTheme.textTertiary)),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Text(item.title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
-                          ),
-                        ],
-                      ),
-                    ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
           ],
         );
       },
@@ -1091,6 +1179,17 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     final details = ref.read(mediaDetailsProvider((mediaType: widget.mediaType, mediaId: widget.mediaId))).valueOrNull;
     final seasons = details?.seasons ?? [];
     final episodesAsync = ref.watch(seasonEpisodesProvider((tvId: widget.mediaId, seasonNumber: _selectedSeason)));
+    final traktProgress = ref.watch(traktShowProgressProvider(widget.mediaId)).valueOrNull;
+
+    // Helper to check if an episode is watched via Trakt progress
+    bool isEpisodeWatched(int season, int episode) {
+      if (traktProgress == null) return false;
+      final seasons = traktProgress['seasons'] as List<dynamic>? ?? [];
+      final s = seasons.firstWhere((s) => s['number'] == season, orElse: () => null);
+      if (s == null) return false;
+      final episodes = s['episodes'] as List<dynamic>? ?? [];
+      return episodes.any((e) => e['number'] == episode);
+    }
 
     // Clamp selected season to valid range
     if (seasons.isNotEmpty && _selectedSeason > seasons.last.seasonNumber) {
@@ -1102,7 +1201,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Seasons',
           style: TextStyle(
             fontSize: 18,
@@ -1110,7 +1209,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
             color: AppTheme.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -1121,43 +1220,43 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
               final isSelected = sn == _selectedSeason;
               return Padding(
                 padding: const EdgeInsets.only(right: 10),
-                child: StreameFocusable(
+                child: _SeasonChip(
+                  name: season.name ?? 'Season $sn',
+                  seasonNumber: sn,
+                  episodeCount: season.episodeCount,
+                  isSelected: isSelected,
                   onTap: () => setState(() => _selectedSeason = sn),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.backgroundCard : Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.borderLight.withValues(alpha: isSelected ? 0.35 : 0.25)),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: AppTheme.backgroundDark.withValues(alpha: 0.35),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        color: isSelected ? AppTheme.textPrimary : AppTheme.textTertiary,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      ),
-                      child: Text(season.name ?? 'Season $sn'),
-                    ),
-                  ),
+                  onMarkAllWatched: () async {
+                    if (_isSyncing) return;
+                    try {
+                      final traktRepo = ref.read(traktRepositoryProvider);
+                      if (!traktRepo.isLinked()) {
+                        StreameToast.show(context, message: 'Connect Trakt first', type: StreameToastType.info);
+                        return;
+                      }
+                      setState(() => _isSyncing = true);
+                      final success = await traktRepo.markAsWatched(
+                        mediaType: 'tv',
+                        tmdbId: widget.mediaId,
+                        season: sn,
+                      );
+                      if (success && mounted) {
+                        StreameToast.show(context, message: 'Season $sn marked as watched', type: StreameToastType.success);
+                        _onWatchedUpdateSuccess(true);
+                      }
+                    } catch (e) {
+                      _showTraktError(e);
+                    } finally {
+                      if (mounted) setState(() => _isSyncing = false);
+                    }
+                  },
                 ),
               );
             }),
           ),
         ),
-        const SizedBox(height: 24),
-        const Text(
+        SizedBox(height: 24),
+        Text(
           'Episodes',
           style: TextStyle(
             fontSize: 18,
@@ -1165,7 +1264,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
             color: AppTheme.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutCubic,
@@ -1184,18 +1283,18 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
             key: ValueKey(_selectedSeason),
             child: episodesAsync.when(
               data: (episodes) => SizedBox(
-                height: 190,
+                height: 240,
                 child: ListView.separated(
                   key: PageStorageKey('episodes_s$_selectedSeason'),
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 8),
                   itemCount: episodes.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  separatorBuilder: (_, __) => SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final ep = episodes[index];
                     return SizedBox(
-                      width: 320,
+                      width: 300,
                       child: _EpisodeTile(
                         episodeNumber: ep.episodeNumber,
                         seasonNumber: ep.seasonNumber,
@@ -1203,13 +1302,83 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         overview: ep.overview,
                         stillPath: ep.stillPath,
                         rating: ep.rating,
+                        airDate: ep.airDate,
+                        isWatched: isEpisodeWatched(ep.seasonNumber, ep.episodeNumber),
                         onTap: () => _openStreamSelector(season: ep.seasonNumber, episode: ep.episodeNumber),
+                        onMarkAsWatched: () async {
+                          if (_isSyncing) return;
+                          try {
+                            final traktRepo = ref.read(traktRepositoryProvider);
+                            if (!traktRepo.isLinked()) {
+                              if (mounted) {
+                                StreameToast.show(
+                                  context,
+                                  message: 'Connect Trakt first',
+                                  type: StreameToastType.info,
+                                );
+                              }
+                              return;
+                            }
+
+                            final messenger = ScaffoldMessenger.of(context);
+                            setState(() => _isSyncing = true);
+                            final bool wasWatched = isEpisodeWatched(ep.seasonNumber, ep.episodeNumber);
+
+                            if (wasWatched) {
+                              final success = await traktRepo.unmarkAsWatched(
+                                mediaType: 'tv',
+                                tmdbId: widget.mediaId,
+                                season: ep.seasonNumber,
+                                episode: ep.episodeNumber,
+                              );
+                              if (success && mounted) {
+                                StreameToast.show(
+                                  context,
+                                  message: 'Removed S${ep.seasonNumber}E${ep.episodeNumber} from history',
+                                  type: StreameToastType.info,
+                                );
+                                _onWatchedUpdateSuccess(false);
+                              }
+                            } else {
+                              final success = await traktRepo.markAsWatched(
+                                mediaType: 'tv',
+                                tmdbId: widget.mediaId,
+                                season: ep.seasonNumber,
+                                episode: ep.episodeNumber,
+                              );
+                              if (success && mounted) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('S${ep.seasonNumber}E${ep.episodeNumber.toString().padLeft(2, '0')} marked as watched'),
+                                    action: SnackBarAction(
+                                      label: 'Undo',
+                                      onPressed: () async {
+                                        await traktRepo.unmarkAsWatched(
+                                          mediaType: 'tv',
+                                          tmdbId: widget.mediaId,
+                                          season: ep.seasonNumber,
+                                          episode: ep.episodeNumber,
+                                        );
+                                        _onWatchedUpdateSuccess(false);
+                                      },
+                                    ),
+                                  ),
+                                );
+                                _onWatchedUpdateSuccess(true);
+                              }
+                            }
+                          } catch (e) {
+                            _showTraktError(e);
+                          } finally {
+                            if (mounted) setState(() => _isSyncing = false);
+                          }
+                        },
                       ),
                     );
                   },
                 ),
               ),
-              loading: () => const Center(
+              loading: () => Center(
                 child: Padding(
                   padding: EdgeInsets.all(32),
                   child: CircularProgressIndicator(color: AppTheme.textTertiary),
@@ -1218,10 +1387,10 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
               error: (_, __) => Center(
                 child: Column(
                   children: [
-                    const Text('Failed to load episodes', style: TextStyle(color: AppTheme.textTertiary)),
+                    Text('Failed to load episodes', style: TextStyle(color: AppTheme.textTertiary)),
                     TextButton(
                       onPressed: () => ref.invalidate(seasonEpisodesProvider((tvId: widget.mediaId, seasonNumber: _selectedSeason))),
-                      child: const Text('Retry', style: TextStyle(color: AppTheme.accentYellow)),
+                      child: Text('Retry', style: TextStyle(color: AppTheme.accentYellow)),
                     ),
                   ],
                 ),
@@ -1230,6 +1399,220 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Circular action bar icon ───
+class _ActionBarIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _ActionBarIcon({required this.icon, required this.color, this.onTap});
+
+  @override
+  State<_ActionBarIcon> createState() => _ActionBarIconState();
+}
+
+class _ActionBarIconState extends State<_ActionBarIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.9).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) {
+        _ctrl.reverse();
+        widget.onTap?.call();
+      },
+      onTapCancel: () => _ctrl.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnim,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnim.value,
+            child: child,
+          );
+        },
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundCard,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.borderLight.withValues(alpha: 0.4)),
+          ),
+          child: Icon(widget.icon, color: widget.color, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Watched button with glassmorphism expanding animation ───
+class _WatchedButton extends StatefulWidget {
+  final bool isWatched;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  const _WatchedButton({required this.isWatched, this.onTap, this.onLongPress});
+
+  @override
+  State<_WatchedButton> createState() => _WatchedButtonState();
+}
+
+class _WatchedButtonState extends State<_WatchedButton> with TickerProviderStateMixin {
+  late AnimationController _expandCtrl;
+  late AnimationController _iconCtrl;
+  late Animation<double> _expandAnim;
+  late Animation<double> _iconScaleAnim;
+  late Animation<double> _iconRotateAnim;
+  bool _isAnimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _iconCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+
+    _expandAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _expandCtrl, curve: Curves.easeOutCubic),
+    );
+    _iconScaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _iconCtrl, curve: Curves.elasticOut),
+    );
+    _iconRotateAnim = Tween<double>(begin: -0.5, end: 0.0).animate(
+      CurvedAnimation(parent: _iconCtrl, curve: Curves.easeOutCubic),
+    );
+
+    if (widget.isWatched) {
+      _expandCtrl.value = 1.0;
+      _iconCtrl.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_WatchedButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isWatched && !oldWidget.isWatched && !_isAnimating) {
+      _animateForward();
+    } else if (!widget.isWatched && oldWidget.isWatched && !_isAnimating) {
+      _animateReverse();
+    }
+  }
+
+  void _animateForward() {
+    _isAnimating = true;
+    _expandCtrl.forward().then((_) => _iconCtrl.forward()).then((_) => _isAnimating = false);
+  }
+
+  void _animateReverse() {
+    _isAnimating = true;
+    _iconCtrl.reverse().then((_) => _expandCtrl.reverse()).then((_) => _isAnimating = false);
+  }
+
+  @override
+  void dispose() {
+    _expandCtrl.dispose();
+    _iconCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_expandAnim, _iconScaleAnim, _iconRotateAnim]),
+        builder: (context, child) {
+          return Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Color.lerp(
+                  AppTheme.borderLight.withValues(alpha: 0.4),
+                  AppTheme.accentGreen.withValues(alpha: 0.8),
+                  _expandAnim.value,
+                )!,
+                width: 1.5,
+              ),
+            ),
+            child: ClipOval(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color.lerp(
+                        AppTheme.backgroundCard,
+                        AppTheme.accentGreen.withValues(alpha: 0.3),
+                        _expandAnim.value,
+                      ),
+                    ),
+                  ),
+                  if (_expandAnim.value > 0)
+                    BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 4.0 * _expandAnim.value,
+                        sigmaY: 4.0 * _expandAnim.value,
+                      ),
+                      child: Container(color: Colors.transparent),
+                    ),
+                  if (_expandAnim.value > 0 && _expandAnim.value < 1.0)
+                    Transform.scale(
+                      scale: 0.8 + (_expandAnim.value * 0.6),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppTheme.accentGreen.withValues(alpha: 0.4 * (1.0 - _expandAnim.value)),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Transform.scale(
+                    scale: _iconScaleAnim.value,
+                    child: Transform.rotate(
+                      angle: _iconRotateAnim.value,
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: Color.lerp(
+                          AppTheme.textSecondary,
+                          AppTheme.textPrimary,
+                          _expandAnim.value,
+                        ),
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -1282,12 +1665,12 @@ class _ArvioStreamCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             p.title,
-                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
@@ -1301,7 +1684,7 @@ class _ArvioStreamCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     // Metadata chips
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1377,14 +1760,17 @@ class _ArvioStreamCard extends StatelessWidget {
 
 }
 
-class _EpisodeTile extends StatelessWidget {
+class _EpisodeTile extends StatefulWidget {
   final int episodeNumber;
   final int seasonNumber;
   final String? name;
   final String? overview;
   final String? stillPath;
   final double rating;
+  final DateTime? airDate;
+  final bool isWatched;
   final VoidCallback? onTap;
+  final VoidCallback? onMarkAsWatched;
 
   const _EpisodeTile({
     required this.episodeNumber,
@@ -1393,125 +1779,399 @@ class _EpisodeTile extends StatelessWidget {
     this.overview,
     this.stillPath,
     this.rating = 0,
+    this.airDate,
+    this.isWatched = false,
     this.onTap,
+    this.onMarkAsWatched,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final title = name?.trim().isNotEmpty == true ? name!.trim() : 'Episode $episodeNumber';
-    final subtitle = overview?.trim().isNotEmpty == true ? overview!.trim() : null;
-    final badge = 'S${seasonNumber}E${episodeNumber.toString().padLeft(2, '0')}';
+  State<_EpisodeTile> createState() => _EpisodeTileState();
+}
 
-    return StreameFocusable(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundCard,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.backgroundDark.withValues(alpha: 0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            children: [
-              SizedBox(
-                height: 190,
-                width: double.infinity,
-                child: (stillPath != null && stillPath!.isNotEmpty)
-                    ? ResilientNetworkImage(
-                        imageUrl: 'https://image.tmdb.org/t/p/w780$stillPath',
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundElevated),
-                      )
-                    : Container(color: AppTheme.backgroundElevated),
+class _EpisodeTileState extends State<_EpisodeTile> with SingleTickerProviderStateMixin {
+  late AnimationController _animCtrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onLongPressStart(LongPressStartDetails _) {
+    _animCtrl.forward();
+    _showActionModal();
+  }
+
+  void _onLongPressEnd(LongPressEndDetails _) {
+    _animCtrl.reverse();
+  }
+
+  void _showActionModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => EpisodeActionModal(
+        episodeNumber: widget.episodeNumber,
+        seasonNumber: widget.seasonNumber,
+        name: widget.name,
+        isWatched: widget.isWatched,
+        onMarkAsWatched: () => widget.onMarkAsWatched?.call(),
+        onPlay: () => widget.onTap?.call(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : 'Episode ${widget.episodeNumber}';
+    final badge = 'E${widget.episodeNumber.toString().padLeft(2, '0')}';
+    final hasImage = widget.stillPath != null && widget.stillPath!.isNotEmpty;
+
+    return AnimatedBuilder(
+      animation: _animCtrl,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnim.value,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onLongPressStart: _onLongPressStart,
+            onLongPressEnd: _onLongPressEnd,
+            onLongPressCancel: () => _animCtrl.reverse(),
+            child: Container(
+              height: 240,
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundCard,
+                borderRadius: BorderRadius.circular(14),
               ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        AppTheme.backgroundDark.withValues(alpha: 0.10),
-                        AppTheme.backgroundDark.withValues(alpha: 0.20),
-                        AppTheme.backgroundDark.withValues(alpha: 0.78),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundDark.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.textPrimary.withValues(alpha: 0.12)),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: 12,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.80), fontSize: 12, height: 1.25),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Row(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ─── Thumbnail ───
+                  SizedBox(
+                    height: 168,
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        if (rating > 0) ...[
-                          const Icon(Icons.star, size: 14, color: AppTheme.accentYellow),
-                          const SizedBox(width: 4),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w700),
+                        if (hasImage)
+                          ResilientNetworkImage(
+                            imageUrl: 'https://image.tmdb.org/t/p/w500${widget.stillPath}',
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => _PlaceholderThumb(episode: widget.episodeNumber),
+                          )
+                        else
+                          _PlaceholderThumb(episode: widget.episodeNumber),
+                        // Gradient scrim
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  AppTheme.backgroundDark.withValues(alpha: 0.85),
+                                ],
+                                stops: [0.4, 1.0],
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                        ],
-                        Text(
-                          'Tap to play',
-                          style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.75), fontSize: 12),
                         ),
-                        const Spacer(),
-                        const Icon(Icons.play_circle_fill, color: AppTheme.textPrimary, size: 22),
+                        // Episode badge — top-left
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundDark.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badge,
+                              style: TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Watched indicator — top-right
+                        if (widget.isWatched)
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentGreen.withValues(alpha: 0.9),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: AppTheme.backgroundDark,
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                        // Play icon — bottom-right
+                        Positioned(
+                          bottom: 10,
+                          right: 10,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: widget.isWatched 
+                                  ? AppTheme.accentGreen.withValues(alpha: 0.85)
+                                  : AppTheme.textPrimary.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              widget.isWatched ? Icons.check_rounded : Icons.play_arrow_rounded,
+                              color: widget.isWatched ? AppTheme.backgroundDark : AppTheme.textPrimary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  // ─── Content ───
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Spacer(),
+                          Row(
+                            children: [
+                              if (widget.rating > 0) ...[
+                                Icon(Icons.star_rounded, size: 15, color: AppTheme.accentYellow),
+                                SizedBox(width: 3),
+                                Text(
+                                  widget.rating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimary.withValues(alpha: 0.85),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                              ],
+                              if (widget.airDate != null)
+                                Text(
+                                  _formatAirDate(widget.airDate!),
+                                  style: TextStyle(
+                                    color: AppTheme.textTertiary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  String _formatAirDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
+  }
+}
+
+// ─── Placeholder thumbnail when no still image ───
+class _PlaceholderThumb extends StatelessWidget {
+  final int episode;
+  const _PlaceholderThumb({required this.episode});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppTheme.backgroundElevated,
+      child: Center(
+        child: Icon(
+          Icons.play_circle_outline_rounded,
+          color: AppTheme.textTertiary.withValues(alpha: 0.3),
+          size: 40,
         ),
       ),
+    );
+  }
+}
+
+// ─── Season chip with long-press expanding animation ───
+class _SeasonChip extends StatefulWidget {
+  final String name;
+  final int seasonNumber;
+  final int episodeCount;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onMarkAllWatched;
+
+  const _SeasonChip({
+    required this.name,
+    required this.seasonNumber,
+    this.episodeCount = 0,
+    required this.isSelected,
+    this.onTap,
+    this.onMarkAllWatched,
+  });
+
+  @override
+  State<_SeasonChip> createState() => _SeasonChipState();
+}
+
+class _SeasonChipState extends State<_SeasonChip> with SingleTickerProviderStateMixin {
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _borderAnim;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.94).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOutCubic),
+    );
+    _borderAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onLongPressStart(LongPressStartDetails _) {
+    _pressCtrl.forward();
+    setState(() => _isPressed = true);
+    _showActionModal();
+  }
+
+  void _onLongPressEnd(LongPressEndDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _showActionModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SeasonActionModal(
+        seasonNumber: widget.seasonNumber,
+        name: widget.name,
+        episodeCount: widget.episodeCount,
+        onMarkAllWatched: () => widget.onMarkAllWatched?.call(),
+        onSelect: () => widget.onTap?.call(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_scaleAnim, _borderAnim]),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnim.value,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onLongPressStart: _onLongPressStart,
+            onLongPressEnd: _onLongPressEnd,
+            onLongPressCancel: () {
+              _pressCtrl.reverse();
+              setState(() => _isPressed = false);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.isSelected || _isPressed
+                    ? AppTheme.backgroundCard
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Color.lerp(
+                    AppTheme.borderLight.withValues(alpha: 0.25),
+                    _isPressed
+                        ? AppTheme.accentYellow
+                        : (widget.isSelected ? AppTheme.accentGreen : AppTheme.borderLight.withValues(alpha: 0.35)),
+                    _isPressed ? _borderAnim.value : 1.0,
+                  )!,
+                  width: _isPressed ? 1.5 : 1.0,
+                ),
+                boxShadow: (widget.isSelected || _isPressed)
+                    ? [
+                        BoxShadow(
+                          color: (_isPressed ? AppTheme.accentYellow : AppTheme.backgroundDark).withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                style: TextStyle(
+                  color: widget.isSelected || _isPressed ? AppTheme.textPrimary : AppTheme.textTertiary,
+                  fontWeight: widget.isSelected || _isPressed ? FontWeight.w800 : FontWeight.w600,
+                ),
+                child: Text(widget.name),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

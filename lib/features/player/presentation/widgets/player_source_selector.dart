@@ -117,7 +117,7 @@ class PlayerSourceSelector extends StatelessWidget {
                           isSelected: sourceFilter == null,
                           onTap: () => onFilterChange(null),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         ...groups.keys.map((name) => Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: _SourceFilterChip(
@@ -159,7 +159,7 @@ class PlayerSourceSelector extends StatelessWidget {
                             ],
                             if (streamResults.isEmpty)
                               const _SourceEmptyState(),
-                            const SizedBox(height: 32),
+                            SizedBox(height: 32),
                           ],
                         ),
                 ),
@@ -174,7 +174,7 @@ class PlayerSourceSelector extends StatelessWidget {
   Widget _titleFallback() {
     return Text(
       mediaTitle ?? 'Select Source',
-      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+      style: TextStyle(color: AppTheme.textPrimary, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5),
       textAlign: TextAlign.center,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -324,7 +324,7 @@ class _StreamCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
@@ -338,7 +338,7 @@ class _StreamCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -375,7 +375,7 @@ class _StreamCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   sizeLabel,
-                                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+                                  style: TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
                                   maxLines: 1,
                                 ),
                               ),
@@ -387,7 +387,7 @@ class _StreamCard extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                const Icon(Icons.check_circle, color: AppTheme.textPrimary, size: 24),
+                Icon(Icons.check_circle, color: AppTheme.textPrimary, size: 24),
             ],
           ),
         ),
@@ -406,9 +406,9 @@ class _SourceEmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(Icons.search_off, color: AppTheme.textPrimary.withValues(alpha: 0.4), size: 48),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text('No sources available', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.7), fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text('Try adding more addons in Settings', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.45), fontSize: 14), textAlign: TextAlign.center),
         ],
       ),

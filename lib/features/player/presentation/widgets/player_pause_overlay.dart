@@ -54,7 +54,7 @@ class PlayerPauseOverlay extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 if (logoUrl != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 240, maxHeight: 80),
@@ -67,7 +67,7 @@ class PlayerPauseOverlay extends StatelessWidget {
                 else
                   _titleFallback(),
                 if (seasonNumber != null && episodeNumber != null) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     'S$seasonNumber E$episodeNumber',
                     style: TextStyle(
@@ -89,7 +89,7 @@ class PlayerPauseOverlay extends StatelessWidget {
   Widget _titleFallback() {
     return Text(
       mediaTitle ?? '',
-      style: const TextStyle(
+      style: TextStyle(
         color: AppTheme.textPrimary,
         fontSize: 24,
         fontWeight: FontWeight.bold,

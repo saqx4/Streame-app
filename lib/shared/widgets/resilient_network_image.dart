@@ -160,7 +160,7 @@ class _ResilientNetworkImageState extends State<ResilientNetworkImage> {
               height: widget.height,
               color: AppTheme.backgroundElevated,
               child: _state == _ImageState.fallbackLoading
-                  ? const Center(
+                  ? Center(
                       child: SizedBox(
                         width: 16,
                         height: 16,

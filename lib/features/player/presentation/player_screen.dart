@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -746,12 +746,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final traktRepo = ref.read(traktRepositoryProvider);
       if (!traktRepo.isLinked()) return;
       final imdbId = widget.imdbId;
-      if (imdbId == null || imdbId.isEmpty) return;
+      final tmdbId = widget.mediaId;
+      if ((imdbId == null || imdbId.isEmpty) && tmdbId <= 0) return;
 
       final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
-      // Stop scrobble: Trakt auto-marks as watched if progress >= 80%
       await traktRepo.scrobbleStop(
         imdbId: imdbId,
+        tmdbId: tmdbId,
         mediaType: widget.mediaType,
         season: widget.seasonNumber,
         episode: widget.episodeNumber,
@@ -765,10 +766,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final traktRepo = ref.read(traktRepositoryProvider);
       if (!traktRepo.isLinked()) return;
       final imdbId = widget.imdbId;
-      if (imdbId == null || imdbId.isEmpty) return;
+      final tmdbId = widget.mediaId;
+      if ((imdbId == null || imdbId.isEmpty) && tmdbId <= 0) return;
+
       final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
       await traktRepo.scrobbleStart(
         imdbId: imdbId,
+        tmdbId: tmdbId,
         mediaType: widget.mediaType,
         season: widget.seasonNumber,
         episode: widget.episodeNumber,
@@ -782,10 +786,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final traktRepo = ref.read(traktRepositoryProvider);
       if (!traktRepo.isLinked()) return;
       final imdbId = widget.imdbId;
-      if (imdbId == null || imdbId.isEmpty) return;
+      final tmdbId = widget.mediaId;
+      if ((imdbId == null || imdbId.isEmpty) && tmdbId <= 0) return;
+
       final progress = _duration.inSeconds > 0 ? _position.inSeconds / _duration.inSeconds : 0.0;
       await traktRepo.scrobblePause(
         imdbId: imdbId,
+        tmdbId: tmdbId,
         mediaType: widget.mediaType,
         season: widget.seasonNumber,
         episode: widget.episodeNumber,
@@ -1027,7 +1034,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 10),
                 child: Text('Subtitles',
                     textAlign: TextAlign.center,
@@ -1045,12 +1052,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       Navigator.pop(ctx);
                       _showSubtitleSettingsSheet();
                     },
-                    child: const Text('Settings', style: TextStyle(color: AppTheme.textSecondary)),
+                    child: Text('Settings', style: TextStyle(color: AppTheme.textSecondary)),
                   ),
                 ),
               ),
               if (_isFetchingSubs)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: LinearProgressIndicator(
                       color: AppTheme.arcticWhite12, backgroundColor: AppTheme.arcticWhite12),
@@ -1103,7 +1110,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     }),
                   ],
                   if (embedded.isEmpty && online.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(
                           child: Text('No subtitles found',
@@ -1142,7 +1149,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
               child: Text('Audio Tracks',
                   style: TextStyle(
@@ -1151,7 +1158,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       fontWeight: FontWeight.bold)),
             ),
             if (_audioTracks.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('No audio tracks found',
                     style: TextStyle(color: AppTheme.textDisabled)),
@@ -1294,18 +1301,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Subtitle settings',
                       style: TextStyle(color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
 
                     // Size
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Size', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                        Text(fontSize.toStringAsFixed(0), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('Size', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text(fontSize.toStringAsFixed(0), style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1321,8 +1328,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Position', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                        Text('${position.round()}%', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('Position', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${position.round()}%', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1338,8 +1345,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Background', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('Background', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${(bgOpacity * 100).toStringAsFixed(0)}%', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1355,8 +1362,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Delay', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                        Text('${delayMs}ms', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('Delay', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text('${delayMs}ms', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                       ],
                     ),
                     Slider(
@@ -1368,7 +1375,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       onChangeEnd: (v) => _saveSubtitleSettings(delayMs: v.round()),
                     ),
 
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'Default: size 32, position 90%, background 55%, delay 0ms',
                       style: TextStyle(color: AppTheme.textTertiary, fontSize: 11),
@@ -1476,7 +1483,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
                     backgroundColor: AppTheme.backgroundDark.withValues(alpha: _subtitleBgOpacity),
-                    shadows: const [
+                    shadows: [
                       Shadow(offset: Offset(0, 2), blurRadius: 6, color: AppTheme.backgroundDark),
                     ],
                   ),
@@ -1642,7 +1649,7 @@ class _SubTile extends StatelessWidget {
                   color: selected ? AppTheme.textTertiary : AppTheme.textDisabled,
                   fontSize: 12))
           : null,
-      trailing: selected ? const Icon(Icons.check, color: AppTheme.textPrimary, size: 20) : null,
+      trailing: selected ? Icon(Icons.check, color: AppTheme.textPrimary, size: 20) : null,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       dense: true,
@@ -1659,7 +1666,7 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Text(text,
-          style: const TextStyle(
+          style: TextStyle(
               color: AppTheme.textDisabled,
               fontSize: 12,
               fontWeight: FontWeight.bold,

@@ -67,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
+                Text(
                   'Streame',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -76,16 +76,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   _isSignUp ? 'Create an account' : 'Sign in to continue',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     color: AppTheme.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -101,7 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   autocorrect: false,
                   enabled: !isLoading,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
                   decoration: InputDecoration(
@@ -117,13 +117,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   enabled: !isLoading,
                   onSubmitted: (_) => _submit(),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppTheme.accentRed),
+                      style: TextStyle(color: AppTheme.accentRed),
                     ),
                   ),
                 ElevatedButton(
@@ -137,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   child: isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
@@ -145,9 +145,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             valueColor: AlwaysStoppedAnimation(AppTheme.backgroundDark),
                           ),
                         )
-                      : Text(_isSignUp ? 'Sign Up' : 'Sign In', style: const TextStyle(fontSize: 16)),
+                      : Text(_isSignUp ? 'Sign Up' : 'Sign In', style: TextStyle(fontSize: 16)),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 TextButton(
                   onPressed: isLoading
                       ? null
@@ -157,21 +157,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           }),
                   child: Text(
                     _isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up",
-                    style: const TextStyle(color: AppTheme.textSecondary),
+                    style: TextStyle(color: AppTheme.textSecondary),
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: AppTheme.borderLight)),
+                    Expanded(child: Divider(color: AppTheme.borderLight)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text('OR', style: TextStyle(color: AppTheme.textTertiary, fontSize: 12, fontWeight: FontWeight.w600)),
                     ),
-                    const Expanded(child: Divider(color: AppTheme.borderLight)),
+                    Expanded(child: Divider(color: AppTheme.borderLight)),
                   ],
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 OutlinedButton(
                   onPressed: isLoading ? null : () async {
                     await ref.read(authStateProvider.notifier).enterGuestMode();
@@ -179,11 +179,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.textSecondary,
-                    side: const BorderSide(color: AppTheme.borderMedium),
+                    side: BorderSide(color: AppTheme.borderMedium),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.person_outline, size: 18),
@@ -192,7 +192,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   'No account needed. Data stays on this device.',
                   textAlign: TextAlign.center,

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:streame/core/theme/app_theme.dart';
-import 'package:streame/core/providers/shared_providers.dart';
+
 import 'package:streame/core/repositories/tmdb_repository.dart';
 import 'package:streame/core/repositories/trakt_repository.dart' show traktWatchedProvider, traktFullyWatchedProvider;
+import 'package:streame/core/repositories/home_cache_repository.dart' show ContinueWatchingItem;
 import 'package:streame/features/home/data/models/media_item.dart';
 import 'package:streame/shared/widgets/resilient_network_image.dart';
 

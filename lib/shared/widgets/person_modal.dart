@@ -78,36 +78,36 @@ class PersonModal extends StatelessWidget {
                           errorWidget: (_, __, ___) => Container(
                             width: 80, height: 120,
                             color: AppTheme.backgroundElevated,
-                            child: const Icon(Icons.person, color: AppTheme.textTertiary),
+                            child: Icon(Icons.person, color: AppTheme.textTertiary),
                           ),
                         ),
                       ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: const TextStyle(
+                          Text(name, style: TextStyle(
                             color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold,
                           )),
                           if (character != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text('as $character', style: const TextStyle(
+                              child: Text('as $character', style: TextStyle(
                                 color: AppTheme.textSecondary, fontSize: 14,
                               )),
                             ),
                           if (birthday != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(birthday!, style: const TextStyle(
+                              child: Text(birthday!, style: TextStyle(
                                 color: AppTheme.textTertiary, fontSize: 12,
                               )),
                             ),
                           if (placeOfBirth != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
-                              child: Text(placeOfBirth!, style: const TextStyle(
+                              child: Text(placeOfBirth!, style: TextStyle(
                                 color: AppTheme.textTertiary, fontSize: 12,
                               )),
                             ),
@@ -115,16 +115,16 @@ class PersonModal extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                      icon: Icon(Icons.close, color: AppTheme.textSecondary),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
                 if (biography != null && biography!.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: AppTheme.borderLight),
-                  const SizedBox(height: 12),
-                  Text(biography!, style: const TextStyle(
+                  SizedBox(height: 16),
+                  Divider(color: AppTheme.borderLight),
+                  SizedBox(height: 12),
+                  Text(biography!, style: TextStyle(
                     color: AppTheme.textSecondary, fontSize: 14, height: 1.5,
                   )),
                 ],

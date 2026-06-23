@@ -96,7 +96,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
           // Gradient overlay: black 0.3 → 0.6 → 0.8 → 0.9
           Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -168,12 +168,12 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                       textAlign: TextAlign.center,
                     ),
                   if (widget.torrentStats != null) ...[
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     _TorrentStatsBar(stats: widget.torrentStats!),
                   ],
                   if (widget.loadingMessage.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const SizedBox(
+                    SizedBox(height: 16),
+                    SizedBox(
                       width: 32,
                       height: 32,
                       child: CircularProgressIndicator(
@@ -194,12 +194,12 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: AppTheme.textPrimary, size: 48),
-                    const SizedBox(height: 16),
-                    const Text('Playback Error', style: TextStyle(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
+                    Icon(Icons.error_outline_rounded, color: AppTheme.textPrimary, size: 48),
+                    SizedBox(height: 16),
+                    Text('Playback Error', style: TextStyle(color: AppTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    SizedBox(height: 8),
                     Text(widget.loadingMessage, style: TextStyle(color: AppTheme.textSecondary, fontSize: 16), textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     if (widget.onRetry != null)
                       SizedBox(
                         width: 220,
@@ -211,7 +211,7 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          child: const Text('Go Back', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          child: Text('Go Back', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                   ],
@@ -243,14 +243,14 @@ class _PlayerLoadingScreenState extends State<PlayerLoadingScreen>
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Text(
           widget.title,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 42, fontWeight: FontWeight.w800),
+          style: TextStyle(color: AppTheme.textPrimary, fontSize: 42, fontWeight: FontWeight.w800),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
       );
     }
-    return const SizedBox(width: 54, height: 54, child: CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3));
+    return SizedBox(width: 54, height: 54, child: CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3));
   }
 }
 
@@ -295,9 +295,9 @@ class _TorrentStatsBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _statPill(Icons.speed, stats.speedLabel),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _statPill(Icons.people, stats.peersLabel),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _statPill(Icons.downloading, stats.bufferLabel),
         ],
       ),
@@ -307,8 +307,8 @@ class _TorrentStatsBar extends StatelessWidget {
   Widget _statPill(IconData icon, String label) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 28, height: 28, decoration: BoxDecoration(color: AppTheme.arcticWhite12, borderRadius: BorderRadius.circular(14)), alignment: Alignment.center, child: Icon(icon, color: AppTheme.textPrimary, size: 16)),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+      SizedBox(width: 6),
+      Text(label, style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
     ]);
   }
 }
@@ -345,7 +345,7 @@ class _BufferingIndicatorState extends State<BufferingIndicator>
       child: Container(
         width: 54, height: 54,
         decoration: BoxDecoration(color: AppTheme.backgroundDark.withValues(alpha: 0.6), shape: BoxShape.circle),
-        child: const CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3),
+        child: CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 3),
       ),
     );
   }

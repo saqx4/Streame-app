@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:streame/core/theme/app_theme.dart';
-import 'package:streame/core/focus/focusable.dart';
-import 'package:streame/core/repositories/trakt_repository.dart';
-import 'package:streame/core/repositories/watchlist_repository.dart';
-import 'package:streame/core/repositories/tmdb_repository.dart';
-import 'package:streame/shared/widgets/resilient_network_image.dart';
 
-final _watchlistPosterProvider = FutureProvider.family<String?, ({int tmdbId, String mediaType})>((ref, p) async {
-  final repo = ref.watch(tmdbRepositoryProvider);
-  final details = p.mediaType == 'tv' ? await repo.getTvDetails(p.tmdbId) : await repo.getMovieDetails(p.tmdbId);
-  final img = details?.posterPath ?? '';
-  return img.isNotEmpty ? img : null;
-});
+import 'package:streame/core/repositories/watchlist_repository.dart';
+import 'package:streame/core/repositories/profile_repository.dart';
+import 'package:streame/core/providers/shared_providers.dart';
+import 'package:streame/features/home/data/models/media_item.dart';
+import 'package:streame/shared/widgets/media_card.dart';
+import 'package:streame/shared/widgets/streame_toast.dart';
+
 
 class WatchlistScreen extends ConsumerStatefulWidget {
   const WatchlistScreen({super.key});
@@ -23,424 +19,277 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
+  int _selectedTab = 0; // 0 = All, 1 = Movies, 2 = TV
+
   @override
   Widget build(BuildContext context) {
-    final watchlistAsync = ref.watch(traktWatchlistProvider);
-    final localWatchlistAsync = ref.watch(userWatchlistProvider);
+    final watchlistAsync = ref.watch(userWatchlistProvider);
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final isLandscape = prefs.getBool('settings_card_landscape') ?? false;
+    final edgeStyle = prefs.getString('settings_card_edge_style') ?? 'rounded';
+
+    // Search/Watchlist standard dimensions
+    final cardWidth = isLandscape ? 175.0 : 110.0;
+    final cardHeight = isLandscape ? 100.0 : 165.0;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.backgroundDark,
       body: watchlistAsync.when(
-        data: (traktItems) {
-          return localWatchlistAsync.when(
-            data: (localItems) {
-              // Merge: prefer Trakt items, add local items not in Trakt
-              final traktImdbIds = traktItems.where((i) => i.imdbId != null).map((i) => i.imdbId!).toSet();
-              final allItems = <_WatchlistEntry>[];
+        data: (items) {
+          if (items.isEmpty) {
+            return _buildEmptyState();
+          }
 
-              for (final t in traktItems) {
-                allItems.add(_WatchlistEntry(
-                  title: t.title ?? 'Unknown',
-                  mediaType: t.mediaType ?? 'movie',
-                  tmdbId: t.tmdbId != null ? int.tryParse(t.tmdbId!) : null,
-                  imdbId: t.imdbId,
-                  year: t.year?.toString(),
-                  posterPath: null, // Trakt doesn't provide poster
-                  source: 'Trakt',
-                ));
-              }
-              for (final l in localItems) {
-                if (!traktImdbIds.contains(l.imdbId)) {
-                  allItems.add(_WatchlistEntry(
-                    title: l.title,
-                    mediaType: l.mediaType,
-                    tmdbId: l.tmdbId,
-                    imdbId: l.imdbId,
-                    year: l.year,
-                    posterPath: l.posterPath,
-                    source: 'Local',
-                  ));
-                }
-              }
+          final filtered = _selectedTab == 0
+              ? items
+              : _selectedTab == 1
+                  ? items.where((i) => i.mediaType == 'movie').toList()
+                  : items.where((i) => i.mediaType != 'movie').toList();
 
-              // Separate into sections (Nuvio: shelf sections)
-              final movies = allItems.where((i) => i.mediaType == 'movie').toList();
-              final shows = allItems.where((i) => i.mediaType != 'movie').toList();
+          final movieCount = items.where((i) => i.mediaType == 'movie').length;
+          final tvCount = items.where((i) => i.mediaType != 'movie').length;
 
-              return CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // ─── Nuvio-style sticky header ───
-                  SliverToBoxAdapter(
-                    child: Container(
-                      color: AppTheme.backgroundDark,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      child: SafeArea(
-                        bottom: false,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundCard,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
-                                onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'My List',
-                              style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ],
+          return CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // ─── Header ───
+              SliverToBoxAdapter(
+                child: Container(
+                  color: AppTheme.backgroundDark,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 8),
+                        Text(
+                          'My List',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.8,
+                          ),
                         ),
-                      ),
+                        SizedBox(height: 16),
+                        // ─── Filter chips ───
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              _FilterChip(
+                                label: 'All',
+                                count: items.length,
+                                isSelected: _selectedTab == 0,
+                                onTap: () => setState(() => _selectedTab = 0),
+                              ),
+                              SizedBox(width: 8),
+                              _FilterChip(
+                                label: 'Movies',
+                                count: movieCount,
+                                isSelected: _selectedTab == 1,
+                                onTap: () => setState(() => _selectedTab = 1),
+                              ),
+                              SizedBox(width: 8),
+                              _FilterChip(
+                                label: 'TV Shows',
+                                count: tvCount,
+                                isSelected: _selectedTab == 2,
+                                onTap: () => setState(() => _selectedTab = 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                  if (allItems.isEmpty)
-                    SliverFillRemaining(
-                      child: _EmptyStateCard(
-                        icon: Icons.bookmark_border,
-                        title: 'Your watchlist is empty',
-                        message: 'Add shows and movies to keep track of what you want to watch',
-                      ),
-                    )
-                  else ...[
-                    // Pull-to-refresh
-                    SliverToBoxAdapter(
-                      child: RefreshIndicator(
-                        color: AppTheme.textPrimary,
-                        backgroundColor: AppTheme.backgroundCard,
-                        onRefresh: () async {
-                          ref.invalidate(traktWatchlistProvider);
-                          ref.invalidate(userWatchlistProvider);
-                        },
-                        child: const SizedBox.shrink(),
-                      ),
-                    ),
-                    if (movies.isNotEmpty) ...[
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-                          child: Row(
-                            children: [
-                              Text('Movies', style: const TextStyle(
-                                color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2,
-                              )),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.textPrimary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text('${movies.length}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverGrid(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _calcColumns(context),
-                            childAspectRatio: 0.58,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => _WatchlistCard(entry: movies[index]),
-                            childCount: movies.length,
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (shows.isNotEmpty) ...[
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-                          child: Row(
-                            children: [
-                              Text('TV Shows', style: const TextStyle(
-                                color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2,
-                              )),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.textPrimary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text('${shows.length}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverGrid(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _calcColumns(context),
-                            childAspectRatio: 0.58,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => _WatchlistCard(entry: shows[index]),
-                            childCount: shows.length,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                  ],
-                ],
-              );
-            },
-            loading: () => Center(child: CircularProgressIndicator(color: AppTheme.textPrimary.withValues(alpha: 0.5), strokeWidth: 2.5)),
-            error: (_, __) => const Center(child: Text('Error loading watchlist', style: TextStyle(color: AppTheme.textTertiary))),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: _calcColumns(context, isLandscape),
+                    childAspectRatio: cardWidth / cardHeight,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 14,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = filtered[index];
+                      final mediaItem = MediaItem(
+                        id: item.tmdbId,
+                        title: item.title,
+                        mediaType: item.mediaType == 'tv' ? MediaType.tv : MediaType.movie,
+                        image: item.posterPath ?? '',
+                      );
+
+                      return MediaCard(
+                        item: mediaItem,
+                        isLandscape: isLandscape,
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight,
+                        edgeStyle: edgeStyle,
+                        onDismiss: () => _removeItem(item),
+                        onTap: () => context.push('/details/${item.mediaType}/${item.tmdbId}'),
+                      );
+                    },
+                    childCount: filtered.length,
+                  ),
+                ),
+              ),
+            ],
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: AppTheme.textPrimary.withValues(alpha: 0.5), strokeWidth: 2.5)),
-        error: (_, __) => const Center(child: Text('Error loading watchlist', style: TextStyle(color: AppTheme.textTertiary))),
-      ),
-    );
-  }
-
-  int _calcColumns(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    return (width / 180).floor().clamp(3, 6);
-  }
-}
-
-// ═══════════════════════════════════════════════
-// WATCHLIST POSTER CARD (Nuvio: HomePosterCard style)
-// ═══════════════════════════════════════════════
-class _WatchlistCard extends ConsumerStatefulWidget {
-  final _WatchlistEntry entry;
-  const _WatchlistCard({required this.entry});
-
-  @override
-  ConsumerState<_WatchlistCard> createState() => _WatchlistCardState();
-}
-
-class _WatchlistCardState extends ConsumerState<_WatchlistCard> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final e = widget.entry;
-    final directPoster = e.posterPath != null && e.posterPath!.isNotEmpty
-        ? (e.posterPath!.startsWith('http') ? e.posterPath! : 'https://image.tmdb.org/t/p/w500${e.posterPath}')
-        : null;
-    final posterAsync = (directPoster == null && e.tmdbId != null)
-        ? ref.watch(_watchlistPosterProvider((tmdbId: e.tmdbId!, mediaType: e.mediaType)))
-        : null;
-    final fetchedPosterPath = posterAsync?.valueOrNull;
-    final fetchedPosterUrl = fetchedPosterPath != null
-        ? (fetchedPosterPath.startsWith('http') ? fetchedPosterPath : 'https://image.tmdb.org/t/p/w500$fetchedPosterPath')
-        : null;
-    final posterUrl = directPoster ?? fetchedPosterUrl;
-
-    return StreameFocusable(
-      onTap: () {
-        if (e.tmdbId != null) {
-          context.push('/details/${e.mediaType}/${e.tmdbId}');
-        }
-      },
-      child: Semantics(
-        button: true,
-        label: e.title,
-        child: GestureDetector(
-          child: Focus(
-            onFocusChange: (f) => setState(() => _isFocused = f),
-            child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundCard,
-              borderRadius: BorderRadius.circular(12),
-              border: _isFocused
-                  ? Border.all(color: AppTheme.textPrimary, width: 2)
-                  : Border.all(color: AppTheme.borderLight.withValues(alpha: 0.24), width: 0.5),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Poster image or placeholder
-                  if (posterUrl != null)
-                    ResilientNetworkImage(
-                      imageUrl: posterUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppTheme.backgroundElevated,
-                        child: Center(
-                          child: Icon(
-                            e.mediaType == 'movie' ? Icons.movie : Icons.tv,
-                            color: AppTheme.textTertiary.withValues(alpha: 0.4),
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                    )
-                  else if (posterAsync != null && posterAsync.isLoading)
-                    Container(
-                      color: AppTheme.backgroundElevated,
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            color: AppTheme.textPrimary.withValues(alpha: 0.7),
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      color: AppTheme.backgroundElevated,
-                      child: Center(
-                        child: Icon(
-                          e.mediaType == 'movie' ? Icons.movie : Icons.tv,
-                          color: AppTheme.textTertiary.withValues(alpha: 0.4),
-                          size: 32,
-                        ),
-                      ),
-                    ),
-                  // Bottom gradient overlay for title
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.transparent,
-                          AppTheme.backgroundDark.withValues(alpha: 0.7),
-                          AppTheme.backgroundDark.withValues(alpha: 0.9),
-                        ],
-                        stops: const [0.0, 0.5, 0.75, 1.0],
-                      ),
-                    ),
-                  ),
-                  // Media type badge
-                  Positioned(
-                    top: 6, left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: e.mediaType == 'movie' ? AppTheme.accentYellow.withValues(alpha: 0.9) : AppTheme.accentGreen.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        e.mediaType == 'movie' ? 'Movie' : 'TV',
-                        style: const TextStyle(color: AppTheme.backgroundDark, fontSize: 9, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  // Source badge
-                  if (e.source == 'Trakt')
-                    Positioned(
-                      top: 6, right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentRed.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text('Trakt', style: TextStyle(color: AppTheme.textPrimary, fontSize: 9, fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  // Title at bottom over gradient
-                  Positioned(
-                    bottom: 8, left: 8, right: 8,
-                    child: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600,
-                        shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)])),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: AppTheme.textTertiary, strokeWidth: 2),
+        ),
+        error: (_, __) => Center(
+          child: Text('Error loading watchlist', style: TextStyle(color: AppTheme.textTertiary)),
         ),
       ),
-    ),
     );
   }
-}
 
-// ═══════════════════════════════════════════════
-// EMPTY STATE CARD (Nuvio: HomeEmptyStateCard)
-// ═══════════════════════════════════════════════
-class _EmptyStateCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  const _EmptyStateCard({required this.icon, required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildEmptyState() {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderLight.withValues(alpha: 0.24), width: 0.5),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56, height: 56,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.textPrimary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
+                color: AppTheme.textPrimary.withValues(alpha: 0.06),
+                shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: AppTheme.textSecondary, size: 28),
+              child: Icon(
+                Icons.bookmark_outline_rounded,
+                color: AppTheme.textTertiary,
+                size: 36,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(message, style: TextStyle(color: AppTheme.textSecondary, fontSize: 14), textAlign: TextAlign.center),
+            SizedBox(height: 20),
+            Text(
+              'Nothing saved yet',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Movies and shows you save will appear here',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textTertiary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _removeItem(dynamic item) async {
+    try {
+      final profileId = ref.read(activeProfileIdProvider);
+      if (profileId == null) return;
+      final repo = ref.read(watchlistRepositoryProvider(profileId));
+      await repo.removeFromWatchlist(item.tmdbId, item.mediaType, imdbId: item.imdbId);
+      ref.invalidate(userWatchlistProvider);
+      if (mounted) {
+        StreameToast.show(
+          context,
+          message: 'Removed from list',
+          type: StreameToastType.info,
+        );
+      }
+    } catch (_) {}
+  }
+
+  int _calcColumns(BuildContext context, bool isLandscape) {
+    final width = MediaQuery.of(context).size.width;
+    final baseWidth = isLandscape ? 180.0 : 125.0;
+    return (width / baseWidth).floor().clamp(2, 8);
+  }
 }
 
-class _WatchlistEntry {
-  final String title;
-  final String mediaType;
-  final int? tmdbId;
-  final String? imdbId;
-  final String? year;
-  final String? posterPath;
-  final String source;
+// ─── Filter chip ───
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-  const _WatchlistEntry({
-    required this.title,
-    required this.mediaType,
-    this.tmdbId,
-    this.imdbId,
-    this.year,
-    this.posterPath,
-    required this.source,
+  const _FilterChip({
+    required this.label,
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.accentPrimary.withValues(alpha: 0.15)
+              : AppTheme.backgroundCard.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.accentPrimary.withValues(alpha: 0.4)
+                : AppTheme.borderLight.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? AppTheme.accentPrimary : AppTheme.textSecondary,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+            if (count > 0) ...[
+              SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? AppTheme.accentPrimary.withValues(alpha: 0.2)
+                      : AppTheme.textTertiary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isSelected ? AppTheme.accentPrimary : AppTheme.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

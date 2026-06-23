@@ -5,10 +5,10 @@ import 'package:streame/core/focus/tv_widgets.dart';
 
 /// Navigation items shared across all sidebar/bottom-nav screens
 const _navItems = [
-  SidebarItem(icon: Icons.home, label: 'Home'),
-  SidebarItem(icon: Icons.search, label: 'Search'),
-  SidebarItem(icon: Icons.bookmark_border, label: 'Vault'),
-  SidebarItem(icon: Icons.person_outline, label: 'Profile'),
+  SidebarItem(icon: Icons.home_rounded, label: 'Home'),
+  SidebarItem(icon: Icons.search_rounded, label: 'Search'),
+  SidebarItem(icon: Icons.bookmark_rounded, label: 'Vault'),
+  SidebarItem(icon: Icons.person_rounded, label: 'Profile'),
 ];
 
 const _navRoutes = ['/home', '/search', '/watchlist', '/settings'];
@@ -91,51 +91,91 @@ class _AppScaffoldState extends State<AppScaffold> {
       backgroundColor: AppTheme.backgroundDark,
       body: widget.child,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundCard,
-          border: Border(top: BorderSide(color: AppTheme.borderLight)),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundCard.withValues(alpha: 0.95),
+          border: Border(
+            top: BorderSide(
+              color: AppTheme.borderLight.withValues(alpha: 0.15),
+              width: 0.5,
+            ),
+          ),
         ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: AppTheme.textPrimary,
-          unselectedItemColor: AppTheme.textTertiary,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          currentIndex: _selectedIndex,
-          onTap: _onNavSelected,
-          items: _navItems.asMap().entries.map((entry) {
-            final i = entry.key;
-            final item = entry.value;
-            if (i == 3) {
-              return BottomNavigationBarItem(
-                icon: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.borderMedium),
-                  ),
-                  child: const Icon(Icons.person, size: 18),
-                ),
-                activeIcon: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.textPrimary, width: 1.5),
-                  ),
-                  child: const Icon(Icons.person, size: 18, color: AppTheme.textPrimary),
-                ),
-                label: item.label,
-              );
-            }
-            return BottomNavigationBarItem(
-              icon: Icon(item.icon),
-              label: item.label,
-            );
-          }).toList(),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_navItems.length, (index) {
+                final item = _navItems[index];
+                final isSelected = _selectedIndex == index;
+                return _NavBarItem(
+                  icon: item.icon,
+                  label: item.label,
+                  isSelected: isSelected,
+                  onTap: () => _onNavSelected(index),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Individual navigation bar item with modern design
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.textPrimary.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: Icon(
+                icon,
+                size: 24,
+                color: isSelected ? AppTheme.textPrimary : AppTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? AppTheme.textPrimary : AppTheme.textTertiary,
+              ),
+              child: Text(label),
+            ),
+          ],
         ),
       ),
     );

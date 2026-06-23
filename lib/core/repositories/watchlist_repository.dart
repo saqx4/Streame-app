@@ -151,11 +151,15 @@ class WatchlistRepository {
     }
 
     // Sync to Trakt if linked
-    if (_traktRepo != null && _traktRepo.isLinked() && imdbId != null) {
+    if (_traktRepo != null && _traktRepo.isLinked()) {
       try {
-        await _traktRepo.addToWatchlist(imdbId: imdbId, mediaType: mediaType);
+        await _traktRepo.addToWatchlist(imdbId: imdbId, tmdbId: tmdbId, mediaType: mediaType);
       } catch (_) {}
     }
+    
+    // Auto-remove from watchlist if it's already there when marking as watched
+    // (This is usually handled by Trakt if using markWatched in traktRepo, 
+    // but we do it locally for immediate UI response)
   }
 
   Future<void> removeFromWatchlist(int tmdbId, String mediaType, {String? imdbId}) async {
@@ -164,9 +168,9 @@ class WatchlistRepository {
     await _saveLocalWatchlist(items);
 
     // Sync to Trakt if linked
-    if (_traktRepo != null && _traktRepo.isLinked() && imdbId != null) {
+    if (_traktRepo != null && _traktRepo.isLinked()) {
       try {
-        await _traktRepo.removeFromWatchlist(imdbId: imdbId, mediaType: mediaType);
+        await _traktRepo.removeFromWatchlist(imdbId: imdbId, tmdbId: tmdbId, mediaType: mediaType);
       } catch (_) {}
     }
   }

@@ -22,9 +22,9 @@ class AvatarRegistry {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         shape: BoxShape.circle,
-        border: Border.all(color: color.withOpacity(0.5), width: 2),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
       ),
       child: Center(
         child: Icon(icon, color: color, size: size * 0.5),

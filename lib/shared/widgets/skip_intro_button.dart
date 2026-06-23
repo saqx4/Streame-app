@@ -75,9 +75,9 @@ class _SkipIntroButtonState extends State<SkipIntroButton> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.skip_next, color: AppTheme.textPrimary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(_label, style: const TextStyle(
+                  Icon(Icons.skip_next, color: AppTheme.textPrimary, size: 20),
+                  SizedBox(width: 8),
+                  Text(_label, style: TextStyle(
                     color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w600,
                   )),
                 ],

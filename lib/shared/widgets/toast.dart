@@ -21,9 +21,9 @@ class Toast {
                   : AppTheme.textPrimary,
               size: 20,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
-              child: Text(message, style: const TextStyle(color: AppTheme.textPrimary)),
+              child: Text(message, style: TextStyle(color: AppTheme.textPrimary)),
             ),
           ],
         ),

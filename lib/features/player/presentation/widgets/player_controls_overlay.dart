@@ -147,7 +147,7 @@ class PlayerControlsOverlay extends StatelessWidget {
                           fit: BoxFit.contain,
                           errorWidget: (_, __, ___) => Text(
                             data.mediaTitle ?? '${data.mediaType} ${data.mediaId}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppTheme.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -162,7 +162,7 @@ class PlayerControlsOverlay extends StatelessWidget {
                   else
                     Text(
                       data.mediaTitle ?? '${data.mediaType} ${data.mediaId}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -172,7 +172,7 @@ class PlayerControlsOverlay extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   if (data.seasonNumber != null && data.episodeNumber != null) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'S${data.seasonNumber} E${data.episodeNumber}',
                       style: TextStyle(
@@ -184,7 +184,7 @@ class PlayerControlsOverlay extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Row(
                     children: [
                       if (data.streamResults.isNotEmpty) ...[
@@ -204,14 +204,14 @@ class PlayerControlsOverlay extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             _HeaderCircleButton(
               icon: Icons.lock_open,
               size: 20,
               onPressed: () {},
               semanticLabel: 'Unlock controls',
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             _HeaderCircleButton(
               icon: Icons.arrow_back,
               size: 20,
@@ -235,11 +235,11 @@ class PlayerControlsOverlay extends StatelessWidget {
             onTap: callbacks.onSeekBackward,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: const Icon(Icons.replay_10, color: AppTheme.textPrimary, size: 34),
+              child: Icon(Icons.replay_10, color: AppTheme.textPrimary, size: 34),
             ),
           ),
         ),
-        const SizedBox(width: 56),
+        SizedBox(width: 56),
         Semantics(
           button: true,
           label: data.isPlaying ? 'Pause' : 'Play',
@@ -261,7 +261,7 @@ class PlayerControlsOverlay extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 56),
+        SizedBox(width: 56),
         Semantics(
           button: true,
           label: 'Seek forward 10 seconds',
@@ -269,7 +269,7 @@ class PlayerControlsOverlay extends StatelessWidget {
             onTap: callbacks.onSeekForward,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: const Icon(Icons.forward_10, color: AppTheme.textPrimary, size: 34),
+              child: Icon(Icons.forward_10, color: AppTheme.textPrimary, size: 34),
             ),
           ),
         ),
@@ -308,7 +308,7 @@ class PlayerControlsOverlay extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Center(
             child: Container(
               decoration: BoxDecoration(
@@ -408,7 +408,7 @@ class _TimePill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+        style: TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -434,8 +434,8 @@ class _ActionPillButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: AppTheme.textPrimary, size: 18),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+              SizedBox(width: 8),
+              Text(label, style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
             ],
           ),
         ),

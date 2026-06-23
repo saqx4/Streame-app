@@ -73,7 +73,7 @@ class _ProfilePinDialogState extends State<ProfilePinDialog> {
       backgroundColor: AppTheme.backgroundCard,
       title: Text(
         widget.isVerification ? 'Enter PIN' : 'Set PIN',
-        style: const TextStyle(color: AppTheme.textPrimary),
+        style: TextStyle(color: AppTheme.textPrimary),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -82,9 +82,9 @@ class _ProfilePinDialogState extends State<ProfilePinDialog> {
             widget.isVerification
                 ? 'Enter the PIN for ${widget.profile.name}'
                 : 'Set a 4-digit PIN for ${widget.profile.name}',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           TextField(
             controller: _pinController,
             keyboardType: TextInputType.number,
@@ -102,12 +102,12 @@ class _ProfilePinDialogState extends State<ProfilePinDialog> {
                 borderSide: BorderSide.none,
               ),
             ),
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, letterSpacing: 8),
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, letterSpacing: 8),
             textAlign: TextAlign.center,
             onSubmitted: (_) => _submit(),
           ),
           if (!widget.isVerification) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: _confirmController,
               keyboardType: TextInputType.number,
@@ -124,7 +124,7 @@ class _ProfilePinDialogState extends State<ProfilePinDialog> {
                   borderSide: BorderSide.none,
                 ),
               ),
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, letterSpacing: 8),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, letterSpacing: 8),
               textAlign: TextAlign.center,
               onSubmitted: (_) => _submit(),
             ),
@@ -132,14 +132,14 @@ class _ProfilePinDialogState extends State<ProfilePinDialog> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_error!, style: const TextStyle(color: AppTheme.accentRed, fontSize: 12)),
+              child: Text(_error!, style: TextStyle(color: AppTheme.accentRed, fontSize: 12)),
             ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
         ),
         ElevatedButton(
           onPressed: _submit,
@@ -190,7 +190,7 @@ class ProfileManageDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.backgroundCard,
-      title: const Text('Manage Profiles', style: TextStyle(color: AppTheme.textPrimary)),
+      title: Text('Manage Profiles', style: TextStyle(color: AppTheme.textPrimary)),
       content: SizedBox(
         width: 400,
         child: ListView.builder(
@@ -200,14 +200,14 @@ class ProfileManageDialog extends StatelessWidget {
             if (index == profiles.length) {
               return ListTile(
                 leading: Icon(Icons.add_circle_outline, color: AppTheme.accentGreen, size: 36),
-                title: const Text('Add Profile', style: TextStyle(color: AppTheme.accentGreen)),
+                title: Text('Add Profile', style: TextStyle(color: AppTheme.accentGreen)),
                 onTap: () => _showCreateDialog(context),
               );
             }
             final profile = profiles[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundColor: Color(ProfileColors.getByIndex(profile.avatarColor)).withOpacity(0.3),
+                backgroundColor: Color(ProfileColors.getByIndex(profile.avatarColor)).withValues(alpha: 0.3),
                 child: Text(
                   profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
                   style: TextStyle(color: Color(ProfileColors.getByIndex(profile.avatarColor))),
@@ -215,34 +215,34 @@ class ProfileManageDialog extends StatelessWidget {
               ),
               title: Row(
                 children: [
-                  Expanded(child: Text(profile.name, style: const TextStyle(color: AppTheme.textPrimary))),
+                  Expanded(child: Text(profile.name, style: TextStyle(color: AppTheme.textPrimary))),
                   if (profile.isKidsProfile)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accentYellow.withOpacity(0.15),
+                        color: AppTheme.accentYellow.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Kids', style: TextStyle(color: AppTheme.accentYellow, fontSize: 10)),
+                      child: Text('Kids', style: TextStyle(color: AppTheme.accentYellow, fontSize: 10)),
                     ),
                   if (profile.isLocked)
-                    const Icon(Icons.lock, color: AppTheme.textTertiary, size: 14),
+                    Icon(Icons.lock, color: AppTheme.textTertiary, size: 14),
                 ],
               ),
               trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: AppTheme.accentRed, size: 18),
+                icon: Icon(Icons.delete_outline, color: AppTheme.accentRed, size: 18),
                 onPressed: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       backgroundColor: AppTheme.backgroundCard,
-                      title: Text('Delete ${profile.name}?', style: const TextStyle(color: AppTheme.textPrimary)),
+                      title: Text('Delete ${profile.name}?', style: TextStyle(color: AppTheme.textPrimary)),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed, foregroundColor: AppTheme.textPrimary),
-                          child: const Text('Delete'),
+                          child: Text('Delete'),
                         ),
                       ],
                     ),
@@ -258,7 +258,7 @@ class ProfileManageDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close', style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text('Close', style: TextStyle(color: AppTheme.textSecondary)),
         ),
       ],
     );
@@ -272,7 +272,7 @@ class ProfileManageDialog extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           backgroundColor: AppTheme.backgroundCard,
-          title: const Text('New Profile', style: TextStyle(color: AppTheme.textPrimary)),
+          title: Text('New Profile', style: TextStyle(color: AppTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -283,20 +283,20 @@ class ProfileManageDialog extends StatelessWidget {
                   filled: true, fillColor: AppTheme.backgroundElevated,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                 ),
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: TextStyle(color: AppTheme.textPrimary),
                 autofocus: true,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('Kids Profile', style: TextStyle(color: AppTheme.textPrimary)),
+                title: Text('Kids Profile', style: TextStyle(color: AppTheme.textPrimary)),
                 value: isKids,
-                activeColor: AppTheme.accentGreen,
+                activeThumbColor: AppTheme.accentGreen,
                 onChanged: (v) => setState(() => isKids = v),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
             ElevatedButton(
               onPressed: () {
                 final name = nameCtrl.text.trim();
@@ -305,7 +305,7 @@ class ProfileManageDialog extends StatelessWidget {
                 onCreate(Profile.create(name: name).copyWith(isKidsProfile: isKids));
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.focusRing, foregroundColor: AppTheme.backgroundDark),
-              child: const Text('Create'),
+              child: Text('Create'),
             ),
           ],
         ),
@@ -319,7 +319,7 @@ class ProfileManageDialog extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.backgroundCard,
-        title: Text('Edit ${profile.name}', style: const TextStyle(color: AppTheme.textPrimary)),
+        title: Text('Edit ${profile.name}', style: TextStyle(color: AppTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -330,9 +330,9 @@ class ProfileManageDialog extends StatelessWidget {
                 filled: true, fillColor: AppTheme.backgroundElevated,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
               ),
-              style: const TextStyle(color: AppTheme.textPrimary),
+              style: TextStyle(color: AppTheme.textPrimary),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextButton.icon(
               onPressed: () async {
                 final pin = await ProfilePinDialog.setup(context, profile);
@@ -340,16 +340,16 @@ class ProfileManageDialog extends StatelessWidget {
                   onUpdate(profile.copyWith(pin: pin.isEmpty ? null : pin, isLocked: pin.isNotEmpty));
                 }
               },
-              icon: const Icon(Icons.lock_outline, color: AppTheme.textSecondary),
+              icon: Icon(Icons.lock_outline, color: AppTheme.textSecondary),
               label: Text(
                 profile.pin != null ? 'Change PIN' : 'Set PIN',
-                style: const TextStyle(color: AppTheme.textSecondary),
+                style: TextStyle(color: AppTheme.textSecondary),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary))),
           ElevatedButton(
             onPressed: () {
               final name = nameCtrl.text.trim();
@@ -358,7 +358,7 @@ class ProfileManageDialog extends StatelessWidget {
               onUpdate(profile.copyWith(name: name));
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.focusRing, foregroundColor: AppTheme.backgroundDark),
-            child: const Text('Save'),
+            child: Text('Save'),
           ),
         ],
       ),

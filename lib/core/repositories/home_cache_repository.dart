@@ -152,22 +152,32 @@ class HomeCacheRepository {
           if (tmdbId == 0) continue;
           final key = '${trakt.mediaType}_${tmdbId}_${trakt.seasonNumber ?? 1}_${trakt.episodeNumber ?? 1}';
           final existing = merged[key];
+          
+          // Use Trakt's progress percentage if available.
+          // Since Trakt only provides progress percentage in playback,
+          // we map it to seconds of a 100-minute virtual duration for consistent calculation.
+          final traktProgress = trakt.progress ?? 0;
+          if (traktProgress <= 0) continue;
+
           if (existing != null) {
-            // Keep the one with more recent progress
-            if (trakt.progress != null && trakt.progress! > 0) {
-              merged[key] = existing.copyWith(
-                position: Duration(seconds: (existing.totalDuration.inSeconds * trakt.progress! / 100).round()),
+            // Keep the one with the more recent updatedAt.
+            // If Trakt is more recent, update the position.
+            if (trakt.lastUpdatedAt != null && trakt.lastUpdatedAt!.isAfter(existing.updatedAt)) {
+               merged[key] = existing.copyWith(
+                position: Duration(seconds: (existing.totalDuration.inSeconds * (traktProgress / 100)).round()),
                 updatedAt: trakt.lastUpdatedAt,
               );
             }
           } else {
+            // No existing item — create from Trakt data.
             merged[key] = ContinueWatchingItem(
               tmdbId: tmdbId,
               mediaType: trakt.mediaType ?? 'movie',
               title: trakt.title ?? '',
               season: trakt.seasonNumber ?? 1,
               episode: trakt.episodeNumber ?? 1,
-              position: Duration(seconds: ((trakt.progress ?? 0) * 60 / 100).round()),
+              position: Duration(seconds: (traktProgress * 60)), // map percentage to minutes (virtual 100m)
+              totalDuration: const Duration(minutes: 100),
               updatedAt: trakt.lastUpdatedAt,
               imdbId: trakt.imdbId,
             );

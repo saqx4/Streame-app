@@ -8,12 +8,46 @@ import 'package:streame/core/theme/app_theme.dart';
 import 'package:streame/core/focus/focusable.dart';
 import 'package:streame/core/repositories/tmdb_repository.dart';
 import 'package:streame/core/repositories/home_cache_repository.dart';
+import 'package:streame/core/providers/shared_providers.dart';
+
 import 'package:streame/features/home/data/models/media_item.dart';
 import 'package:streame/shared/widgets/skeleton_loader.dart';
+import 'package:streame/shared/widgets/media_card.dart';
 
-final _tmdbLogoPathProvider = FutureProvider.family<String?, ({int id, MediaType type})>((ref, p) async {
+final tmdbLogoPathProvider = FutureProvider.family<String?, ({int id, MediaType type})>((ref, p) async {
   final repo = ref.watch(tmdbRepositoryProvider);
   return repo.getLogoPath(p.id, mediaType: p.type);
+});
+
+final _enrichedContinueWatchingProvider = FutureProvider<List<ContinueWatchingItem>>((ref) async {
+  final items = await ref.watch(continueWatchingProvider.future);
+  if (items.isEmpty) return items;
+
+  final repo = ref.read(tmdbRepositoryProvider);
+  final enriched = <ContinueWatchingItem>[];
+
+  for (final item in items) {
+    if (item.posterPath != null && item.backdropPath != null) {
+      enriched.add(item);
+      continue;
+    }
+    try {
+      final details = item.mediaType == 'tv'
+          ? await repo.getTvDetails(item.tmdbId)
+          : await repo.getMovieDetails(item.tmdbId);
+      if (details != null) {
+        enriched.add(item.copyWith(
+          posterPath: details.posterPath,
+          backdropPath: details.backdrop,
+        ));
+      } else {
+        enriched.add(item);
+      }
+    } catch (_) {
+      enriched.add(item);
+    }
+  }
+  return enriched;
 });
 
 final _tmdbGenresProvider = FutureProvider.family<List<String>, ({int id, MediaType type})>((ref, p) async {
@@ -43,7 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final trendingTvAsync = ref.watch(trendingTvProvider(1));
     final topRatedMoviesAsync = ref.watch(topRatedMoviesProvider);
     final popularTvAsync = ref.watch(popularTvProvider);
-    final continueWatchingAsync = ref.watch(continueWatchingProvider);
+    final continueWatchingAsync = ref.watch(_enrichedContinueWatchingProvider);
+
+    // Read card customization settings
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final cardSize = prefs.getDouble('settings_card_size') ?? 0.5;
+    final isLandscape = prefs.getBool('settings_card_landscape') ?? false;
+    final edgeStyle = prefs.getString('settings_card_edge_style') ?? 'rounded';
 
     return RefreshIndicator(
       color: AppTheme.focusRing,
@@ -61,6 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         slivers: [
           // ─── Hero Banner ───
           SliverToBoxAdapter(child: _HeroBanner(moviesAsync: trendingMoviesAsync)),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
           // ─── Continue Watching ───
           continueWatchingAsync.when(
             data: (items) => items.isNotEmpty
@@ -74,6 +115,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     )).toList(),
                     isContinueWatching: true,
                     continueItems: items,
+                    cardSize: cardSize,
+                    defaultLandscape: true,
+                    edgeStyle: edgeStyle,
                   ))
                 : const SliverToBoxAdapter(child: SizedBox.shrink()),
             loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Continue Watching')),
@@ -82,29 +126,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // ─── Trending Movies (ranked top 10) ───
           trendingMoviesAsync.when(
             data: (movies) => SliverToBoxAdapter(child: _MediaRail(
-              title: 'Popular - Movies',
+              title: 'Popular Movies',
               items: movies,
               isRanked: true,
               viewAllCategory: ViewAllCategory.trendingMovies,
+              cardSize: cardSize,
+              defaultLandscape: isLandscape,
+              edgeStyle: edgeStyle,
             )),
-            loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Trending Movies')),
+            loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Popular Movies')),
             error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
           // ─── Trending TV ───
           trendingTvAsync.when(
-            data: (shows) => SliverToBoxAdapter(child: _MediaRail(title: 'Popular - Series', items: shows, viewAllCategory: ViewAllCategory.trendingTv)),
-            loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Trending TV')),
+            data: (shows) => SliverToBoxAdapter(child: _MediaRail(
+              title: 'Popular Series',
+              items: shows,
+              viewAllCategory: ViewAllCategory.trendingTv,
+              cardSize: cardSize,
+              defaultLandscape: isLandscape,
+              edgeStyle: edgeStyle,
+            )),
+            loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Popular Series')),
             error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
           // ─── Top Rated Movies ───
           topRatedMoviesAsync.when(
-            data: (movies) => SliverToBoxAdapter(child: _MediaRail(title: 'Top Rated Movies', items: movies, viewAllCategory: ViewAllCategory.topRatedMovies)),
+            data: (movies) => SliverToBoxAdapter(child: _MediaRail(
+              title: 'Top Rated Movies',
+              items: movies,
+              viewAllCategory: ViewAllCategory.topRatedMovies,
+              cardSize: cardSize,
+              defaultLandscape: isLandscape,
+              edgeStyle: edgeStyle,
+            )),
             loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Top Rated Movies')),
             error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
           // ─── Popular TV ───
           popularTvAsync.when(
-            data: (shows) => SliverToBoxAdapter(child: _MediaRail(title: 'Popular TV', items: shows, viewAllCategory: ViewAllCategory.popularTv)),
+            data: (shows) => SliverToBoxAdapter(child: _MediaRail(
+              title: 'Popular TV',
+              items: shows,
+              viewAllCategory: ViewAllCategory.popularTv,
+              cardSize: cardSize,
+              defaultLandscape: isLandscape,
+              edgeStyle: edgeStyle,
+            )),
             loading: () => SliverToBoxAdapter(child: _LoadingRail(title: 'Popular TV')),
             error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
@@ -195,7 +263,7 @@ class _HeroBannerState extends ConsumerState<_HeroBanner> {
       loading: () => Container(
         height: _heroHeight,
         color: AppTheme.backgroundCard,
-        child: const Center(child: CircularProgressIndicator(color: AppTheme.textTertiary)),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.textTertiary)),
       ),
       error: (_, __) => const SizedBox.shrink(),
     );
@@ -249,13 +317,13 @@ class _HeroCard extends StatelessWidget {
                 Consumer(
                   builder: (context, ref, _) {
                     final type = item.mediaType;
-                    final logoAsync = ref.watch(_tmdbLogoPathProvider((id: item.id, type: type)));
+                    final logoAsync = ref.watch(tmdbLogoPathProvider((id: item.id, type: type)));
                     final logoPath = logoAsync.valueOrNull;
                     if (logoPath == null || logoPath.isEmpty) {
                       return Text(
                         item.title,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontSize: 42,
                           fontWeight: FontWeight.w700,
@@ -272,7 +340,7 @@ class _HeroCard extends StatelessWidget {
                         errorWidget: (_, __, ___) => Text(
                           item.title,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppTheme.textPrimary,
                             fontSize: 36,
                             fontWeight: FontWeight.w800,
@@ -295,7 +363,7 @@ class _HeroCard extends StatelessWidget {
                     return Text(
                       text,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
                     );
                   },
                 ),
@@ -311,7 +379,7 @@ class _HeroCard extends StatelessWidget {
                       color: AppTheme.textPrimary,
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    child: const Text(
+                    child: Text(
                       'View Details',
                       style: TextStyle(
                         color: AppTheme.backgroundDark,
@@ -366,6 +434,9 @@ class _MediaRail extends ConsumerWidget {
   final bool isContinueWatching;
   final List<ContinueWatchingItem>? continueItems;
   final ViewAllCategory? viewAllCategory;
+  final double cardSize;
+  final bool defaultLandscape;
+  final String edgeStyle;
 
   const _MediaRail({
     required this.title,
@@ -374,44 +445,65 @@ class _MediaRail extends ConsumerWidget {
     this.isContinueWatching = false,
     this.continueItems,
     this.viewAllCategory,
+    this.cardSize = 0.5,
+    this.defaultLandscape = false,
+    this.edgeStyle = 'rounded',
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Requirements: Home screen portrait cards are 126x189
+    final isLandscapeCard = isContinueWatching || defaultLandscape;
+    final cardWidth = isLandscapeCard ? 200.0 : 126.0;
+    final cardHeight = isLandscapeCard ? 112.0 : 189.0;
+    final cardHeightForRail = isLandscapeCard ? cardHeight + 12 : cardHeight + 24;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ),
                 StreameFocusable(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ViewAllScreen(title: title, items: items, category: viewAllCategory))),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ViewAllScreen(
+                      title: title,
+                      items: items,
+                      category: viewAllCategory,
+                      cardSize: cardSize,
+                      edgeStyle: edgeStyle,
+                    ),
+                  )),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppTheme.backgroundElevated,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppTheme.borderLight),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('View All', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
-                        SizedBox(width: 6),
-                        Icon(Icons.chevron_right, color: AppTheme.textTertiary, size: 18),
+                        Text('View All', style: TextStyle(
+                          color: AppTheme.textTertiary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        )),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios, color: AppTheme.textTertiary, size: 10),
                       ],
                     ),
                   ),
@@ -419,27 +511,30 @@ class _MediaRail extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
-            height: isContinueWatching ? 170 : 220,
+            height: cardHeightForRail,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
                 final cwItem = isContinueWatching && continueItems != null && index < continueItems!.length
                     ? continueItems![index] : null;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: _StreameMediaCard(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: MediaCard(
                     item: item,
-                    isLandscape: isContinueWatching,
+                    isLandscape: isLandscapeCard,
                     isRanked: isRanked && index < 10,
                     rank: isRanked ? index + 1 : null,
                     showProgress: isContinueWatching,
                     progress: cwItem?.progress ?? 0.0,
                     cwItem: cwItem,
+                    cardWidth: cardWidth,
+                    cardHeight: cardHeight,
+                    edgeStyle: edgeStyle,
                     onDismiss: isContinueWatching && cwItem != null
                         ? () async {
                             final cacheRepo = ref.read(homeCacheRepositoryProvider);
@@ -472,299 +567,8 @@ class _MediaRail extends ConsumerWidget {
 }
 
 // ═══════════════════════════════════════════════
-// STREAME MEDIA CARD — Focusable card with outline
+// LOADING RAIL
 // ═══════════════════════════════════════════════
-class _StreameMediaCard extends StatefulWidget {
-  final MediaItem item;
-  final bool isLandscape;
-  final bool isRanked;
-  final int? rank;
-  final bool showProgress;
-  final double progress;
-  final ContinueWatchingItem? cwItem;
-  final VoidCallback? onTap;
-  final VoidCallback? onDismiss;
-
-  const _StreameMediaCard({
-    required this.item,
-    this.isLandscape = true,
-    this.isRanked = false,
-    this.rank,
-    this.showProgress = false,
-    this.progress = 0.0,
-    this.cwItem,
-    this.onTap,
-    this.onDismiss,
-  });
-
-  @override
-  State<_StreameMediaCard> createState() => _StreameMediaCardState();
-}
-
-class _StreameMediaCardState extends State<_StreameMediaCard> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cardWidth = widget.isLandscape ? 260.0 : 140.0;
-    final cardHeight = widget.isLandscape ? 146.0 : 210.0;
-    final imageUrl = widget.isLandscape
-        ? (widget.item.backdrop ?? widget.item.image)
-        : widget.item.image;
-    final borderRadius = BorderRadius.circular(widget.isLandscape ? 10.0 : 16.0);
-
-    return Semantics(
-      button: true,
-      label: widget.item.title,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Focus(
-          onFocusChange: (focused) => setState(() => _isFocused = focused),
-          child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: cardWidth,
-          height: cardHeight,
-          transformAlignment: Alignment.center,
-          transform: Matrix4.identity()..scale(_isFocused ? 1.05 : 1.0),
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            border: _isFocused
-                ? Border.all(color: AppTheme.focusRing, width: 2.5)
-                : Border.all(color: AppTheme.borderLight, width: 1),
-            boxShadow: _isFocused
-                ? [BoxShadow(color: AppTheme.focusGlow, blurRadius: 12, spreadRadius: 2)]
-                : [],
-          ),
-          child: widget.isLandscape
-              ? ClipRRect(
-                  borderRadius: borderRadius,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (imageUrl.isNotEmpty)
-                        ResilientNetworkImage(
-                          imageUrl: imageUrl.startsWith('http') ? imageUrl : 'https://image.tmdb.org/t/p/w500$imageUrl',
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => _MissingArtwork(title: widget.item.title),
-                        )
-                      else
-                        _MissingArtwork(title: widget.item.title),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, AppTheme.backgroundDark.withValues(alpha: 0.85)],
-                          ),
-                        ),
-                      ),
-                      // Dismiss button for CW items
-                      if (widget.showProgress && widget.onDismiss != null)
-                        Positioned(
-                          top: 6,
-                          right: 6,
-                          child: Semantics(
-                            button: true,
-                            label: 'Dismiss',
-                            child: GestureDetector(
-                              onTap: widget.onDismiss,
-                              child: Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.backgroundDark.withValues(alpha: 0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close, size: 14, color: AppTheme.textSecondary),
-                              ),
-                            ),
-                          ),
-                        )
-                      else if (widget.item.tmdbRatingDouble > 0)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentYellow,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.star, size: 12, color: AppTheme.backgroundDark),
-                                const SizedBox(width: 3),
-                                Text(
-                                  widget.item.tmdbRating,
-                                  style: const TextStyle(
-                                    color: AppTheme.backgroundDark,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      if (widget.isRanked && widget.rank != null)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: const BoxDecoration(
-                              color: AppTheme.accentYellow,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(10),
-                                bottomRight: Radius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              '${widget.rank}',
-                              style: const TextStyle(
-                                color: AppTheme.backgroundDark,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      // Bottom info area for CW cards
-                      if (widget.showProgress && widget.cwItem != null) ...[
-                        Positioned(
-                          bottom: 10,
-                          left: 10,
-                          right: 10,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.item.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)],
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Builder(builder: (_) {
-                                final cw = widget.cwItem!;
-                                final remaining = cw.totalDuration - cw.position;
-                                final minsLeft = remaining.inMinutes;
-                                final epLabel = cw.mediaType == 'tv'
-                                    ? 'S${cw.season} E${cw.episode}  •  '
-                                    : '';
-                                final timeLabel = minsLeft > 0
-                                    ? '${minsLeft}m left'
-                                    : '${(widget.progress * 100).round()}%';
-                                return Text(
-                                  '$epLabel$timeLabel',
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 2)],
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(10),
-                              bottomRight: Radius.circular(10),
-                            ),
-                            child: LinearProgressIndicator(
-                              value: widget.progress,
-                              backgroundColor: AppTheme.textPrimary.withValues(alpha: 0.15),
-                              valueColor: const AlwaysStoppedAnimation(AppTheme.accentGreen),
-                              minHeight: 3,
-                            ),
-                          ),
-                        ),
-                      ]
-                      else ...[
-                        Positioned(
-                          bottom: 8,
-                          left: 10,
-                          right: 10,
-                          child: Text(
-                            widget.item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              shadows: [Shadow(color: AppTheme.backgroundDark, blurRadius: 4)],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                )
-              : ClipRRect(
-                  borderRadius: borderRadius,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (imageUrl.isNotEmpty)
-                        ResilientNetworkImage(
-                          imageUrl: imageUrl.startsWith('http') ? imageUrl : 'https://image.tmdb.org/t/p/w500$imageUrl',
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => _MissingArtwork(title: widget.item.title),
-                        )
-                      else
-                        _MissingArtwork(title: widget.item.title),
-                    ],
-                  ),
-                ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Missing artwork fallback — branded gradient with title
-class _MissingArtwork extends StatelessWidget {
-  final String title;
-  const _MissingArtwork({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTheme.backgroundElevated, AppTheme.backgroundCard],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Text(title, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-        ),
-      ),
-    );
-  }
-}
-
-// Loading rail with skeleton cards
 class _LoadingRail extends StatelessWidget {
   final String title;
   const _LoadingRail({required this.title});
@@ -777,24 +581,24 @@ class _LoadingRail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 48),
-            child: Text(title.toUpperCase(), style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: AppTheme.textSecondary,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(title, style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary,
             )),
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 157,
+            height: 189,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: 6,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, __) => Container(
-                width: 280, height: 157,
+                width: 126, height: 189,
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundCard,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const SkeletonCard(),
               ),
@@ -807,7 +611,7 @@ class _LoadingRail extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════
-// VIEW ALL — Full grid with infinite scrolling
+// VIEW ALL
 // ═══════════════════════════════════════════════
 
 enum ViewAllCategory {
@@ -822,7 +626,17 @@ class ViewAllScreen extends ConsumerStatefulWidget {
   final String title;
   final List<MediaItem> items;
   final ViewAllCategory? category;
-  const ViewAllScreen({super.key, required this.title, required this.items, this.category});
+  final double cardSize;
+  final String edgeStyle;
+  
+  const ViewAllScreen({
+    super.key, 
+    required this.title, 
+    required this.items, 
+    this.category,
+    this.cardSize = 0.5,
+    this.edgeStyle = 'rounded',
+  });
 
   @override
   ConsumerState<ViewAllScreen> createState() => _ViewAllScreenState();
@@ -864,29 +678,33 @@ class _ViewAllScreenState extends ConsumerState<ViewAllScreen> {
     final nextPage = _currentPage + 1;
     List<MediaItem> newItems;
 
-    switch (widget.category!) {
-      case ViewAllCategory.trendingMovies:
-        newItems = await repo.getTrendingMovies(page: nextPage);
-        break;
-      case ViewAllCategory.trendingTv:
-        newItems = await repo.getTrendingTv(page: nextPage);
-        break;
-      case ViewAllCategory.topRatedMovies:
-        newItems = await repo.getTopRatedMovies(page: nextPage);
-        break;
-      case ViewAllCategory.popularTv:
-        newItems = await repo.getPopularTv(page: nextPage);
-        break;
-      case ViewAllCategory.trendingAll:
-        newItems = await repo.getTrendingAll(page: nextPage);
-        break;
-    }
+    try {
+      switch (widget.category!) {
+        case ViewAllCategory.trendingMovies:
+          newItems = await repo.getTrendingMovies(page: nextPage);
+          break;
+        case ViewAllCategory.trendingTv:
+          newItems = await repo.getTrendingTv(page: nextPage);
+          break;
+        case ViewAllCategory.topRatedMovies:
+          newItems = await repo.getTopRatedMovies(page: nextPage);
+          break;
+        case ViewAllCategory.popularTv:
+          newItems = await repo.getPopularTv(page: nextPage);
+          break;
+        case ViewAllCategory.trendingAll:
+          newItems = await repo.getTrendingAll(page: nextPage);
+          break;
+      }
 
-    if (newItems.isEmpty) {
+      if (newItems.isEmpty) {
+        _hasMore = false;
+      } else {
+        _currentPage = nextPage;
+        _allItems.addAll(newItems);
+      }
+    } catch (_) {
       _hasMore = false;
-    } else {
-      _currentPage = nextPage;
-      _allItems.addAll(newItems);
     }
 
     if (mounted) setState(() => _isLoadingMore = false);
@@ -894,8 +712,8 @@ class _ViewAllScreenState extends ConsumerState<ViewAllScreen> {
 
   int _calcColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 6;
-    if (width > 900) return 5;
+    if (width > 1200) return 8;
+    if (width > 900) return 6;
     if (width > 600) return 4;
     return 3;
   }
@@ -905,68 +723,108 @@ class _ViewAllScreenState extends ConsumerState<ViewAllScreen> {
     final canPaginate = widget.category != null;
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
-      appBar: AppBar(
-        backgroundColor: AppTheme.backgroundDark,
-        title: Text(widget.title, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
-          onPressed: () => Navigator.of(context).canPop() ? Navigator.of(context).pop() : context.go('/home'),
-        ),
-      ),
-      body: _allItems.isEmpty
-          ? const Center(child: Text('No items found', style: TextStyle(color: AppTheme.textSecondary)))
-          : GridView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(24),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _calcColumns(context),
-                childAspectRatio: 0.65,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 20,
-              ),
-              itemCount: _allItems.length + ((canPaginate && _hasMore) ? 1 : 0),
-              itemBuilder: (context, i) {
-                // Loading indicator at the bottom
-                if (i >= _allItems.length) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _isLoadingMore
-                          ? const CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 2)
-                          : const SizedBox.shrink(),
-                    ),
-                  );
-                }
-                final item = _allItems[i];
-                final img = item.image;
-                return StreameFocusable(
-                  onTap: () {
-                    final mt = item.mediaType == MediaType.tv ? 'tv' : 'movie';
-                    context.push('/details/$mt/${item.id}');
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: img.isNotEmpty
-                              ? ResilientNetworkImage(
-                                  imageUrl: img.startsWith('http') ? img : 'https://image.tmdb.org/t/p/w500$img',
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorWidget: (_, __, ___) => Container(color: AppTheme.backgroundElevated, child: const Icon(Icons.movie, color: AppTheme.textTertiary)),
-                                )
-                              : Container(color: AppTheme.backgroundElevated, child: const Icon(Icons.movie, color: AppTheme.textTertiary)),
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          // Sticky header
+          SliverToBoxAdapter(
+            child: Container(
+              color: AppTheme.backgroundDark,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: SafeArea(
+                bottom: false,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundCard.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppTheme.borderLight.withValues(alpha: 0.3),
+                          width: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                );
-              },
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back_ios_new, color: AppTheme.textPrimary, size: 18),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_allItems.length} items',
+                      style: TextStyle(
+                        color: AppTheme.textTertiary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+          ),
+          // Grid
+          _allItems.isEmpty
+              ? SliverToBoxAdapter(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 64),
+                      child: Text('No items found', style: TextStyle(color: AppTheme.textSecondary)),
+                    ),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _calcColumns(context),
+                      childAspectRatio: 126 / 189,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 16,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) {
+                        if (i >= _allItems.length) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: _isLoadingMore
+                                   ? CircularProgressIndicator(color: AppTheme.textPrimary, strokeWidth: 2)
+                                  : const SizedBox.shrink(),
+                            ),
+                          );
+                        }
+                        final item = _allItems[i];
+                        return MediaCard(
+                          item: item,
+                          cardWidth: 126,
+                          cardHeight: 189,
+                          edgeStyle: widget.edgeStyle,
+                          onTap: () {
+                            final mt = item.mediaType == MediaType.tv ? 'tv' : 'movie';
+                            context.push('/details/$mt/${item.id}');
+                          },
+                        );
+                      },
+                      childCount: _allItems.length + ((canPaginate && _hasMore) ? 1 : 0),
+                    ),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 }

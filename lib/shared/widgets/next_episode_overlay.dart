@@ -63,22 +63,22 @@ class _NextEpisodeOverlayState extends State<NextEpisodeOverlay>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Text('Next Episode', style: TextStyle(
+            Text('Next Episode', style: TextStyle(
               color: AppTheme.textTertiary, fontSize: 12,
             )),
-            const SizedBox(height: 4),
-            Text('S${widget.season} E${widget.episode}: ${widget.title}', style: const TextStyle(
+            SizedBox(height: 4),
+            Text('S${widget.season} E${widget.episode}: ${widget.title}', style: TextStyle(
               color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
             )),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextButton(
                   onPressed: widget.onCancel,
-                  child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+                  child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: widget.onPlay,
                   style: ElevatedButton.styleFrom(
